@@ -1,0 +1,5 @@
+PLEASE DO NOT USE THIS MODULE.  As of now THIS MODULE CONTAINS NOTHING
+USEFUL.  Its purpose is allow input from cpantesters as development
+proceeds.
+
+When complete, this module will implement XS support for the Marpa module.

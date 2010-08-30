@@ -1,0 +1,47 @@
+Marpa::show_location
+
+Marpa::Grammar::clone
+Marpa::Grammar::inaccessible_symbols
+Marpa::Grammar::show_accessible_symbols
+Marpa::Grammar::show_nullable_symbols
+Marpa::Grammar::show_nulling_symbols
+Marpa::Grammar::show_productive_symbols
+Marpa::Grammar::stringify
+Marpa::Grammar::unproductive_symbols
+Marpa::Grammar::unstringify
+Marpa::Grammar::show_NFA
+
+Marpa::Grammar: The priority Rule Property
+# note -- there were two accidential mentions
+# of the priority rule property,
+# (which I have removed as of 9 Jul 2010),
+# but no description of its use
+
+Marpa::Recognizer::status
+
+Terminal Property: maximal
+Terminal Property: minimal
+Terminal Property: ranking_action
+# ranking action for symbols seems to be implemented
+# *EXCEPT* for the named argument.  It would also need
+# to be tested.
+
+Grammar Named Argument: academic
+Grammar Named Argument: maximal
+Grammar Named Argument: minimal
+
+Marpa::Evaluator Named Argument: infinite_nodes
+Marpa::Evaluator Named Argument: infinite_scale
+Marpa::Evaluator Named Argument: experimental
+Marpa::Evaluator Named Argument: trace_tasks
+
+Marpa::Evaluator::audit
+in Marpa::Evaluator, Marpa::dump_sort_key
+Marpa::Evaluator::show_sort_keys
+Marpa::Evaluator::show_and_node
+Marpa::Evaluator::show_or_node
+Marpa::Evaluator::show_ambiguity
+
+action callback: Marpa::length
+action callback: Marpa::cause_location
+

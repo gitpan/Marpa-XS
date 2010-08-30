@@ -1,0 +1,47 @@
+---
+abstract: 'Generate Parsers from any BNF grammar'
+author:
+  - 'Jeffrey Kegler'
+build_requires:
+  ExtUtils::CBuilder: 0
+  ExtUtils::PkgConfig: 1.12
+  Test::More: 0.94
+configure_requires:
+  Module::Build: 0.36
+distribution_type: module
+dynamic_config: 1
+generated_by: 'Module::Build version 0.3601'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Marpa-XS
+no_index:
+  directory:
+    - inc
+    - t
+    - author.t
+  namespace:
+    - Marpa::XS::Recognizer
+    - Marpa::XS::Grammar
+    - Marpa::XS::Perl
+    - Marpa::XS::Offset
+    - Marpa::XS::Test
+    - Marpa::XS::Display
+    - Marpa::XS::Internal
+  package:
+    - Marpa::XS::Perl
+    - Marpa::XS::Offset
+    - Marpa::XS::Test
+    - Marpa::XS::Display
+    - Marpa::XS::Internal
+provides:
+  Marpa::XS:
+    file: lib/Marpa/XS.pm
+    version: 0.001_000
+recommends:
+  PPI: 1.206
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/jeffreykegler/Marpa-XS.git
+version: 0.001_000
