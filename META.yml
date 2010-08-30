@@ -38,10 +38,10 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.001_000
+    version: 0.001_002
 recommends:
   PPI: 1.206
 resources:
   license: http://dev.perl.org/licenses/
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.001_000
+version: 0.001_002

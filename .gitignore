@@ -1,8 +1,9 @@
-
+/MYMETA.yml
 /blib/
 /_build/
 /Build
 /junk
+/errs
 /Makefile
 /Marpa-XS-[0-9].[0-9][0-9][0-9]_[0-9][0-9][0-9]/
 /Marpa-XS-[0-9].[0-9][0-9][0-9][0-9][0-9][0-9]/

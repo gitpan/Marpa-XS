@@ -61,7 +61,7 @@ perltidy: '-dcsc -sil=0'
 PLEASE DO NOT USE THIS MODULE.
 As of now THIS MODULE CONTAINS NOTHING USEFUL.
 When complete, it will be the XS extension for
-<the Marpa
+L<the Marpa
 parser|Marpa>.
 
 Marpa::XS resides on CPAN

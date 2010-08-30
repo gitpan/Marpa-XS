@@ -25,7 +25,7 @@ our $VERSION;
 
 BEGIN {
 
-       $VERSION = '0.001_000';
+       $VERSION = '0.001_002';
 
        # Put Perl code used in the BOOT: section here
        # Load the XS functions

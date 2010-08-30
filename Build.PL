@@ -7,37 +7,13 @@ use Carp;
 use Fatal qw(open close);
 
 use Module::Build;
-use IPC::Cmd;
+use ExtUtils::PkgConfig;
 
-IPC::Cmd->can_capture_buffer
-    or Carp::croak('Cannot build: IPC::Cmd cannot capture buffers');
+my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
+my $glib_2_0_compiler_flags = $glib2_info{cflags};
+my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-IPC::Cmd::can_run('pkg-config')
-    or Carp::croak('Cannot build: pkg-config not available');
-
-my $glib_2_0_compiler_flags;
-if (not scalar IPC::Cmd::run(
-        command => [ 'pkg-config', '--cflags', 'glib-2.0' ],
-        verbose => 0,
-        buffer  => \$glib_2_0_compiler_flags,
-    )
-    )
-{
-    Carp::croak('Cannot build: pkg-config --cflags failed for glib-2.0');
-} ## end if ( not scalar IPC::Cmd::run( command => [ 'pkg-config'...]))
-
-my $glib_2_0_linker_flags;
-if (not scalar IPC::Cmd::run(
-        command => [ 'pkg-config', '--libs', 'glib-2.0' ],
-        verbose => 0,
-        buffer  => \$glib_2_0_linker_flags,
-    )
-    )
-{
-    Carp::croak('Cannot build: pkg-config --libs failed for glib-2.0');
-} ## end if ( not scalar IPC::Cmd::run( command => [ 'pkg-config'...]))
-
-my $marpa_xs_version = '0.001_000';
+my $marpa_xs_version = '0.001_002';
 
 my $class = Module::Build->subclass(
     class => 'Module::Build::Custom',
@@ -47,7 +23,7 @@ my $class = Module::Build->subclass(
     use File::Spec;
     use Config;
 
-    sub process_libmarpa_files {
+    sub do_libmarpa {
         my $self         = shift;
         my $cwd          = $self->cwd();
         my $base_dir     = $self->base_dir();
@@ -55,19 +31,24 @@ my $class = Module::Build->subclass(
         chdir($libmarpa_dir) or Carp::croak("Cannot chdir to $libmarpa_dir");
         my $shell = $Config{sh};
         $shell or Carp::croak(q{No Bourne shell available says $Config{sh}});
-        print "Configuring libmarpa\n" if $self->verbose;
-        Carp::croak('Cannot run libmarpa configure')
-            if not IPC::Cmd::run( command => [ $shell, 'configure' ] );
-        print "Making libmarpa\n" if $self->verbose;
+        if (not -r 'stamp-h1' ) {
+            print "Configuring libmarpa\n" if $self->{verbose};
+            Carp::croak('Cannot run libmarpa configure')
+                if not IPC::Cmd::run( command => [ $shell, 'configure' ], verbose => 1 );
+        } else {
+            print "Found configuration for libmarpa\n" if $self->{verbose};
+        }
+        print "Making libmarpa\n" if $self->{verbose};
         Carp::croak('Cannot run libmarpa make')
-            if not IPC::Cmd::run( command => ['make'] );
+            if not IPC::Cmd::run( command => ['make'], verbose => 1 );
         chdir($cwd) or Carp::croak("Cannot chdir to $cwd");
 
     } ## end sub process_libmarpa_files
 
     sub ACTION_code {
         my $self = shift;
-        $self->process_libmarpa_files();
+        $self->{verbose} = 1;
+        $self->do_libmarpa();
         $self->SUPER::ACTION_code;
     }
 
@@ -111,13 +92,26 @@ my @no_index_namespace_inclusive = (
 
 );
 
+my @files_to_cleanup = (
+    'inc/libmarpa/stamp-h1',   'inc/libmarpa/*.o',
+    'inc/libmarpa/*.la',       'inc/libmarpa/*.lo',
+    'inc/libmarpa/*.a',        'inc/libmarpa/*.in~',
+    'inc/libmarpa/.deps',      'inc/libmarpa/.libs',
+    # 'inc/libmarpa/Makefile', # Don't know about this one
+    'inc/libmarpa/config.h',
+    'inc/libmarpa/config.log', 'inc/libmarpa/config.status',
+    'inc/libmarpa/libtool',    'inc/libmarpa/m4',
+    'inc/libmarpa/autom4te.cache',
+);
+
 my $build = $class->new(
-    dist_name     => 'Marpa-XS',
-    dist_author   => 'Jeffrey Kegler',
-    dist_version  => $marpa_xs_version,
-    dist_abstract => 'Generate Parsers from any BNF grammar',
-    recommends    => { 'PPI' => '1.206', },
-    requires      => {
+    add_to_cleanup => \@files_to_cleanup,
+    dist_name      => 'Marpa-XS',
+    dist_author    => 'Jeffrey Kegler',
+    dist_version   => $marpa_xs_version,
+    dist_abstract  => 'Generate Parsers from any BNF grammar',
+    recommends     => { 'PPI' => '1.206', },
+    requires       => {
         'Scalar::Util'     => 0,
         'HTML::Parser'     => '3.64',
         'HTML::PullParser' => '3.57',

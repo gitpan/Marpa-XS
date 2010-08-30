@@ -1,7 +1,13 @@
+PLEASE DO NOT TRY TO USE THIS PACKAGE.
+Please use the Marpa package instead.
+
+* Marpa::XS is currrently being assembled, and won't prove useful to anyone
+* for anything.  Marpa::XS is put on CPAN because in this initial phase
+* the cpantesters feedback is important.  Thanks for understanding.
+
 Revision history for Marpa::XS
 
-PLEASE DO NOT TRY TO USE THIS PACKAGE.  Please use the Marpa package instead.
+0.001_002 Mon Aug 30 08:16:05 2010
+0.001_001 Mon Aug 30 08:11:41 2010
 
-Marpa::XS is currrently being assembled, and won't prove useful to anyone
-for anything.  Marpa::XS is put on CPAN because in this initial phase
-the cpantesters feedback is important.  Thanks for understanding.
+* A series of developer's releases.
