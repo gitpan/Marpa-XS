@@ -16,6 +16,7 @@ use Perl::Tidy;
 use Text::Wrap;
 
 use lib 'lib';
+use lib 'blib/arch';
 use Marpa::XS::Display;
 
 my $warnings = 0;

@@ -6,6 +6,7 @@ use strict;
 
 use Test::More tests => 5;
 use lib 'lib';
+use lib 'blib/arch';
 
 BEGIN {
     Test::More::use_ok('Devel::SawAmpersand');

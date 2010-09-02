@@ -13,15 +13,89 @@ my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version = '0.001_002';
+my $marpa_xs_version = '0.001_003';
+my $marpa_xs_perl_version = $marpa_xs_version;
 
-my $class = Module::Build->subclass(
-    class => 'Module::Build::Custom',
-    code  => <<'SUBCLASS' );
+my %version = (
+    'Scalar::Util'        => 1.22,
+    'List::Util'          => 1.22,
+    'Carp'                => 1.08,
+    'Data::Dumper'        => '2.126',
+    'Storable'            => 2.21,
+    'Marpa::XS'           => $marpa_xs_version,
+    'PPI'                 => '1.206',
+    'Test::Weaken'        => '3.004000',
+    'ExtUtils::PkgConfig' => 1.12,
+    'Module::Build'       => 0.3601,
+    'ExtUtils::CBuilder'  => 0.27,
+    'Test::More'          => 0.94,
+);
+
+my %build_requires =
+    map { ( $_, $version{$_} ) } qw( ExtUtils::CBuilder Test::More );
+my %configure_requires =
+    map { ( $_, $version{$_} ) } qw( ExtUtils::PkgConfig Module::Build     );
+my %requires =
+    map { ( $_, $version{$_} ) }
+    qw( Scalar::Util List::Util Carp Data::Dumper Storable );
+my %recommends = map { ( $_, $version{$_} ) } qw( PPI Test::Weaken );
+
+my @marpa_xs_use = qw( Scalar::Util List::Util Carp Data::Dumper Storable );
+my @marpa_xs_perl_use = qw( Scalar::Util Carp Data::Dumper PPI Marpa::XS );
+
+sub version_contents {
+    my ( $package, @use_packages ) = @_;
+    my $text = <<'END_OF_STRING';
+# This file is written by Build.PL
+# It is not intended to be modified directly
+END_OF_STRING
+
+    $text .= "package $package;\n";
+    $text .= "BEGIN {\n";
+    $text .= q{$Marpa::XS::VERSION = } . $marpa_xs_version . ";\n";
+    $text .= q{$Marpa::XS::STRING_VERSION = '} . $marpa_xs_version . "';\n";
+    $text .= "}\n";
+    for my $package (@use_packages) {
+        my $version = $version{$package};
+        die("No version defined for $package") if not defined $version;
+        $text .= "use $package $version ();\n";
+    }
+    $text .= "1;\n";
+    return $text;
+} ## end sub version_contents
+
+
+my $subclass_code = '';
+
+$subclass_code .= q{my $version_pm = <<'END_OF_FILE';} . "\n";
+$subclass_code .= version_contents('Marpa::XS', @marpa_xs_use);
+$subclass_code .= 'END_OF_FILE' . "\n\n";
+
+$subclass_code .= q{my $perl_version_pm = <<'END_OF_FILE';} . "\n";
+$subclass_code .= version_contents('Marpa::XS::Perl', @marpa_xs_perl_use);
+$subclass_code .= 'END_OF_FILE' . "\n\n";
+
+$subclass_code .= q{my $version_string = '} . $marpa_xs_version . q{';};
+
+$subclass_code .= <<'SUBCLASS';
 
     use IPC::Cmd;
     use File::Spec;
     use Config;
+    use Fatal qw(open close mkdir);
+    use English qw( -no_match_vars );
+
+    sub write_file {
+        my ($self, $contents, @name_components) = @_;
+        my $base_dir     = $self->base_dir();
+        my $file_name = pop @name_components;
+        my $dir_name = File::Spec->catdir( $base_dir, @name_components );
+        -d $dir_name or mkdir $dir_name;
+        my $path_name = File::Spec->catfile( $dir_name, $file_name );
+        open my $fh, q{>}, $path_name;
+        print {$fh} $contents;
+        close $fh;
+    }
 
     sub do_libmarpa {
         my $self         = shift;
@@ -45,9 +119,23 @@ my $class = Module::Build->subclass(
 
     } ## end sub process_libmarpa_files
 
+    sub ACTION_dist {
+        my $self = shift;
+        my $changes = do {
+            open my $fh, q{<}, 'Changes';
+            local $RS = undef;
+            <$fh>;
+        };
+        die qq{"$version_string" not in Changes file}
+            if 0 > index $changes, $version_string;
+        $self->SUPER::ACTION_dist;
+    }
+
     sub ACTION_code {
         my $self = shift;
         $self->{verbose} = 1;
+        $self->write_file($version_pm, qw(lib Marpa XS Version.pm) );
+        $self->write_file($perl_version_pm, qw(lib Marpa XS Perl Version.pm) );
         $self->do_libmarpa();
         $self->SUPER::ACTION_code;
     }
@@ -59,7 +147,7 @@ my $class = Module::Build->subclass(
         my $libmarpa_dir = File::Spec->catdir($curdir, qw(inc libmarpa));
         chdir($libmarpa_dir) or Carp::croak("Cannot chdir to $libmarpa_dir");
         print "Cleaning libmarpa\n" if $self->verbose;
-        Carp::croak('Cannot run libmarpa make clean')
+        print "Cannot run libmarpa make clean\n"
             if not IPC::Cmd::run( command => ['make', 'clean'] );
         chdir($curdir) or Carp::croak("Cannot chdir to $curdir");
 
@@ -67,6 +155,11 @@ my $class = Module::Build->subclass(
     } ## end sub ACTION_dist
 
 SUBCLASS
+
+my $class = Module::Build->subclass(
+    class => 'Module::Build::Custom',
+    code  => $subclass_code
+);
 
 my %pod_files = map { ( "pod/$_" => "lib/Marpa/XS/$_" ) } qw(
     Advanced/Algorithm.pod
@@ -93,6 +186,8 @@ my @no_index_namespace_inclusive = (
 );
 
 my @files_to_cleanup = (
+    'inc/Marpa/XS/Version.pm',
+    'inc/Marpa/XS/Perl/Version.pm',
     'inc/libmarpa/stamp-h1',   'inc/libmarpa/*.o',
     'inc/libmarpa/*.la',       'inc/libmarpa/*.lo',
     'inc/libmarpa/*.a',        'inc/libmarpa/*.in~',
@@ -105,27 +200,19 @@ my @files_to_cleanup = (
 );
 
 my $build = $class->new(
-    add_to_cleanup => \@files_to_cleanup,
-    dist_name      => 'Marpa-XS',
-    dist_author    => 'Jeffrey Kegler',
-    dist_version   => $marpa_xs_version,
-    dist_abstract  => 'Generate Parsers from any BNF grammar',
-    recommends     => { 'PPI' => '1.206', },
-    requires       => {
-        'Scalar::Util'     => 0,
-        'HTML::Parser'     => '3.64',
-        'HTML::PullParser' => '3.57',
-    },
-    build_requires => {
-        'ExtUtils::CBuilder'  => 0,
-        'Test::More'          => 0.94,
-        'ExtUtils::PkgConfig' => 1.12,
-    },
+    add_to_cleanup       => \@files_to_cleanup,
+    dist_name            => 'Marpa-XS',
+    dist_author          => 'Jeffrey Kegler',
+    dist_version         => $marpa_xs_version,
+    dist_abstract        => 'XS Version of Marpa (Experimental)',
+    recommends           => \%recommends,
+    requires             => \%requires,
+    configure_requires   => \%configure_requires,
+    build_requires       => \%build_requires,
     dynamic_config       => 1,
     extra_compiler_flags => "$glib_2_0_compiler_flags -Iinc/libmarpa",
     extra_linker_flags =>
         "$glib_2_0_linker_flags inc/libmarpa/.libs/libmarpa.a",
-    requires   => {},
     PL_files   => {},
     xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {

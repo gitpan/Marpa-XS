@@ -21,7 +21,6 @@ author.t/spelling_exceptions.list
 author.t/tidy1
 etc/.gitignore
 etc/Makefile
-etc/change_version.pl
 etc/check_links.pl
 etc/track.list
 inc/drafts/Doc/Models.pod

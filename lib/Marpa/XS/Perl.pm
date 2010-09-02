@@ -4,20 +4,12 @@ use 5.010;
 use strict;
 use warnings;
 
-BEGIN {
-    our $VERSION = '0.001_002';
-}
-
 package Marpa::XS::Internal::Perl;
 
 use charnames ':full';
-use Scalar::Util;
-use Data::Dumper ();
-use Carp 1.08 ();
 use English qw( -no_match_vars );
-use Test::More ();
-use PPI 1.206 ();
-use Marpa::XS ();
+
+use Marpa::XS::Perl::Version ();
 
 # This code is about Perl GRAMMAR.
 # If you're looking here

@@ -9,14 +9,28 @@ use lib 'lib';
 use Test::More;
 
 BEGIN {
-    if ( eval { require Task::Weaken } ) {
-        Test::More::plan tests => 3;
+    my $problem;
+    CHECK_FOR_PROBLEM: {
+        if ( not eval { require Task::Weaken } ) {
+            $problem = 'Scalar::Util::weaken() not implemented';
+            last CHECK_FOR_PROBLEM;
+        }
+        if ( not eval { require Test::Weaken } ) {
+            $problem = 'Test::Weaken not installed';
+            last CHECK_FOR_PROBLEM;
+        }
+        if ( Test::Weaken->VERSION() != 3.004000 ) {
+            $problem = 'Test::Weaken 3.004000 not installed';
+            last CHECK_FOR_PROBLEM;
+        }
+    } ## end CHECK_FOR_PROBLEM:
+    if ( defined $problem ) {
+        Test::More::plan skip_all => $problem;
     }
     else {
-        Test::More::plan skip_all => 'Scalar::Util::weaken() not implemented';
+        Test::More::plan tests => 2;
     }
     Test::More::use_ok('Marpa::XS');
-    Test::More::use_ok('Test::Weaken');
 } ## end BEGIN
 
 my $test = sub {

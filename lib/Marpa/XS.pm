@@ -6,12 +6,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Scalar::Util ();
-use List::Util ();
-use Carp ();
-use Data::Dumper ();
-use Storable ();
-
+use Marpa::XS::Version;
 use Marpa::XS::Internal;
 use Marpa::XS::Internal::Carp_Not;
 use Marpa::XS::Grammar;
@@ -21,16 +16,12 @@ use Marpa::XS::Callback;
 
 use XSLoader;
 
-our $VERSION;
-
 BEGIN {
-
-       $VERSION = '0.001_002';
 
        # Put Perl code used in the BOOT: section here
        # Load the XS functions
 
-       XSLoader::load( 'Marpa::XS' => $VERSION );
+       XSLoader::load( 'Marpa::XS' => $Marpa::XS::STRING_VERSION );
 
 }
 
@@ -39,7 +30,7 @@ my $code = *{'Marpa::XS::Internal::libmarpa_check_version'}{'CODE'};
 if ( not defined $code ) {
     Carp::croak("no code for libmarpa_check_version")
         if $Marpa::XS_FORCE;
-    undef $VERSION;
+    undef $Marpa::XS::VERSION;
     return 1;
 }
 *{'Marpa::XS::check_version'} = $code;
@@ -48,7 +39,7 @@ use strict;
 if ( Marpa::XS::check_version( 0, 0, 0 ) ) {
     Carp::croak("Marpa::XS fails libmarpa_check_version")
         if $Marpa::XS_FORCE;
-    undef $VERSION;
+    undef $Marpa::XS::VERSION;
     return 1;
 }
 
