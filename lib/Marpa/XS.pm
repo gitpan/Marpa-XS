@@ -36,7 +36,7 @@ if ( not defined $code ) {
 *{'Marpa::XS::check_version'} = $code;
 use strict;
 
-if ( Marpa::XS::check_version( 0, 0, 0 ) ) {
+if ( Marpa::XS::check_version( 0, 1, 0 ) ne 'Perfect!') {
     Carp::croak("Marpa::XS fails libmarpa_check_version")
         if $Marpa::XS_FORCE;
     undef $Marpa::XS::VERSION;

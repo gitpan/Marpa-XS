@@ -44,7 +44,7 @@ AC_INIT([libmarpa], [libmarpa_version],
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 # Specify a configuration file
 AC_CONFIG_HEADERS([config.h])
@@ -93,11 +93,15 @@ AC_ARG_ENABLE(debug,
               enable_debug=libmarpa_debug_default)
 
 AC_PROG_CC
-AC_PROG_LIBTOOL
+AC_PROG_RANLIB
+AC_C_INLINE
+AC_PROG_CPP
+AC_PROG_CXX
+AC_PROG_LN_S
 
 PKG_PROG_PKG_CONFIG([0.22])
 PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.6.0] )
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
 

@@ -3,7 +3,6 @@
 use 5.010;
 use strict;
 use warnings;
-use Carp;
 use Fatal qw(open close);
 
 use Module::Build;
@@ -13,7 +12,7 @@ my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version = '0.001_003';
+my $marpa_xs_version = '0.001_004';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -81,8 +80,9 @@ $subclass_code .= <<'SUBCLASS';
 
     use IPC::Cmd;
     use File::Spec;
+    use File::Path;
     use Config;
-    use Fatal qw(open close mkdir);
+    use Fatal qw(open close mkdir chdir);
     use English qw( -no_match_vars );
 
     sub write_file {
@@ -98,26 +98,34 @@ $subclass_code .= <<'SUBCLASS';
     }
 
     sub do_libmarpa {
-        my $self         = shift;
-        my $cwd          = $self->cwd();
-        my $base_dir     = $self->base_dir();
-        my $libmarpa_dir = File::Spec->catdir( $base_dir, qw(inc libmarpa) );
-        chdir($libmarpa_dir) or Carp::croak("Cannot chdir to $libmarpa_dir");
-        my $shell = $Config{sh};
-        $shell or Carp::croak(q{No Bourne shell available says $Config{sh}});
-        if (not -r 'stamp-h1' ) {
+        my $self     = shift;
+        my $cwd      = $self->cwd();
+        my $base_dir = $self->base_dir();
+        my $libmarpa_dir =
+            File::Spec->catdir( $base_dir, qw(libmarpa build) );
+        -d $libmarpa_dir or mkdir $libmarpa_dir;
+        chdir $libmarpa_dir;
+        if ( not -r 'stamp-h1' ) {
             print "Configuring libmarpa\n" if $self->{verbose};
-            Carp::croak('Cannot run libmarpa configure')
-                if not IPC::Cmd::run( command => [ $shell, 'configure' ], verbose => 1 );
-        } else {
+            my $shell = $Config{sh};
+            $shell or die(q{No Bourne shell available says $Config{sh}});
+            my $updir = File::Spec->updir();
+            my $configure_script = File::Spec->catfile( $updir, 'configure' );
+            die('Cannot run libmarpa configure')
+                if not IPC::Cmd::run(
+                        command => [ $shell, $configure_script ],
+                        verbose => 1
+                );
+        } ## end if ( not -r 'stamp-h1' )
+        else {
             print "Found configuration for libmarpa\n" if $self->{verbose};
         }
         print "Making libmarpa\n" if $self->{verbose};
-        Carp::croak('Cannot run libmarpa make')
+        die('Cannot run libmarpa make')
             if not IPC::Cmd::run( command => ['make'], verbose => 1 );
-        chdir($cwd) or Carp::croak("Cannot chdir to $cwd");
+        chdir $cwd;
 
-    } ## end sub process_libmarpa_files
+    } ## end sub do_libmarpa
 
     sub ACTION_dist {
         my $self = shift;
@@ -143,13 +151,10 @@ $subclass_code .= <<'SUBCLASS';
     sub ACTION_clean {
         my $self = shift;
 
-        my $curdir = File::Spec->rel2abs(File::Spec->curdir());
-        my $libmarpa_dir = File::Spec->catdir($curdir, qw(inc libmarpa));
-        chdir($libmarpa_dir) or Carp::croak("Cannot chdir to $libmarpa_dir");
+        my $curdir = File::Spec->rel2abs( File::Spec->curdir() );
         print "Cleaning libmarpa\n" if $self->verbose;
-        print "Cannot run libmarpa make clean\n"
-            if not IPC::Cmd::run( command => ['make', 'clean'] );
-        chdir($curdir) or Carp::croak("Cannot chdir to $curdir");
+        my $libmarpa_dir = File::Spec->catdir( $curdir, qw(libmarpa build) );
+        File::Path::rmtree( $libmarpa_dir, { keep_root => 1 } );
 
         $self->SUPER::ACTION_clean;
     } ## end sub ACTION_dist
@@ -186,17 +191,13 @@ my @no_index_namespace_inclusive = (
 );
 
 my @files_to_cleanup = (
-    'inc/Marpa/XS/Version.pm',
-    'inc/Marpa/XS/Perl/Version.pm',
-    'inc/libmarpa/stamp-h1',   'inc/libmarpa/*.o',
-    'inc/libmarpa/*.la',       'inc/libmarpa/*.lo',
-    'inc/libmarpa/*.a',        'inc/libmarpa/*.in~',
-    'inc/libmarpa/.deps',      'inc/libmarpa/.libs',
-    # 'inc/libmarpa/Makefile', # Don't know about this one
-    'inc/libmarpa/config.h',
-    'inc/libmarpa/config.log', 'inc/libmarpa/config.status',
-    'inc/libmarpa/libtool',    'inc/libmarpa/m4',
-    'inc/libmarpa/autom4te.cache',
+    'lib/Marpa/XS/Version.pm',
+    'lib/Marpa/XS/Perl/Version.pm',
+    'lib/Marpa/XS.o',
+    'libmarpa/autoscan.log',    
+    'libmarpa/configure.scan',    
+    'libmarpa/build',    
+    'libmarpa/autom4te.cache',
 );
 
 my $build = $class->new(
@@ -210,9 +211,9 @@ my $build = $class->new(
     configure_requires   => \%configure_requires,
     build_requires       => \%build_requires,
     dynamic_config       => 1,
-    extra_compiler_flags => "$glib_2_0_compiler_flags -Iinc/libmarpa",
+    extra_compiler_flags => "$glib_2_0_compiler_flags -Ilibmarpa/src",
     extra_linker_flags =>
-        "$glib_2_0_linker_flags inc/libmarpa/.libs/libmarpa.a",
+        "$glib_2_0_linker_flags libmarpa/build/src/libmarpa.a",
     PL_files   => {},
     xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {
@@ -237,7 +238,7 @@ my $build = $class->new(
         },
     },
     pod_files          => \%pod_files,
-    license            => 'perl',
+    license            => 'gpl2',
     create_license     => 1,
     create_readme      => 0,
     create_makefile_pl => 'small',
