@@ -92,8 +92,8 @@ AC_ARG_ENABLE(debug,
                              [turn on debugging @<:@default=libmarpa_debug_default@:>@]),,
               enable_debug=libmarpa_debug_default)
 
+AC_PROG_LIBTOOL
 AC_PROG_CC
-AC_PROG_RANLIB
 AC_C_INLINE
 AC_PROG_CPP
 AC_PROG_CXX

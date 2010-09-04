@@ -11,7 +11,7 @@ configure_requires:
 distribution_type: module
 dynamic_config: 1
 generated_by: 'Module::Build version 0.3601'
-license: gpl2
+license: unknown
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
@@ -38,7 +38,7 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.001_004
+    version: 0.001_005
 recommends:
   PPI: 1.206
   Test::Weaken: 3.004000
@@ -49,6 +49,5 @@ requires:
   Scalar::Util: 1.22
   Storable: 2.21
 resources:
-  license: http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.001_004
+version: 0.001_005

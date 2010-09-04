@@ -12,7 +12,7 @@ my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version = '0.001_004';
+my $marpa_xs_version = '0.001_005';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -213,7 +213,7 @@ my $build = $class->new(
     dynamic_config       => 1,
     extra_compiler_flags => "$glib_2_0_compiler_flags -Ilibmarpa/src",
     extra_linker_flags =>
-        "$glib_2_0_linker_flags libmarpa/build/src/libmarpa.a",
+        "$glib_2_0_linker_flags libmarpa/build/src/.libs/libmarpa.a",
     PL_files   => {},
     xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {
@@ -238,8 +238,6 @@ my $build = $class->new(
         },
     },
     pod_files          => \%pod_files,
-    license            => 'gpl2',
-    create_license     => 1,
     create_readme      => 0,
     create_makefile_pl => 'small',
     test_files         => [ map { glob $_ } qw(t/*.t t/*/*.t) ],

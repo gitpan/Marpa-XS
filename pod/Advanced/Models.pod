@@ -171,7 +171,7 @@ Not yet written.
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2007-2010 Jeffrey Kegler, all rights reserved.
-Marpa is free software under the GNU General Public License, Version 2.
-For details see the LICENSE file in the Marpa distribution.
+Marpa::XS is free software under the GNU General Public License, Version 2.
+For details see the LICENSE file in the Marpa::XS distribution.
 
 =cut
