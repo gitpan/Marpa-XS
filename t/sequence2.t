@@ -9,7 +9,6 @@ use warnings;
 use Fatal qw(open close);
 use Test::More tests => 4;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -115,6 +114,8 @@ $value = $value_ref ? ${$value_ref} : 'No Parse';
 $value //= 'undef returned';
 
 Marpa::XS::Test::is( $value, 'seq(item(0;1))', 'multipart rhs value' );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

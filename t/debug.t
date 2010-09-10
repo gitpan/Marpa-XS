@@ -8,7 +8,6 @@ use warnings;
 
 use Test::More tests => 4;
 
-use lib 'lib';
 use English qw( -no_match_vars );
 use Fatal qw( open close );
 use Marpa::XS::Test;
@@ -151,6 +150,8 @@ Rejected "Add" at 3
 END_TRACE_OUTPUT
 
 # Marpa::XS::Display::End
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

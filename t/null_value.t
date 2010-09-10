@@ -3,7 +3,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 
 use Test::More tests => 2;
 use Marpa::XS::Test;
@@ -85,6 +84,8 @@ Marpa::XS::Test::is(
     'A is missing, but Zorro was here',
     'null value example'
 );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

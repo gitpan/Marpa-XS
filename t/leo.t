@@ -10,7 +10,6 @@ use warnings;
 
 use Test::More tests => 18;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -156,6 +155,8 @@ for my $a_length ( 1 .. 4 ) {
 
     } ## end for my $b_length ( 0 .. $a_length )
 } ## end for my $a_length ( 1 .. 4 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

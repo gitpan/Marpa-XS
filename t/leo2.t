@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 8;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -94,6 +93,8 @@ LEO_FLAG: for my $leo_flag ( 0, 1 ) {
     my $value = $value_ref ? ${$value_ref} : 'No parse';
     Marpa::XS::Test::is( $value, 'a' x $length, 'Leo p166 parse' );
 } ## end for my $leo_flag ( 0, 1 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

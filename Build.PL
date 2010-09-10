@@ -12,7 +12,7 @@ my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version = '0.001_005';
+my $marpa_xs_version = '0.001_006';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -111,17 +111,22 @@ $subclass_code .= <<'SUBCLASS';
             $shell or die(q{No Bourne shell available says $Config{sh}});
             my $updir = File::Spec->updir();
             my $configure_script = File::Spec->catfile( $updir, 'configure' );
-            die('Cannot run libmarpa configure')
-                if not IPC::Cmd::run(
-                        command => [ $shell, $configure_script ],
-                        verbose => 1
-                );
+            if (not IPC::Cmd::run(
+                    command => [ $shell, $configure_script ],
+                    verbose => 1
+                )
+                )
+            {
+                say STDERR "Failed: $configure_script";
+                say STDERR "Current directory: $libmarpa_dir";
+                die 'Cannot run libmarpa configure';
+            } ## end if ( not IPC::Cmd::run( command => [ $shell, ...]))
         } ## end if ( not -r 'stamp-h1' )
         else {
             print "Found configuration for libmarpa\n" if $self->{verbose};
         }
-        print "Making libmarpa\n" if $self->{verbose};
-        die('Cannot run libmarpa make')
+        print "Making libmarpa: Start\n" if $self->{verbose};
+        die('Making libmarpa: Failure')
             if not IPC::Cmd::run( command => ['make'], verbose => 1 );
         chdir $cwd;
 

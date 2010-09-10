@@ -8,7 +8,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use lib 'lib';
 use Test::More tests => 31;
 use Marpa::XS::Test;
 
@@ -370,6 +369,8 @@ for my $i ( 0 .. $input_length ) {
         Test::More::fail(qq{Missing result for length=$i, "$value"});
     }
 } ## end for my $i ( 0 .. $input_length )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 10;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -131,6 +130,8 @@ for my $input_length ( 1 .. 9 ) {
         }
     } ## end if ($expected)
 } ## end for my $input_length ( 1 .. 9 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

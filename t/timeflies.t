@@ -23,7 +23,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 use English qw( -no_match_vars );
 
 use Test::More tests => 2;
@@ -114,3 +113,6 @@ for my $data ( 'time flies like an arrow', 'fruit flies like a banana' ) {
 
 Marpa::XS::Test::is( ( join "\n", sort @actual ) . "\n",
     $expected, 'Ambiguous English sentences' );
+
+1; # In case used as "do" file
+

@@ -9,7 +9,6 @@ use warnings;
 use Fatal qw(open close);
 use Test::More tests => 8;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -390,6 +389,8 @@ Symbol count is 1, now 1 rules
 END_TRACE_OUTPUT
 
 # Marpa::XS::Display::End
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

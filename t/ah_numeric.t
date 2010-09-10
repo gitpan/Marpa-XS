@@ -8,7 +8,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use lib 'lib';
 use Test::More tests => 11;
 use Marpa::XS::Test;
 
@@ -78,6 +77,8 @@ for my $i ( 0 .. $input_length ) {
 
     } ## end for my $maximal ( 0, 1 )
 } ## end for my $i ( 0 .. $input_length )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

@@ -1,0 +1,152 @@
+\input cwebmac
+% This file is part of CWEB.
+% This program by Silvio Levy and Donald E. Knuth
+% is based on a program by Knuth.
+% It is distributed WITHOUT ANY WARRANTY, express or implied.
+% Version 3.64 --- January 2002
+
+% Copyright (C) 1987,1990,1993,2000 Silvio Levy and Donald E. Knuth
+
+% Permission is granted to make and distribute verbatim copies of this
+% document provided that the copyright notice and this permission notice
+% are preserved on all copies.
+
+% Permission is granted to copy and distribute modified versions of this
+% document under the conditions for verbatim copying, provided that the
+% entire resulting derived work is given a different name and distributed
+% under the terms of a permission notice identical to this one.
+
+\def\v{\char'174} % vertical (|) in typewriter font
+
+\def\title{Common code for CTANGLE and CWEAVE (Version 3.64)}
+\def\topofcontents{\null\vfill
+  \centerline{\titlefont Common code for {\ttitlefont CTANGLE} and
+    {\ttitlefont CWEAVE}}
+  \vskip 15pt
+  \centerline{(Version 3.64)}
+  \vfill}
+\def\botofcontents{\vfill
+\noindent
+Copyright \copyright\ 1987, 1990, 1993, 2000 Silvio Levy and Donald E. Knuth
+\bigskip\noindent
+Permission is granted to make and distribute verbatim copies of this
+document provided that the copyright notice and this permission notice
+are preserved on all copies.
+
+\smallskip\noindent
+Permission is granted to copy and distribute modified versions of this
+document under the conditions for verbatim copying, provided that the
+entire resulting derived work is given a different name and distributed
+under the terms of a permission notice identical to this one.
+}
+
+\pageno=\contentspagenumber \advance\pageno by 1
+\let\maybe=\iftrue
+
+
+\N{0}{1}Introduction.
+
+\Y\B\8\#\&{include} \.{<glib.h>}\6
+\8\#\&{include} \.{<stdio.h>}\6
+\8\#\&{include} \.{"config.h"}\6
+\8\#\&{include} \.{"utils.h"}\6
+\&{const} \&{unsigned} \&{int} \\{libmarpa\_major\_version}${}\K\.{LIBMARPA%
+\_MAJOR\_VERSION};{}$\6
+\&{const} \&{unsigned} \&{int} \\{libmarpa\_minor\_version}${}\K\.{LIBMARPA%
+\_MINOR\_VERSION};{}$\6
+\&{const} \&{unsigned} \&{int} \\{libmarpa\_micro\_version}${}\K\.{LIBMARPA%
+\_MICRO\_VERSION};{}$\6
+\&{const} \&{unsigned} \&{int} \\{libmarpa\_interface\_age}${}\K\.{LIBMARPA%
+\_INTERFACE\_AGE};{}$\6
+\&{const} \&{unsigned} \&{int} \\{libmarpa\_binary\_age}${}\K\.{LIBMARPA%
+\_BINARY\_AGE}{}$;\par
+\fi
+
+\M{2}\PB{\\{libmarpa\_check\_version}}:
+\PB{\\{required\_major}}: the required major version.
+\PB{\\{required\_minor}}: the required minor version.
+\PB{\\{required\_micro}}: the required micro version.
+
+Checks that the libmarpa library in use is compatible with the
+given version. Generally you would pass in the constants
+\PB{$\.{LIBMARPA\_MAJOR\_VERSION},\.{LIBMARPA\_MINOR\_VERSION},\.{LIBMARPA%
+\_MICRO\_VERSION}$}
+as the three arguments to this function; that produces
+a check that the library in use is compatible with
+the version of libmarpa the application or module was compiled
+against.
+
+Compatibility is defined by two things: first the version
+of the running library is newer than the version
+\PB{$\\{required\_major}.\\{required\_minor}.\\{required\_micro}$}.
+Second
+the running library must be binary compatible with the
+version
+\PB{$\\{required\_major}.\\{required\_minor}.\\{required\_micro}$}
+(same major version.)
+
+Return value: \PB{$\NULL$} if the libmarpa library is compatible with the
+given version, or a string describing the version mismatch.
+The returned string is owned by libmarpa and must not be modified
+or freed.
+
+\Y\B\&{static} \&{char} \\{output\_buffer}[\T{1000}]; \&{const} \&{char}
+${}{*}{}$\\{libmarpa\_check\_version}(\&{unsigned} \&{int} \\{required%
+\_major}${},\39{}$\&{unsigned} \&{int} \\{required\_minor}${},\39{}$%
+\&{unsigned} \&{int} \\{required\_micro})\1\1 $\{$ \&{int} \\{libmarpa%
+\_effective\_micro}${}\K\T{1000}*\.{LIBMARPA\_MINOR\_VERSION}+\.{LIBMARPA%
+\_MICRO\_VERSION};{}$\6
+\&{int} \\{required\_effective\_micro}${}\K\T{1000}*\\{required\_minor}+%
+\\{required\_micro};{}$\7
+\&{if} ${}(\\{required\_major}>\.{LIBMARPA\_MAJOR\_VERSION}){}$\5
+${}\{{}$\1\6
+${}\\{sprintf}(\\{output\_buffer},\39\.{"libmarpa\ major\ vers}\)\.{ion\ too\
+old:\ "}\.{"require\ \%d.\%03d\%03d}\)\.{,\ but\ have\ \%d.\%03d\%0}\)\.{3d"},%
+\39\\{required\_major},\39\\{required\_minor},\39\\{required\_micro},\39%
+\.{LIBMARPA\_MAJOR\_VERSION},\39\.{LIBMARPA\_MINOR\_VERSION},\39\.{LIBMARPA%
+\_MICRO\_VERSION});{}$\6
+\&{return} \\{output\_buffer};\6
+\4${}\}{}$\2\6
+\&{if} ${}(\\{required\_major}<\.{LIBMARPA\_MAJOR\_VERSION}){}$\5
+${}\{{}$\1\6
+${}\\{sprintf}(\\{output\_buffer},\39\.{"libmarpa\ major\ vers}\)\.{ion\ too\
+new:\ "}\.{"require\ \%d.\%03d\%03d}\)\.{,\ but\ have\ \%d.\%03d\%0}\)\.{3d"},%
+\39\\{required\_major},\39\\{required\_minor},\39\\{required\_micro},\39%
+\.{LIBMARPA\_MAJOR\_VERSION},\39\.{LIBMARPA\_MINOR\_VERSION},\39\.{LIBMARPA%
+\_MICRO\_VERSION});{}$\6
+\&{return} \\{output\_buffer};\6
+\4${}\}{}$\2\par
+\fi
+
+\M{3}Not sure what was going on here
+\PB{\&{if} ${}(\\{required\_effective\_micro}<\\{libmarpa\_effective\_micro}-%
+\.{LIBMARPA\_BINARY\_AGE})$}
+\PB{\&{return} \.{"libmarpa\ version\ to}\)\.{o\ new\ (micro\ mismatc}\)%
+\.{h)"};}
+
+\Y\B\&{if} ${}(\\{required\_effective\_micro}<\\{libmarpa\_effective%
+\_micro}){}$\5
+${}\{{}$\1\6
+${}\\{sprintf}(\\{output\_buffer},\39\.{"libmarpa\ minor/micr}\)\.{o\ version\
+too\ new:\ "}\.{"require\ \%d.\%03d\%03d}\)\.{,\ but\ have\ \%d.\%03d\%0}\)%
+\.{3d"},\39\\{required\_major},\39\\{required\_minor},\39\\{required\_micro},%
+\39\.{LIBMARPA\_MAJOR\_VERSION},\39\.{LIBMARPA\_MINOR\_VERSION},\39\.{LIBMARPA%
+\_MICRO\_VERSION});{}$\6
+\&{return} \\{output\_buffer};\6
+\4${}\}{}$\2\6
+\&{if} ${}(\\{required\_effective\_micro}>\\{libmarpa\_effective\_micro}){}$\5
+${}\{{}$\1\6
+${}\\{sprintf}(\\{output\_buffer},\39\.{"libmarpa\ minor/micr}\)\.{o\ version\
+too\ old:\ "}\.{"require\ \%d.\%03d\%03d}\)\.{,\ but\ have\ \%d.\%03d\%0}\)%
+\.{3d"},\39\\{required\_major},\39\\{required\_minor},\39\\{required\_micro},%
+\39\.{LIBMARPA\_MAJOR\_VERSION},\39\.{LIBMARPA\_MINOR\_VERSION},\39\.{LIBMARPA%
+\_MICRO\_VERSION});{}$\6
+\&{return} \\{output\_buffer};\6
+\4${}\}{}$\2\6
+\&{return} \.{"Perfect!"}; $\}{}$\par
+\fi
+
+
+\inx
+\fin
+\con

@@ -9,7 +9,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use lib 'lib';
 use Test::More tests => 71;
 use Marpa::XS::Test;
 
@@ -118,6 +117,8 @@ for my $minimum ( 0, 1, 3 ) {
         }
     }
 } ## end for my $minimum ( 0, 1, 3 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

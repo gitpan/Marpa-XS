@@ -8,7 +8,6 @@ use warnings;
 
 use Test::More tests => 3;
 
-use lib 'lib';
 use English qw( -no_match_vars );
 use Fatal qw( open close );
 use Marpa::XS::Test;
@@ -77,6 +76,8 @@ COMPLETED @0-20 7: S['] -> S
 END_PROGRESS_REPORT
 
 # Marpa::XS::Display::End
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

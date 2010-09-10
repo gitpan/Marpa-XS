@@ -8,7 +8,6 @@ use English qw( -no_match_vars );
 use Fatal qw(open close chdir);
 
 use Test::More tests => 7;
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -174,6 +173,8 @@ for my $test_data ( $cycle1_test, $cycle2_test, $cycle8_test ) {
     Marpa::XS::Test::is( $trace, $expected_trace, "$test_name trace" );
 
 } ## end for my $test_data ( $cycle1_test, $cycle2_test, $cycle8_test)
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

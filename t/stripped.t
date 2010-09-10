@@ -3,7 +3,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 use Test::More tests => 8;
 use Marpa::XS::Test;
 
@@ -60,6 +59,8 @@ Marpa::XS::Test::is( $g->show_accessible_symbols, 'stripped_',
 Marpa::XS::Test::is( $g->show_NFA, <<'EOS', 'Aycock/Horspool NFA' );
 stripped
 EOS
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

@@ -3,7 +3,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 use English qw( -no_match_vars );
 
 use Test::More tests => 5;
@@ -226,3 +225,6 @@ sub show_unary              { return $_[1] . ' function call' }
 sub show_nullary            { return $_[1] . ' function call' }
 
 ## use critic
+
+1; # In case used as "do" file
+

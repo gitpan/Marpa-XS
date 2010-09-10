@@ -9,7 +9,6 @@ use warnings;
 
 use Test::More tests => 11;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -154,6 +153,8 @@ for my $input_length ( 1 .. 4 ) {
         }
     } ## end while ( my $value_ref = $recce->value() )
 } ## end for my $input_length ( 1 .. 4 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

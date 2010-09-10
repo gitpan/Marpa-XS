@@ -6,7 +6,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 use Test::More tests => 8;
 use Marpa::XS::Test;
 
@@ -87,6 +86,8 @@ at_nulling
 S11: A -> E .
 S12: E -> .
 EOS
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

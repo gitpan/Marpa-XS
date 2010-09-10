@@ -9,7 +9,6 @@ use warnings;
 use Fatal qw(open close);
 use Test::More tests => 9;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -268,6 +267,8 @@ $recce->reset_evaluation();
 $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
 Marpa::XS::Test::is( 49, $value, 'Implementation Example Value 3' );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

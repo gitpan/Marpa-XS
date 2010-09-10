@@ -5,7 +5,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 
 use English qw( -no_match_vars );
 use Fatal qw(open close chdir);
@@ -132,6 +131,8 @@ for my $test_data ( $plex1_test, $plex2_test ) {
     Marpa::XS::Test::is( "$values\n", $expected_values, $test_name );
 
 } ## end for my $test_data ( $plex1_test, $plex2_test )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

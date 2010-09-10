@@ -8,7 +8,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use lib 'lib';
 use Test::More tests => 33;
 use English qw( -no_match_vars );
 use Marpa::XS::Test;
@@ -96,6 +95,8 @@ for my $up ( 1, 0 ) {
         $i++;
     } ## end while ( my $result = $recce->value() )
 } ## end for my $up ( 1, 0 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

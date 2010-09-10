@@ -51,7 +51,8 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libmarpa_la_DEPENDENCIES = $(LIBOBJS)
-am_libmarpa_la_OBJECTS = libmarpa_la-marpa.lo libmarpa_la-utils.lo
+am_libmarpa_la_OBJECTS = libmarpa_la-marpa.lo libmarpa_la-utils.lo \
+	libmarpa_la-rtavl.lo
 libmarpa_la_OBJECTS = $(am_libmarpa_la_OBJECTS)
 libmarpa_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libmarpa_la_CFLAGS) \
@@ -228,10 +229,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 noinst_LTLIBRARIES = libmarpa.la
-libmarpa_la_SOURCES = marpa.c utils.c
+libmarpa_la_SOURCES = marpa.c utils.c rtavl.c
 libmarpa_la_LIBADD = $(LIBOBJS)
 libmarpa_la_CFLAGS = $(GLIB_CFLAGS)
-include_HEADERS = utils.h
+include_HEADERS = utils.h rtavl.h
 all: all-am
 
 .SUFFIXES:
@@ -285,6 +286,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-marpa.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-rtavl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-utils.Plo@am__quote@
 
 .c.o:
@@ -321,6 +323,13 @@ libmarpa_la-utils.lo: utils.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='utils.c' object='libmarpa_la-utils.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -c -o libmarpa_la-utils.lo `test -f 'utils.c' || echo '$(srcdir)/'`utils.c
+
+libmarpa_la-rtavl.lo: rtavl.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -MT libmarpa_la-rtavl.lo -MD -MP -MF $(DEPDIR)/libmarpa_la-rtavl.Tpo -c -o libmarpa_la-rtavl.lo `test -f 'rtavl.c' || echo '$(srcdir)/'`rtavl.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/libmarpa_la-rtavl.Tpo $(DEPDIR)/libmarpa_la-rtavl.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='rtavl.c' object='libmarpa_la-rtavl.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -c -o libmarpa_la-rtavl.lo `test -f 'rtavl.c' || echo '$(srcdir)/'`rtavl.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

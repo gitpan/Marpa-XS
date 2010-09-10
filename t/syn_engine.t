@@ -8,7 +8,6 @@ use warnings;
 
 use Test::More tests => 4;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -131,6 +130,8 @@ RECCE_RESPONSE: for ( my $token_ix = 0;; ) {
 $value_ref = $recce->value;
 $value = $value_ref ? ${$value_ref} : 'No Parse';
 Test::More::is( $value, 49, 'Interactive Value' );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

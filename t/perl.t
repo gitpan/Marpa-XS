@@ -584,3 +584,6 @@ sub test {
 } ## end sub test
 
 ## use critic
+
+1; # In case used as "do" file
+

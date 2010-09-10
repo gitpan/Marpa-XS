@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 8;
 
-use lib 'lib';
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
 
@@ -290,6 +289,8 @@ sub default_action {
 } ## end sub default_action
 
 ## use critic
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

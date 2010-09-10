@@ -6,8 +6,6 @@ use warnings;
 
 use Test::More tests => 9;
 
-use lib 'lib';
-use lib 't/lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -145,6 +143,8 @@ A -> a b .
 S11: 12
 A -> a S b .
 EOS
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

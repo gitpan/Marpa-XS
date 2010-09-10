@@ -1,0 +1,7 @@
+This is the developer's directory.  Files here are not necessary to
+build libmarpa.  They are necessary if you want to change the code.
+
+Special tools (such as Cweb) are required.  These tools are all free,
+readily available, and highly portable.  *But* these tools are not
+included, and are not necessarily installable on every system to which
+libmarpa, Marpa or Marpa::XS is ported.

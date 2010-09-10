@@ -10,7 +10,6 @@ use warnings;
 use English qw( -no_match_vars );
 use Test::More tests => 6;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -169,6 +168,8 @@ REPORT_RESULT: {
     } ## end if ( $EVAL_ERROR =~ ...)
     Test::More::is( $EVAL_ERROR, q{}, 'Grammar with earleme too long' );
 } ## end REPORT_RESULT:
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

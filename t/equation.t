@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 13;
 
-use lib 'lib';
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
 use Fatal qw( close open );
@@ -322,6 +321,8 @@ while ( defined( my $value = $recce->value() ) ) {
     }
     $i++;
 } ## end while ( defined( my $value = $recce->value() ) )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

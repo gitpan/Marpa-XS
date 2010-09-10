@@ -5,17 +5,16 @@ use warnings;
 use strict;
 
 use Test::More tests => 6;
-use lib 'lib';
 
 use Carp;
 use Data::Dumper;
 
-$Marpa::XS_FORCE = 1;
-
 BEGIN {
-    $Marpa::XS_FORCE = 1;
     Test::More::use_ok('Marpa::XS');
 }
+
+defined $INC{'Marpa/XS.pm'}
+    or Test::More::BAIL_OUT('Could not load Marpa::XS');
 
 my @tests =
     ( [ 42, 7, 11 ], [ 0, 0, 1 ], [ 0, 2, 0 ], [ 0, 1, 0 ], [ 0, 0, 0 ] );
@@ -33,4 +32,6 @@ for ( my $i = 0; $i < @tests; $i++ ) {
         Marpa::XS::Internal::libmarpa_check_version( @{ $tests[$i] } ),
         $results[$i] );
 }
+
+1; # In case used as "do" file
 

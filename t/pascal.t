@@ -8,7 +8,6 @@ use 5.010;
 
 use strict;
 use warnings;
-use lib 'lib';
 
 use Test::More tests => 8;
 use Marpa::XS::Test;
@@ -76,6 +75,8 @@ for my $a ( ( 0 .. 5 ), 10 ) {
         "Row $a of Pascal's triangle matches parse counts" );
 
 } ## end for my $a ( ( 0 .. 5 ), 10 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

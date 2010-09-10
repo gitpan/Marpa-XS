@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 2;
 
-use lib 'lib';
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
 use Fatal qw(open close);
@@ -102,6 +101,8 @@ END_OF_OUTPUT
 
 my $value = $recce->value();
 Marpa::XS::Test::is( ${$value}, $expected, 'Null example' );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

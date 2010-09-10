@@ -3,8 +3,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'inc';
-use lib 'lib';
 
 use Test::More;
 
@@ -77,6 +75,8 @@ $unfreed_count = @{$unfreed_proberefs};
 
 Test::More::cmp_ok( $unfreed_count, q{==}, 0, 'All refs freed' )
     or Test::More::diag("Unfreed refs: $unfreed_count");
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 11;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -193,6 +192,8 @@ while ( my $value_ref = $recce->value() ) {
         Test::More::fail("Unexpected Value $value");
     }
 } ## end while ( my $value_ref = $recce->value() )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

@@ -7,7 +7,6 @@ use warnings;
 
 use Test::More tests => 2;
 
-use lib 'lib';
 use Marpa::XS::Test;
 
 BEGIN {
@@ -86,6 +85,8 @@ Marpa::XS::Test::is(
     ( join "\n", @expected ),
     "value for input length $input_length"
 );
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

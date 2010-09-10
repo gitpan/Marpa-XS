@@ -4,7 +4,6 @@ use 5.010;
 use strict;
 use warnings;
 
-use lib 'lib';
 use Test::More tests => 9;
 use English qw( -no_match_vars );
 use Marpa::XS::Test;
@@ -101,6 +100,8 @@ for my $cycle_rank ( -1, 1 ) {
         $i++;
     }
 } ## end for my $cycle_rank ( -1, 1 )
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

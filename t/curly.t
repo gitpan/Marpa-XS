@@ -122,3 +122,5 @@ TEST: for my $test (@tests) {
     %codeblock = ();
 } ## end for my $test (@tests)
 
+1; # In case used as "do" file
+

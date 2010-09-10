@@ -4,7 +4,6 @@
 use 5.010;
 use strict;
 use warnings;
-use lib 'lib';
 use English qw( -no_match_vars );
 use Fatal qw(open close chdir);
 use Test::More tests => 4;
@@ -81,6 +80,8 @@ while ( my $value_ref = $recce->value() ) {
 for my $missing_value ( keys %expected ) {
     Test::More::fail(qq{Missing value: "$missing_value"});
 }
+
+1; # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl
