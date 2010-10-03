@@ -3,6 +3,14 @@
 \begin_document
 \begin_header
 \textclass article
+\begin_preamble
+% Copyright 2010 Jeffrey Kegler
+% This document is not part of the Marpa or Marpa::XS source.
+% Although it may be included with a Marpa distribution that
+% is under an open source license, this document is
+% not under that open source license.
+% Jeffrey Kegler retains full rights.
+\end_preamble
 \use_default_options false
 \language english
 \inputencoding auto
@@ -72,7 +80,7 @@ Correctness
 \begin_inset Quotes erd
 \end_inset
 
- is shown by proving equivalence to the Aycock & Horspool's modification
+ is shown by demonstrating equivalence to the Aycock & Horspool's modification
  of Earley's algorithm in their 2002 paper.
 \end_layout
 

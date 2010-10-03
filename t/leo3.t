@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 # The example from p. 166 of Leo's paper,
 # augmented to test Leo prediction items.
 #
@@ -56,7 +70,8 @@ Marpa::XS::Test::is( $grammar->show_symbols(),
 10: S['][], lhs=[11] rhs=[] nullable=1 nulling
 END_OF_STRING
 
-Marpa::XS::Test::is( $grammar->show_rules, <<'END_OF_STRING', 'Leo166 Rules' );
+Marpa::XS::Test::is( $grammar->show_rules,
+    <<'END_OF_STRING', 'Leo166 Rules' );
 0: S -> a A /* !used */
 1: A -> B /* !used nullable */
 2: B -> C /* !used nullable */
@@ -136,7 +151,7 @@ LEO_FLAG: for my $leo_flag ( 0, 1 ) {
 
 } ## end for my $leo_flag ( 0, 1 )
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

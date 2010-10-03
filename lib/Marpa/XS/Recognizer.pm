@@ -1,3 +1,18 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
+
 package Marpa::XS::Recognizer;
 
 use 5.010;
@@ -25,22 +40,40 @@ use Marpa::XS::Offset qw(
 
     :package=Marpa::XS::Internal::Earley_Item
 
+    C { A C structure }
+
     NAME { Unique string describing Earley item. }
     STATE { The AHFA state. }
     LINKS { A list of the links from the completer step. }
-
-    LEO_SYMBOL { A symbol name.
-    Defined if and only if this is a Leo item. }
-
-    LEO_ACTUAL_STATE { An AHFA state.
-    Defined if and only if this is a Leo item. }
 
     LEO_LINKS { Leo Links source }
 
     =LAST_EVALUATOR_FIELD
 
     PARENT { The number of the Earley set with the parent item(s) }
-    =ORIGIN { A synonym I prefer over PARENT. }
+    =ORIGIN { A synonym I prefer to PARENT. }
+    SET { The set this item is in. For debugging. }
+
+    =LAST_FIELD
+
+);
+
+use Marpa::XS::Offset qw(
+
+    :package=Marpa::XS::Internal::Leo_Item
+
+    NAME { Unique string describing Leo item. }
+    STATE { The AHFA state. }
+    LINKS { A list of the links from the completer step. }
+
+    LEO_SYMBOL { A symbol name. }
+    LEO_ACTUAL_STATE { An AHFA state. }
+
+    =LAST_EVALUATOR_FIELD
+
+    PARENT { The number of the Earley set with the parent item(s) }
+    =ORIGIN { A synonym I prefer to PARENT. }
+
     SET { The set this item is in. For debugging. }
 
     =LAST_FIELD
@@ -51,6 +84,8 @@ use Marpa::XS::Offset qw(
 use Marpa::XS::Offset qw(
 
     :package=Marpa::XS::Internal::Recognizer
+
+    C { A C structure }
 
     GRAMMAR { the grammar used }
     EARLEY_SETS { the array of the Earley sets }
@@ -124,6 +159,16 @@ use constant DEFAULT_TOO_MANY_EARLEY_ITEMS => 100;
 
 my $parse_number = 0;
 
+sub Marpa::XS::Internal::Earley_Item::new {
+    my ( $class, $recce ) = @_;
+    my $item = bless [], $class;
+
+    $item->[Marpa::XS::Internal::Earley_Item::C] =
+        Marpa::XS::Internal::Earley_Item_C->new(
+        $recce->[Marpa::XS::Internal::Recognizer::C], $item );
+    return $item;
+}
+
 # Returns the new parse object or throws an exception
 sub Marpa::XS::Recognizer::new {
     my ( $class, @arg_hashes ) = @_;
@@ -173,6 +218,7 @@ sub Marpa::XS::Recognizer::new {
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
     $recce->[Marpa::XS::Internal::Recognizer::WARNINGS] = 1;
     $recce->reset_evaluation();
+    $recce->[Marpa::XS::Internal::Recognizer::C] = Marpa::XS::Internal::R_C->new( $recce );
     $recce->[Marpa::XS::Internal::Recognizer::MODE]           = 'default';
     $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] = 'none';
     $recce->[Marpa::XS::Internal::Recognizer::USE_LEO]        = 1;
@@ -225,7 +271,7 @@ sub Marpa::XS::Recognizer::new {
             'S%d@%d-%d',
             $state_id, 0, 0;
 
-        my $item;
+        my $item = Marpa::XS::Internal::Earley_Item->new( $recce );
         $item->[Marpa::XS::Internal::Earley_Item::NAME]   = $name;
         $item->[Marpa::XS::Internal::Earley_Item::STATE]  = $state;
         $item->[Marpa::XS::Internal::Earley_Item::PARENT] = 0;
@@ -537,10 +583,14 @@ sub Marpa::XS::show_link_choice {
 sub Marpa::XS::show_leo_link_choice {
     my ($leo_link) = @_;
     my ( $leo_item, $cause, $symbol_name, $value_ref ) = @{$leo_link};
-    my @link_texts =
-        ( 'l=' . $leo_item->[Marpa::XS::Internal::Earley_Item::NAME] );
+    my @link_texts = ();
+    if ($leo_item) {
+        push @link_texts,
+            ( 'l=' . $leo_item->[Marpa::XS::Internal::Leo_Item::NAME] );
+    }
     if ($cause) {
-        push @link_texts, 'c=' . $cause->[Marpa::XS::Internal::Earley_Item::NAME];
+        push @link_texts,
+            'c=' . $cause->[Marpa::XS::Internal::Earley_Item::NAME];
     }
     else {
         my $token_dump = Data::Dumper->new( [$value_ref] )->Terse(1)->Dump;
@@ -551,19 +601,11 @@ sub Marpa::XS::show_leo_link_choice {
 } ## end sub Marpa::XS::show_leo_link_choice
 
 sub Marpa::XS::show_earley_item {
-    my ($item)     = @_;
-    my $links      = $item->[Marpa::XS::Internal::Earley_Item::LINKS];
-    my $leo_links  = $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
-    my $leo_symbol = $item->[Marpa::XS::Internal::Earley_Item::LEO_SYMBOL];
+    my ($item)    = @_;
+    my $links     = $item->[Marpa::XS::Internal::Earley_Item::LINKS];
+    my $leo_links = $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
 
     my $text = $item->[Marpa::XS::Internal::Earley_Item::NAME];
-
-    if ( defined $leo_symbol ) {
-        my $actual_to_state = my $leo_state_id =
-            $item->[Marpa::XS::Internal::Earley_Item::LEO_ACTUAL_STATE]
-            ->[Marpa::XS::Internal::AHFA::ID];
-        $text .= qq{; actual="$leo_symbol"->$leo_state_id;};
-    } ## end if ( defined $leo_symbol )
 
     if ( defined $links and @{$links} ) {
         for my $link ( @{$links} ) {
@@ -578,11 +620,40 @@ sub Marpa::XS::show_earley_item {
     return $text;
 } ## end sub Marpa::XS::show_earley_item
 
+sub Marpa::XS::show_leo_item {
+    my ($item)     = @_;
+    my $links      = $item->[Marpa::XS::Internal::Leo_Item::LINKS];
+    my $leo_symbol = $item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL];
+
+    my $text = $item->[Marpa::XS::Internal::Leo_Item::NAME];
+
+    my $actual_to_state = my $leo_state_id =
+        $item->[Marpa::XS::Internal::Leo_Item::LEO_ACTUAL_STATE]
+        ->[Marpa::XS::Internal::AHFA::ID];
+    $text .= qq{; actual="$leo_symbol"->$leo_state_id;};
+
+    if ( defined $links and @{$links} ) {
+        for my $link ( @{$links} ) {
+            $text .= q{ } . Marpa::XS::show_leo_link_choice($link);
+        }
+    }
+    return $text;
+} ## end sub Marpa::XS::show_leo_item
+
 sub Marpa::XS::show_earley_set {
     my ($earley_set) = @_;
     my $text = q{};
     for my $earley_item ( @{$earley_set} ) {
         $text .= Marpa::XS::show_earley_item($earley_item) . "\n";
+    }
+    return $text;
+} ## end sub Marpa::XS::show_earley_set
+
+sub Marpa::XS::show_leo_set {
+    my ($leo_set) = @_;
+    my $text = q{};
+    for my $leo_item ( @{$leo_set} ) {
+        $text .= Marpa::XS::show_leo_item($leo_item) . "\n";
     }
     return $text;
 } ## end sub Marpa::XS::show_earley_set
@@ -597,7 +668,7 @@ sub Marpa::XS::show_earley_set_list {
         $text .= "Earley Set $ix\n" . Marpa::XS::show_earley_set($set);
         my $leo_set = $leo_set_list->[$ix];
         next LIST if not defined $leo_set;
-        $text .= Marpa::XS::show_earley_set($leo_set);
+        $text .= Marpa::XS::show_leo_set($leo_set);
     } ## end for my $ix ( 0 .. $earley_set_count - 1 )
     return $text;
 } ## end sub Marpa::XS::show_earley_set_list
@@ -1016,7 +1087,7 @@ sub Marpa::XS::Recognizer::tokens {
 
                     my $target_item = $earley_hash->{$name};
                     if ( not defined $target_item ) {
-                        $target_item = [];
+                        $target_item = Marpa::XS::Internal::Earley_Item->new( $recce );
                         $target_item->[Marpa::XS::Internal::Earley_Item::NAME] =
                             $name;
                         $target_item->[Marpa::XS::Internal::Earley_Item::STATE] =
@@ -1204,7 +1275,7 @@ sub complete {
                     $transition_state_id, $origin, $earleme_to_complete;
                 my $target_item = $earley_hash->{$name};
                 if ( not defined $target_item ) {
-                    $target_item = [];
+                    $target_item = Marpa::XS::Internal::Earley_Item->new( $recce );
                     $target_item->[Marpa::XS::Internal::Earley_Item::NAME] =
                         $name;
                     $target_item->[Marpa::XS::Internal::Earley_Item::STATE] =
@@ -1367,15 +1438,15 @@ sub complete {
             $leo_state->[Marpa::XS::Internal::AHFA::ID], $leo_parent,
             $earleme_to_complete;
         my $leo_item = [];
-        $leo_item->[Marpa::XS::Internal::Earley_Item::NAME]   = $name;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::STATE]  = $leo_state;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::PARENT] = $leo_parent;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::SET] = $earleme_to_complete;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::LEO_SYMBOL] =
+        $leo_item->[Marpa::XS::Internal::Leo_Item::NAME]   = $name;
+        $leo_item->[Marpa::XS::Internal::Leo_Item::STATE]  = $leo_state;
+        $leo_item->[Marpa::XS::Internal::Leo_Item::PARENT] = $leo_parent;
+        $leo_item->[Marpa::XS::Internal::Leo_Item::SET] = $earleme_to_complete;
+        $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL] =
             $postdot_symbol;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::LEO_ACTUAL_STATE] =
+        $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_ACTUAL_STATE] =
             $leo_actual_state;
-        $leo_item->[Marpa::XS::Internal::Earley_Item::LINKS] =
+        $leo_item->[Marpa::XS::Internal::Leo_Item::LINKS] =
             [ [ $predecessor_leo_item, $base_earley_item ] ];
 
         push @{$leo_set},   $leo_item;

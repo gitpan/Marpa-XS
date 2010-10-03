@@ -3,5 +3,6 @@ build libmarpa.  They are necessary if you want to change the code.
 
 Special tools (such as Cweb) are required.  These tools are all free,
 readily available, and highly portable.  *But* these tools are not
-included, and are not necessarily installable on every system to which
-libmarpa, Marpa or Marpa::XS is ported.
+included.  It may not be easy or even possible to install all these
+tools on some of the systems to which libmarpa, Marpa or Marpa::XS
+can be ported.

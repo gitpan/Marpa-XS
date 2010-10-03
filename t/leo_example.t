@@ -1,4 +1,18 @@
 #!/usr/bin/perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 
 # Engine Synopsis
 
@@ -244,7 +258,7 @@ S2@0-3 [p=S0@0-0; c=S3@0-3]
 Earley Set 4
 S6@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L12@0-4; actual="Expression"->11; [p=L12@0-2; c=S6@2-4]
+L12@0-4; actual="Expression"->11; [l=L12@0-2; c=S6@2-4]
 Earley Set 5
 S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
 S12@0-5 [l=L12@0-4; c=S5@4-5]
@@ -254,7 +268,7 @@ S2@0-5 [p=S0@0-0; c=S3@0-5]
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L12@0-6; actual="Expression"->13; [p=L12@0-4; c=S9@4-6]
+L12@0-6; actual="Expression"->13; [l=L12@0-4; c=S9@4-6]
 Earley Set 7
 S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
 S12@0-7 [l=L12@0-6; c=S5@6-7]
@@ -264,7 +278,7 @@ S2@0-7 [p=S0@0-0; c=S3@0-7]
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L12@0-8; actual="Expression"->14; [p=L12@0-6; c=S10@6-8]
+L12@0-8; actual="Expression"->14; [l=L12@0-6; c=S10@6-8]
 Earley Set 9
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 S12@0-9 [l=L12@0-8; c=S5@8-9]
@@ -314,7 +328,7 @@ S2@0-3 [p=S0@0-0; c=S3@0-3]
 Earley Set 4
 S6@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L12@0-4; actual="Expression"->11; [p=L12@0-2; c=S6@2-4]
+L12@0-4; actual="Expression"->11; [l=L12@0-2; c=S6@2-4]
 Earley Set 5
 S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
 S12@0-5 [l=L12@0-4; c=S5@4-5]
@@ -324,7 +338,7 @@ S2@0-5 [p=S0@0-0; c=S3@0-5]
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L12@0-6; actual="Expression"->13; [p=L12@0-4; c=S9@4-6]
+L12@0-6; actual="Expression"->13; [l=L12@0-4; c=S9@4-6]
 Earley Set 7
 S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
 S12@0-7 [l=L12@0-6; c=S5@6-7]
@@ -334,7 +348,7 @@ S2@0-7 [p=S0@0-0; c=S3@0-7]
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L12@0-8; actual="Expression"->14; [p=L12@0-6; c=S10@6-8]
+L12@0-8; actual="Expression"->14; [l=L12@0-6; c=S10@6-8]
 Earley Set 9
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 S12@0-9 [p=S8@0-2; c=S11@2-9]
@@ -390,7 +404,7 @@ END_TRACE_OUTPUT
 
 # Marpa::XS::Display::End
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

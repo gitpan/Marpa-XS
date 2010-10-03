@@ -1,3 +1,18 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
+
 package Marpa::XS;
 
 use 5.010;
@@ -7,6 +22,11 @@ use warnings;
 use Marpa::XS::Version;
 
 our $TESTING_PERL_ONLY;
+{
+
+    package Marpa::XS::Internal;
+    our $check_version;
+}
 
 eval {
 
@@ -20,7 +40,7 @@ eval {
 } unless $TESTING_PERL_ONLY;
 
 no strict 'refs';
-my $check_version_code = *{'Marpa::XS::Internal::libmarpa_check_version'}{'CODE'};
+my $check_version_code = *{'Marpa::XS::Internal::check_version'}{'CODE'};
 use strict;
 
 if (not defined $check_version_code) {
@@ -41,9 +61,10 @@ if ( not defined $Marpa::XS::VERSION ) {
 else {
     no strict 'refs';
     *{'Marpa::XS::check_version'} = $check_version_code;
+    *{'Marpa::XS::version'}       = *{'Marpa::XS::Internal::version'}{'CODE'};
     use strict;
     my $check_version_result = Marpa::XS::check_version( 0, 1, 0 ) // 'undef';
-    Carp::croak("Marpa::XS fails libmarpa_check_version")
+    Carp::croak("Marpa::XS fails marpa_check_version")
         if $check_version_result ne 'Perfect!';
 
     require Marpa::XS::Internal;
@@ -51,9 +72,9 @@ else {
     Marpa::XS::Internal::Carp_Not->import();
     require Marpa::XS::Grammar;
     require Marpa::XS::Recognizer;
-    require Marpa::XS::Recce_Value;
+    require Marpa::XS::Value;
     require Marpa::XS::Callback;
-} ## end else [ if ( not defined $Marpa::XS::VERSION ) ]
+} ## end else
 
 1;
 

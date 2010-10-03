@@ -7,6 +7,7 @@ build_requires:
   Test::More: 0.94
 configure_requires:
   ExtUtils::PkgConfig: 1.12
+  Glib: 1.223
   Module::Build: 0.3601
 distribution_type: module
 dynamic_config: 1
@@ -38,16 +39,17 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.001_006
+    version: 0.001_007
 recommends:
   PPI: 1.206
   Test::Weaken: 3.004000
 requires:
   Carp: 1.08
   Data::Dumper: 2.126
+  Glib: 1.223
   List::Util: 1.22
   Scalar::Util: 1.22
   Storable: 2.21
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.001_006
+version: 0.001_007

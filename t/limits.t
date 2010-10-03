@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 
 # the example grammar in Aycock/Horspool "Practical Earley Parsing",
 # _The Computer Journal_, Vol. 45, No. 6, pp. 620-630,
@@ -33,7 +47,8 @@ sub test_grammar {
     $earleme_length //= 1;
 
     my $grammar;
-    my $eval_ok = eval { $grammar = Marpa::XS::Grammar->new($grammar_args); 1; };
+    my $eval_ok =
+        eval { $grammar = Marpa::XS::Grammar->new($grammar_args); 1; };
     Marpa::XS::exception("Exception while creating Grammar:\n$EVAL_ERROR")
         if not $eval_ok;
     Marpa::XS::exception("Grammar not created\n") if not $grammar;
@@ -56,7 +71,8 @@ sub test_grammar {
     };
     Marpa::XS::exception("Exception while recognizing earleme:\n$EVAL_ERROR")
         if not $eval_ok;
-    Marpa::XS::exception("Parsing exhausted\n") if not defined $earleme_result;
+    Marpa::XS::exception("Parsing exhausted\n")
+        if not defined $earleme_result;
 
     $eval_ok = eval {
         $earleme_result = $recce->tokens( [ [ 'a', 'a', $earleme_length ] ] );
@@ -64,10 +80,12 @@ sub test_grammar {
     };
     Marpa::XS::exception("Exception while recognizing earleme:\n$EVAL_ERROR")
         if not $eval_ok;
-    Marpa::XS::exception("Parsing exhausted\n") if not defined $earleme_result;
+    Marpa::XS::exception("Parsing exhausted\n")
+        if not defined $earleme_result;
 
     $eval_ok = eval { $recce->end_input(); 1; };
-    Marpa::XS::exception("Exception while recognizing end of input:\n$EVAL_ERROR")
+    Marpa::XS::exception(
+        "Exception while recognizing end of input:\n$EVAL_ERROR")
         if not $eval_ok;
 
     my $value_ref = $recce->value();
@@ -169,7 +187,7 @@ REPORT_RESULT: {
     Test::More::is( $EVAL_ERROR, q{}, 'Grammar with earleme too long' );
 } ## end REPORT_RESULT:
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

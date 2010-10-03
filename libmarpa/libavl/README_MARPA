@@ -1,0 +1,6 @@
+This is the Marpa README for its libavl library.
+
+This directory contains portions of Ben Pfaff's libavl, copied unchanged.
+If you are interested in libavl (and I would recommend it) don't use
+this version.  Best to get it directly from gnu.org, or from Ben Pfaff's
+website.

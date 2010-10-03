@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 # The example from p. 168-169 of Leo's paper.
 #
 # Make sure I have a CHAF example!
@@ -63,7 +77,8 @@ Marpa::XS::Test::is( $grammar->show_symbols(),
 7: S['][], lhs=[10] rhs=[] nullable=1 nulling
 END_OF_STRING
 
-Marpa::XS::Test::is( $grammar->show_rules, <<'END_OF_STRING', 'Leo168 Rules' );
+Marpa::XS::Test::is( $grammar->show_rules,
+    <<'END_OF_STRING', 'Leo168 Rules' );
 0: S -> a S /* !used */
 1: S -> C /* !used nullable */
 2: C -> a C b /* !used */
@@ -156,7 +171,7 @@ for my $a_length ( 1 .. 4 ) {
     } ## end for my $b_length ( 0 .. $a_length )
 } ## end for my $a_length ( 1 .. 4 )
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

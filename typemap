@@ -1,0 +1,38 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
+
+Earley_Item * T_MARPA_EARLEY_ITEM
+
+Recognizer * T_MARPA_R
+
+INPUT
+
+T_MARPA_R
+	if (sv_isa($arg, \"Marpa::XS::Internal::R_C\")) {
+	    IV tmp = SvIV((SV*)SvRV($arg));
+	    $var = INT2PTR(Recognizer *, tmp);
+	} else
+	    Perl_croak(aTHX_ \"%s: %s is not of type Marpa::XS::Internal::R_C\",
+			${$ALIAS?\q[GvNAME(CvGV(cv))]:\qq[\"$pname\"]},
+			\"$var\")
+
+T_MARPA_EARLEY_ITEM
+	if (sv_isa($arg, \"Marpa::XS::Internal::Earley_Item_C\")) {
+	    IV tmp = SvIV((SV*)SvRV($arg));
+	    $var = INT2PTR(Earley_Item*, tmp);
+	} else
+	    Perl_croak(aTHX_ \"%s: %s is not of type Marpa::XS::Internal::Earley_Item_C\",
+			${$ALIAS?\q[GvNAME(CvGV(cv))]:\qq[\"$pname\"]},
+			\"$var\")

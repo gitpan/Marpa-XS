@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 
 # the example grammar in Aycock/Horspool "Practical Earley Parsing",
 # _The Computer Journal_, Vol. 45, No. 6, pp. 620-630,
@@ -64,7 +78,8 @@ Marpa::XS::Test::is( $grammar->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
 14: S['][] -> /* empty nullable vlhs maximal real=1 */
 EOS
 
-Marpa::XS::Test::is( $grammar->show_symbols, <<'EOS', 'Aycock/Horspool Symbols' );
+Marpa::XS::Test::is( $grammar->show_symbols,
+    <<'EOS', 'Aycock/Horspool Symbols' );
 0: S, lhs=[0 4 5 6] rhs=[13] maximal
 1: A, lhs=[1 2] rhs=[0 4 5 7 8 10 11 12] maximal
 2: a, lhs=[] rhs=[1] terminal maximal
@@ -294,7 +309,7 @@ S10@0-2 [p=S3@0-1; c=S11@1-2]
 S6@1-2 [p=S4@1-1; c=S11@1-2]
 S5@0-2 [p=S1@0-0; c=S6@0-2] [p=S1@0-0; c=S10@0-2]
 S2@0-2 [p=S0@0-0; c=S9@0-2] [p=S0@0-0; c=S5@0-2]
-L9@0-2; actual="S[R0:2]"->10; [p=L9@0-1; c=S11@1-2]
+L9@0-2; actual="S[R0:2]"->10; [l=L9@0-1; c=S11@1-2]
 END_OF_SET2
 Earley Set 3
 S7@2-3 [p=S12@2-2; s=a; t=\'a']
@@ -306,7 +321,7 @@ S6@1-3 [p=S4@1-1; c=S8@1-3]
 S9@0-3 [l=L9@0-2; c=S13@2-3] [l=L9@0-1; c=S6@1-3]
 S5@0-3 [p=S1@0-0; c=S10@0-3]
 S2@0-3 [p=S0@0-0; c=S9@0-3] [p=S0@0-0; c=S5@0-3]
-L9@0-3; actual="A"->8; [p=L9@0-2; c=S13@2-3]
+L9@0-3; actual="A"->8; [l=L9@0-2; c=S13@2-3]
 END_OF_SET3
 Earley Set 4
 S7@3-4 [p=S14@3-3; s=a; t=\'a']
@@ -370,7 +385,7 @@ for my $i ( 0 .. $input_length ) {
     }
 } ## end for my $i ( 0 .. $input_length )
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

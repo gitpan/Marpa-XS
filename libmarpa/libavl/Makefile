@@ -1,6 +1,22 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
+
+# Portions of this file are from the libavl distribution.
+
 TEX = etex # substitute tex if you lack etex
 WEAVE_FLAGS =
-#CC = checkergcc
 #TANGLE_FLAGS = -l # put #line directives in source files
 CFLAGS = -g -W -Wall -ansi -pedantic # enable many GCC warnings
 LDFLAGS = -g
@@ -11,6 +27,8 @@ trees = $(wildcard *.tree)
 eps_images = $(patsubst %.tree,%.eps,$(trees))
 txt_images = $(patsubst %.tree,%.txt,$(trees))
 png_images = $(patsubst %.tree,%.png,$(trees)) trav-circ.png trav-line.png
+pdf_images = $(patsubst %.tree,%.pdf,$(trees)) trav-circ.pdf trav-line.pdf \
+	cover.pdf
 
 w_source = avl.w bst.w catalogue.w examples.w extra.w glossary.w	\
 intro.w libavl.w pavl.w pbst.w prb.w preface.w rb.w references.w	\
@@ -38,23 +56,34 @@ prb.c prb.h prb-test.c				\
 test.c test.h					\
 bin-ary-test.c srch-test.c seq-test.c bsts.c
 
-marpa_wants: texiweb rtavl-test
+extra_dist = AUTHORS COPYING COPYING.DOC COPYING.LIB ChangeLog INSTALL	\
+Makefile NEWS OUTLINE README ROADMAP THANKS TODO afm2c check-table	\
+cover.eps eps2png epstopdf fdl.texi helvetica.afm helvetica.inc htmlpp	\
+index.png libavl.info-[0-9] next.png padding.png prev.png skipback.png	\
+skipfwd.png slr.c texinfo.tex texitree.c texiweb.c toc.png		\
+trav-circ.eps trav-circ.sk trav-line.eps trav-line.sk trav-line.txt	\
+up.png
 
-../src/rtavl.h: rtavl.h
-	cp $? $@
-
-../src/rtavl.c: rtavl.c
-	cp $? $@
-
-marpa_install: ../src/rtavl.c ../src/rtavl.h
+dist_files = $(w_source) $(built_sources) $(trees) $(png_images)	\
+$(pdf_images) libavl.info
 
 all: docs programs
+
+../main/src/rtavl.h: rtavl.h
+	cp $? $@
+
+../main/src/rtavl.c: rtavl.c
+	cp $? $@
+
+marpa_install: ../main/src/rtavl.c ../main/src/rtavl.h
+
 info: libavl.info
 dvi: libavl.dvi
 docs: libavl.dvi libavl.info libavl.text libavl.html libavl.ps libavl.pdf
 eps: $(eps_images)
 txt: $(txt_images)
 png: $(png_images)
+pdf: $(pdf_images)
 programs: $(programs)
 sources: $(built_sources)
 
@@ -146,8 +175,8 @@ libavl.dvi: libavl.texi $(eps_images)
 	TEX=$(TEX) texi2dvi --batch $<
 libavl.ps: libavl.dvi
 	dvips -P psfonts -o $@ $<
-libavl.pdf: libavl.dvi
-	dvipdfm $<
+libavl.pdf: libavl.texi $(pdf_images)
+	TEX=$(TEX) texi2pdf --batch --quiet $<
 libavl.info: libavl.texi $(txt_images)
 	makeinfo $(ALL_MAKEINFO_FLAGS) $<
 libavl.text: libavl.texi $(txt_images)
@@ -171,21 +200,20 @@ libavl.html: libavl.texi $(png_images) texiweb $(w_source)
 %.png: %.eps
 	./eps2png $< $@ || touch $@
 
+%.pdf: %.eps
+	./epstopdf $< || touch $@
+
 texitree: texitree.o
 	$(CC) -lm $(LDFLAGS) $< $(LOADLIBS) $(LDLIBS) -o $@
 
-dist: distclean
-	if test -z "$(version)"; then		\
-		version=`date +avl-%Y.%m.%d`;	\
-	else					\
-		version="avl-$(version)";	\
-	fi &&					\
-	dir="`pwd`" &&				\
-	cd .. &&				\
-	rm -f $$version &&			\
-	ln -sf $$dir $$version &&		\
-	tar chfz $$version.tar.gz $$version &&	\
-	rm -f $$version
+version = 2.0.3
+distdir: $(dist_files)
+	rm -rf avl-$(version)
+	mkdir avl-$(version)
+	cp $(dist_files) $(extra_dist) avl-$(version)
+dist: distdir
+	tar chfz avl-$(version).tar.gz avl-$(version)
+	rm -rf avl-$(version)
 
 check: $(testers)
 	@for d in $(testers); do		\
@@ -219,11 +247,11 @@ distclean: clean
 	rm -f *~
 
 maintainer-clean: distclean
-	rm -f $(png_images) $(built_sources)
+	rm -f $(png_images) $(pdf_images) $(built_sources)
 	rm -f libavl.info*
 
 .PHONY: all 
 .PHONY: docs info dvi eps txt png
 .PHONY: programs sources
-.PHONY: dist check checksrc
+.PHONY: distdir dist check checksrc
 .PHONY: texclean clean mostlyclean distclean maintainer-clean

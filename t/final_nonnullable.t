@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 # Catch the case of a final non-nulling symbol at the end of a rule
 # which has more than 2 proper nullables
 # This is to test an untested branch of the CHAF logic.
@@ -138,8 +152,8 @@ for my $input_length ( 1 .. 4 ) {
 
     # Set max at 10 just in case there's an infinite loop.
     # This is for debugging, after all
-    my $recce =
-        Marpa::XS::Recognizer->new( { grammar => $grammar, max_parses => 10 } );
+    my $recce = Marpa::XS::Recognizer->new(
+        { grammar => $grammar, max_parses => 10 } );
     $recce->tokens( [ ( [ 'a', 'a', 1 ] ) x $input_length ] );
     while ( my $value_ref = $recce->value() ) {
         my $value = $value_ref ? ${$value_ref} : 'No parse';
@@ -154,7 +168,7 @@ for my $input_length ( 1 .. 4 ) {
     } ## end while ( my $value_ref = $recce->value() )
 } ## end for my $input_length ( 1 .. 4 )
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

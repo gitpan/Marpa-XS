@@ -1,3 +1,17 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 
 # We keep debugging info around, for fun, but most users don't need it
 CFLAGS = -g
@@ -17,7 +31,7 @@ PDFTEX = pdftex
 CWEAVE = cweave
 CTANGLE = ctangle
 
-SOURCES = utils.w
+SOURCES = marpa.w copyright_page_license.w
 
 .SUFFIXES: .dvi .tex .w .pdf
 
@@ -45,9 +59,16 @@ SOURCES = utils.w
 	 pdftex ) pdftex $* ;; \
 	esac
 
-all: utils.pdf utils.c
+all: marpa.pdf marpa.c marpa.h
 
-install: ../src/utils.c
+marpa.c marpa.h: copyright_page_license.w marpa.w
 
-../src/utils.c: utils.c
-	cp utils.c ../src/utils.c
+marpa.pdf: marpa.tex
+
+install: ../main/src/marpa.c ../main/src/marpa.h
+
+../main/src/marpa.c: marpa.c
+	cp marpa.c ../main/src/marpa.c
+
+../main/src/marpa.h: marpa.h
+	cp marpa.h ../main/src/marpa.h

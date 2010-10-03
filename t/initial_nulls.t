@@ -1,4 +1,18 @@
 #!perl
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
 # Two rules which start with nullables, and cycle.
 
 use 5.010;
@@ -73,8 +87,8 @@ $expected_count[8] = 8;     # 0 w/o r2; 8 with an r2
 $expected_count[9] = 1;     # 0 w/o r2; 1 with an r2
 
 for my $input_length ( 1 .. 9 ) {
-    my $recce =
-        Marpa::XS::Recognizer->new( { grammar => $grammar, max_parses => 100 } );
+    my $recce = Marpa::XS::Recognizer->new(
+        { grammar => $grammar, max_parses => 100 } );
     $recce->tokens( [ ( [ 't', 't', 1 ] ) x $input_length ] );
     my $parse_count = 0;
     my $expected    = 1;
@@ -131,7 +145,7 @@ for my $input_length ( 1 .. 9 ) {
     } ## end if ($expected)
 } ## end for my $input_length ( 1 .. 9 )
 
-1; # In case used as "do" file
+1;    # In case used as "do" file
 
 # Local Variables:
 #   mode: cperl

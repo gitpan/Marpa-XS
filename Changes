@@ -1,3 +1,18 @@
+# Copyright 2010 Jeffrey Kegler
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
+# redistribute it and/or modify it under the terms of the GNU Lesser
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+#
+# Marpa::XS is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser
+# General Public License along with Marpa::XS.  If not, see
+# http://www.gnu.org/licenses/.
+
 PLEASE DO NOT TRY TO USE THIS PACKAGE.
 Please use the Marpa package instead.
 
@@ -7,11 +22,12 @@ Please use the Marpa package instead.
 
 Revision history for Marpa::XS
 
+0.001_007 Sat Oct  2 17:26:25 PDT 2010
 0.001_006 Thu Sep  9 19:30:28 PDT 2010
 0.001_005 Fri Sep  3 17:12:16 PDT 2010
 0.001_004 Fri Sep  3 08:51:52 PDT 2010
 0.001_003 Wed Sep  1 21:29:26 PDT 2010
-0.001_002 Mon Aug 30 08:16:05 2010
-0.001_001 Mon Aug 30 08:11:41 2010
+0.001_002 Mon Aug 30 08:16:05 PDT 2010
+0.001_001 Mon Aug 30 08:11:41 PDT 2010
 
 * A series of developer's releases.
