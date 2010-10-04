@@ -15,34 +15,32 @@
 # http://www.gnu.org/licenses/.
 
 use 5.010;
-use warnings;
 use strict;
+use warnings;
 
-use Test::More tests => 4;
-
-use Carp;
-use Data::Dumper;
-
+# force perl-only version to be tested
 package Marpa::XS;
-our $TESTING_PERL_ONLY;
+our $FORCE_XS;
+$Marpa::XS::FORCE_XS = 1;
 
 package main;
 
-BEGIN {
+use English qw( -no_match_vars );
+use File::Spec;
 
-    # force perl-only version to be tested
-    $Marpa::XS::TESTING_PERL_ONLY = 1;
-    Test::More::use_ok('Marpa::XS');
-} ## end BEGIN
-
-defined $INC{'Marpa/XS.pm'}
-    or Test::More::BAIL_OUT('Could not load Marpa::XS');
-
-Test::More::ok( ( not defined $Marpa::XS::VERSION ),
-    'XS version not defined' );
-Test::More::ok( ( not defined $Marpa::XS::STRING_VERSION ),
-    'XS string version not defined' );
-
-Test::More::ok( ( not defined $Marpa::XS::Internal::{check_version}{CODE} ),
-    'Pure Perl mode' );
-
+my ( $volume, $dirs, $file_name ) = File::Spec->splitpath(__FILE__);
+my @dirs    = File::Spec->splitdir($dirs);
+my $top_dir = q{};
+1 while @dirs and not $top_dir = pop @dirs;
+if ( $top_dir ne 'xs' ) {
+    @dirs = File::Spec->updir();
+}
+$dirs = File::Spec->catdir( @dirs, 'base' );
+my $f = File::Spec->catpath( $volume, $dirs, $file_name );
+DO: {
+    local $ERRNO      = undef;
+    local $EVAL_ERROR = undef;
+    last DO                                        if defined do $f;
+    die "$f: $ERRNO"                               if $ERRNO;
+    die qq{Compilation error in $f\n"$EVAL_ERROR"} if $EVAL_ERROR;
+} ## end DO:

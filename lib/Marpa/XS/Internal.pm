@@ -25,8 +25,8 @@ use Carp;
 
 ## no critic (Subroutines::RequireArgUnpacking)
 sub Marpa::XS::internal_error {
-    Carp::confess( "Internal Marpa::XS Error: This could be a bug in Marpa::XS\n",
-        @_ );
+    Carp::confess(
+        "Internal Marpa::XS Error: This could be a bug in Marpa::XS\n", @_ );
 }
 ## use critic
 

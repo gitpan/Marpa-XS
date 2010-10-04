@@ -15,15 +15,13 @@
 # http://www.gnu.org/licenses/.
 
 use 5.010;
-
-package Marpa::XS;
-
 use strict;
 use warnings;
 
 # force perl-only version to be tested
-our $TESTING_PERL_ONLY;
-$Marpa::XS::TESTING_PERL_ONLY = 1;
+package Marpa::XS;
+our $FORCE_PP;
+$Marpa::XS::FORCE_PP = 1;
 
 package main;
 
@@ -37,7 +35,7 @@ my $top_dir = q{};
 if ( $top_dir ne 'pp' ) {
     @dirs = File::Spec->updir();
 }
-$dirs = File::Spec->catdir(@dirs);
+$dirs = File::Spec->catdir( @dirs, 'base' );
 my $f = File::Spec->catpath( $volume, $dirs, $file_name );
 DO: {
     local $ERRNO      = undef;

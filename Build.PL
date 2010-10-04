@@ -26,11 +26,11 @@ use Glib::Install::Files;
 
 my $gperl_h_location = $Glib::Install::Files::CORE;
 
-my %glib2_info = ExtUtils::PkgConfig->find('glib-2.0');
+my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version = '0.001_007';
+my $marpa_xs_version      = '0.001_008';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -58,7 +58,8 @@ my %requires =
     qw( Scalar::Util List::Util Carp Data::Dumper Storable Glib );
 my %recommends = map { ( $_, $version{$_} ) } qw( PPI Test::Weaken );
 
-my @marpa_xs_use = qw( Scalar::Util List::Util Carp Data::Dumper Storable Glib );
+my @marpa_xs_use =
+    qw( Scalar::Util List::Util Carp Data::Dumper Storable Glib );
 my @marpa_xs_perl_use = qw( Scalar::Util Carp Data::Dumper PPI Marpa::XS );
 
 sub version_contents {
@@ -70,30 +71,37 @@ END_OF_STRING
 
     $text .= "package $package;\n";
     $text .= "BEGIN {\n";
+    ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
     $text .= q{$Marpa::XS::VERSION = } . $marpa_xs_version . ";\n";
     $text .= q{$Marpa::XS::STRING_VERSION = '} . $marpa_xs_version . "';\n";
+    ## use critic
     $text .= "}\n";
     for my $package (@use_packages) {
         my $version = $version{$package};
-        die("No version defined for $package") if not defined $version;
+        die "No version defined for $package" if not defined $version;
         $text .= "use $package $version ();\n";
     }
     $text .= "1;\n";
     return $text;
 } ## end sub version_contents
 
+my $subclass_code = q{};
 
-my $subclass_code = '';
-
+## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
 $subclass_code .= q{my $version_pm = <<'END_OF_FILE';} . "\n";
-$subclass_code .= version_contents('Marpa::XS', @marpa_xs_use);
+## use critic
+$subclass_code .= version_contents( 'Marpa::XS', @marpa_xs_use );
 $subclass_code .= 'END_OF_FILE' . "\n\n";
 
+## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
 $subclass_code .= q{my $perl_version_pm = <<'END_OF_FILE';} . "\n";
-$subclass_code .= version_contents('Marpa::XS::Perl', @marpa_xs_perl_use);
+## use critic
+$subclass_code .= version_contents( 'Marpa::XS::Perl', @marpa_xs_perl_use );
 $subclass_code .= 'END_OF_FILE' . "\n\n";
 
+## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
 $subclass_code .= q{my $version_string = '} . $marpa_xs_version . q{';};
+## use critic
 
 $subclass_code .= <<'SUBCLASS';
 
@@ -243,27 +251,25 @@ my @no_index_namespace_inclusive = (
 );
 
 my @files_to_cleanup = (
-    'lib/Marpa/XS/Version.pm',
-    'lib/Marpa/XS/Perl/Version.pm',
-    'lib/Marpa/XS.o',
-    'libmarpa/main/autoscan.log',    
-    'libmarpa/main/configure.scan',    
-    'libmarpa/main/build',    
+    'lib/Marpa/XS/Version.pm',      'lib/Marpa/XS/Perl/Version.pm',
+    'lib/Marpa/XS.o',               'libmarpa/main/autoscan.log',
+    'libmarpa/main/configure.scan', 'libmarpa/main/build',
     'libmarpa/main/autom4te.cache',
 );
 
 my $build = $class->new(
-    add_to_cleanup       => \@files_to_cleanup,
-    dist_name            => 'Marpa-XS',
-    dist_author          => 'Jeffrey Kegler',
-    dist_version         => $marpa_xs_version,
-    dist_abstract        => 'XS Version of Marpa (Experimental)',
-    recommends           => \%recommends,
-    requires             => \%requires,
-    configure_requires   => \%configure_requires,
-    build_requires       => \%build_requires,
-    dynamic_config       => 1,
-    extra_compiler_flags => "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/main/src",
+    add_to_cleanup     => \@files_to_cleanup,
+    dist_name          => 'Marpa-XS',
+    dist_author        => 'Jeffrey Kegler',
+    dist_version       => $marpa_xs_version,
+    dist_abstract      => 'XS Version of Marpa (Experimental)',
+    recommends         => \%recommends,
+    requires           => \%requires,
+    configure_requires => \%configure_requires,
+    build_requires     => \%build_requires,
+    dynamic_config     => 1,
+    extra_compiler_flags =>
+        "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/main/src",
     extra_linker_flags =>
         "$glib_2_0_linker_flags libmarpa/main/build/src/.libs/libmarpa.a",
     PL_files   => {},
@@ -292,7 +298,7 @@ my $build = $class->new(
     pod_files          => \%pod_files,
     create_readme      => 0,
     create_makefile_pl => 'small',
-    test_files         => [ map { glob $_ } qw(t/*.t t/*/*.t) ],
+    test_files         => [ map { glob $_ } qw(t/*.t t/xs/*.t t/pp/*.t) ],
 );
 
 $build->add_build_element('libmarpa');

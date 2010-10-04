@@ -17,13 +17,17 @@
 use 5.010;
 use strict;
 use warnings;
+use Fatal qw(print say);
+use English qw( -no_match_vars );
 
 use Getopt::Long;
 my $verbose = 1;
-my $result = GetOptions ("verbose=i"  => \$verbose);  # flag
-die "usage $0 [--verbose=n] file ...\n" if not $result;
+my $result = Getopt::Long::GetOptions( 'verbose=i' => \$verbose );
+die "usage $PROGRAM_NAME [--verbose=n] file ...\n" if not $result;
 
+## no critic (Modules::RequireBarewordIncludes)
 require 'lib/Marpa/XS/License.pm';
+## use critic
 
 my $file_count = @ARGV;
 my @license_problems =
@@ -33,5 +37,6 @@ print join "\n", @license_problems;
 
 my $problem_count = scalar @license_problems;
 
-$problem_count and say ('=' x 50);
-say "Found $problem_count license language problems after examining $file_count files";
+$problem_count and say +( q{=} x 50 );
+say
+    "Found $problem_count license language problems after examining $file_count files";

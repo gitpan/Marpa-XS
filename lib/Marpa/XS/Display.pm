@@ -156,12 +156,13 @@ sub Marpa::XS::Display::read {
                         or Carp::croak("Cannot print: $ERRNO");
                 } ## end if ( not $eval_ok )
             } ## end if ( $yaml =~ / \S /xms )
-        } ## end if ( $line =~ /^[=]for \s+ Marpa::XS[:][:]Display/xms )
+        } ## end if ( $line =~ /^[=]for \s+ Marpa::XS[:][:]Display/xms)
 
         next LINE if not defined $display_spec;
 
         SPEC: for my $spec ( keys %{$display_spec} ) {
-            next SPEC if $spec ~~ \@Marpa::XS::Display::Internal::DISPLAY_SPECS;
+            next SPEC
+                if $spec ~~ \@Marpa::XS::Display::Internal::DISPLAY_SPECS;
             say {*STDERR}
                 qq{Warning: Unknown display spec "$spec" in $file_name, line $display_spec_line_number}
                 or Carp::croak("Cannot print: $ERRNO");

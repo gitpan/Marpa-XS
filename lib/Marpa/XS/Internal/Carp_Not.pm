@@ -26,7 +26,8 @@ sub import {
     my $calling_package = ( caller 0 );
     push @CARP_NOT, $calling_package;
     no strict 'refs';
-    *{ $calling_package . q{::CARP_NOT} } = \@Marpa::XS::Internal::Carp_Not::CARP_NOT;
+    *{ $calling_package . q{::CARP_NOT} } =
+        \@Marpa::XS::Internal::Carp_Not::CARP_NOT;
     return 1;
 } ## end sub import
 
