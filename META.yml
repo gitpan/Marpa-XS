@@ -39,17 +39,17 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.001_008
+    version: 0.001_009
 recommends:
   PPI: 1.206
   Test::Weaken: 3.004000
 requires:
   Carp: 1.08
-  Data::Dumper: 2.126
+  Data::Dumper: 2.125
   Glib: 1.223
-  List::Util: 1.22
-  Scalar::Util: 1.22
+  List::Util: 1.21
+  Scalar::Util: 1.21
   Storable: 2.21
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.001_008
+version: 0.001_009

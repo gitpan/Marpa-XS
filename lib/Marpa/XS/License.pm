@@ -259,6 +259,7 @@ my %files_by_type = (
     'Makefile.PL'                           => \&trivial,
     'libmarpa/main/README'                  => \&trivial,
     'libmarpa/dev/README'                   => \&trivial,
+    'libmarpa/main/src/standalone.c'        => \&trivial,
     'libmarpa/libavl/README_MARPA'          => \&trivial,
     'libmarpa/libmarpa/dev/README'          => \&trivial,
     'README'                                => \&trivial,

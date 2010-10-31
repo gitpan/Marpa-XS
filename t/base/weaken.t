@@ -20,6 +20,9 @@ use warnings;
 
 use Test::More;
 
+# Perhaps make this a command line option someday
+my $verbose = 0;
+
 BEGIN {
     my $problem;
     CHECK_FOR_PROBLEM: {
@@ -80,8 +83,16 @@ DELETE_UNDEF_CONSTANT: for my $ix ( 0 .. $#{$unfreed_proberefs} ) {
     {
         delete $unfreed_proberefs->[$ix];
         $ignored_count++;
-        last DELETE_UNDEF_CONSTANT;
+        next DELETE_UNDEF_CONSTANT;
     } ## end if ( ref $unfreed_proberefs->[$ix] eq 'SCALAR' and not...)
+
+    if ($verbose)
+    {
+       require Devel::Peek;
+       say STDERR "Unfreed: ",  ${ $unfreed_proberefs->[$ix] };
+       Devel::Peek::Dump( ${ $unfreed_proberefs->[$ix] });
+    }
+
 } ## end for my $ix ( 0 .. $#{$unfreed_proberefs} )
 $unfreed_count = @{$unfreed_proberefs};
 

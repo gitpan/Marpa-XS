@@ -20,6 +20,7 @@ use warnings;
 use Fatal qw(open close);
 use File::Spec;
 
+use Config;
 use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
@@ -30,14 +31,14 @@ my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version      = '0.001_008';
+my $marpa_xs_version      = '0.001_009';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
-    'Scalar::Util'        => 1.22,
-    'List::Util'          => 1.22,
+    'Scalar::Util'        => 1.21,
+    'List::Util'          => 1.21,
     'Carp'                => 1.08,
-    'Data::Dumper'        => '2.126',
+    'Data::Dumper'        => '2.125',
     'Storable'            => 2.21,
     'Marpa::XS'           => $marpa_xs_version,
     'PPI'                 => '1.206',
@@ -132,12 +133,12 @@ $subclass_code .= <<'SUBCLASS';
             File::Spec->catdir( $base_dir, qw(libmarpa main build) );
         -d $libmarpa_dir or mkdir $libmarpa_dir;
         chdir $libmarpa_dir;
+	my $updir = File::Spec->updir();
+	my $configure_script = File::Spec->catfile( $updir, 'configure' );
         if ( not -r 'stamp-h1' ) {
-            print "Configuring libmarpa\n" if $self->{verbose};
+            print "Configuring libmarpa\n" if $self->verbose();
             my $shell = $Config{sh};
             $shell or die(q{No Bourne shell available says $Config{sh}});
-            my $updir = File::Spec->updir();
-            my $configure_script = File::Spec->catfile( $updir, 'configure' );
             if (not IPC::Cmd::run(
                     command => [ $shell, $configure_script ],
                     verbose => 1
@@ -150,9 +151,14 @@ $subclass_code .= <<'SUBCLASS';
             } ## end if ( not IPC::Cmd::run( command => [ $shell, ...]))
         } ## end if ( not -r 'stamp-h1' )
         else {
-            print "Found configuration for libmarpa\n" if $self->{verbose};
+            print "Found configuration for libmarpa\n" if $self->verbose();
         }
-        print "Making libmarpa: Start\n" if $self->{verbose};
+        print "Making libmarpa: Start\n" if $self->verbose();
+        {
+	     # Make sure "configure" is writeable
+	     my $perm = (stat $configure_script)[2] & 07777;
+	     chmod($perm | 0200, $configure_script);
+	}
         die('Making libmarpa: Failure')
             if not IPC::Cmd::run( command => ['make'], verbose => 1 );
         chdir $cwd;
@@ -199,13 +205,39 @@ $subclass_code .= <<'SUBCLASS';
         $self->SUPER::ACTION_dist;
     } ## end sub ACTION_dist
 
+    sub do_xs {
+        my $self = shift;
+        my $from = 'xs/XS.xs';
+        my $to = 'lib/Marpa/XS.xs';
+        $self->add_to_cleanup($to);
+        $self->copy_if_modified( from => $from, to => $to );
+        $self->process_xs($to);
+    }
+
     sub ACTION_code {
         my $self = shift;
-        $self->{verbose} = 1;
         $self->write_file($version_pm, qw(lib Marpa XS Version.pm) );
         $self->write_file($perl_version_pm, qw(lib Marpa XS Perl Version.pm) );
         $self->do_libmarpa();
-        $self->SUPER::ACTION_code;
+
+        # "Inlined" From Module::Build:
+        # All installable stuff gets created in blib/ .
+        # Create blib/arch to keep blib.pm happy
+        my $blib = $self->blib;
+        $self->add_to_cleanup($blib);
+        File::Path::mkpath( File::Spec->catdir($blib, 'arch') );
+
+        $self->process_PL_files('PL');
+        $self->process_support_files('support');
+        $self->process_pm_files('pm');
+
+        $self->do_xs();
+
+        $self->process_share_dir_files('share_dir');
+        $self->process_pod_files('pod');
+        $self->process_script_files('script');
+
+        $self->depends_on('config_data');
     }
 
     sub ACTION_clean {
@@ -273,7 +305,8 @@ my $build = $class->new(
     extra_linker_flags =>
         "$glib_2_0_linker_flags libmarpa/main/build/src/.libs/libmarpa.a",
     PL_files   => {},
-    xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
+    # The XS file compilation is hard coded, above
+    # xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },

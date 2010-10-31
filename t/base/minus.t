@@ -87,22 +87,18 @@ my $grammar = Marpa::XS::Grammar->new(
         rules   => [
             {   lhs      => 'E',
                 rhs      => [qw/E Minus E/],
-                priority => 50,
                 action   => 'subtraction',
             },
             {   lhs      => 'E',
                 rhs      => [qw/E MinusMinus/],
-                priority => 40,
                 action   => 'postfix_decr',
             },
             {   lhs      => 'E',
                 rhs      => [qw/MinusMinus E/],
-                priority => 30,
                 action   => 'prefix_decr',
             },
             {   lhs      => 'E',
                 rhs      => [qw/Minus E/],
-                priority => 20,
                 action   => 'negation'
             },
             {   lhs    => 'E',
@@ -120,10 +116,10 @@ my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_RULES', 'Minuses Equation Rules' );
-0: E -> E Minus E /* priority=50 */
-1: E -> E MinusMinus /* priority=40 */
-2: E -> MinusMinus E /* priority=30 */
-3: E -> Minus E /* priority=20 */
+0: E -> E Minus E
+1: E -> E MinusMinus
+2: E -> MinusMinus E
+3: E -> Minus E
 4: E -> Number
 5: E['] -> E /* vlhs real=1 */
 END_RULES

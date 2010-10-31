@@ -51,19 +51,19 @@ Marpa::XS::Test::is( $grammar->show_symbols(),
     <<'END_OF_STRING', 'Leo166 Symbols' );
 0: a, lhs=[] rhs=[0 2 3] terminal
 1: S, lhs=[0 1 2 3] rhs=[0 2 4]
-2: S[], lhs=[] rhs=[3] nullable=1 nulling
+2: S[], lhs=[] rhs=[3] nullable nulling
 3: S['], lhs=[4] rhs=[]
-4: S['][], lhs=[5] rhs=[] nullable=1 nulling
+4: S['][], lhs=[5] rhs=[] nullable nulling
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_OF_STRING', 'Leo166 Rules' );
 0: S -> a S /* !used */
-1: S -> /* empty !used nullable */
+1: S -> /* empty !used */
 2: S -> a S
 3: S -> a S[]
 4: S['] -> S /* vlhs real=1 */
-5: S['][] -> /* empty nullable vlhs real=1 */
+5: S['][] -> /* empty vlhs real=1 */
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );

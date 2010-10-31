@@ -45,7 +45,6 @@ sub default_action {
 my $grammar = Marpa::XS::Grammar->new(
     {   start   => 'S',
         strip   => 0,
-        maximal => 1,
 
         rules => [
             [ 'S', [qw/p p p n/], ],
@@ -62,17 +61,17 @@ $grammar->precompute();
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_OF_STRING', 'final nonnulling Rules' );
-0: S -> p p p n /* !used maximal */
-1: p -> a /* maximal */
-2: p -> /* empty !used nullable maximal */
-3: n -> a /* maximal */
-4: S -> p p S[R0:2] /* vrhs maximal real=2 */
-5: S -> p p[] S[R0:2] /* vrhs maximal real=2 */
-6: S -> p[] p S[R0:2] /* vrhs maximal real=2 */
-7: S -> p[] p[] S[R0:2] /* vrhs maximal real=2 */
-8: S[R0:2] -> p n /* vlhs maximal real=2 */
-9: S[R0:2] -> p[] n /* vlhs maximal real=2 */
-10: S['] -> S /* vlhs maximal real=1 */
+0: S -> p p p n /* !used */
+1: p -> a
+2: p -> /* empty !used */
+3: n -> a
+4: S -> p p S[R0:2] /* vrhs real=2 */
+5: S -> p p[] S[R0:2] /* vrhs real=2 */
+6: S -> p[] p S[R0:2] /* vrhs real=2 */
+7: S -> p[] p[] S[R0:2] /* vrhs real=2 */
+8: S[R0:2] -> p n /* vlhs real=2 */
+9: S[R0:2] -> p[] n /* vlhs real=2 */
+10: S['] -> S /* vlhs real=1 */
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_AHFA,

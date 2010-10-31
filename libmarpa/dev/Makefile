@@ -65,10 +65,14 @@ marpa.c marpa.h: copyright_page_license.w marpa.w
 
 marpa.pdf: marpa.tex
 
-install: ../main/src/marpa.c ../main/src/marpa.h
+install: ../main/src/marpa.c ../main/src/marpa.h ../main/src/standalone.c
 
 ../main/src/marpa.c: marpa.c
 	cp marpa.c ../main/src/marpa.c
 
 ../main/src/marpa.h: marpa.h
 	cp marpa.h ../main/src/marpa.h
+
+../main/src/standalone.c: standalone.c
+	cp standalone.c ../main/src/standalone.c
+

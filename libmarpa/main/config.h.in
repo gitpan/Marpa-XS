@@ -37,6 +37,18 @@
 /* Define to the MARPA binary age */
 #undef MARPA_BINARY_AGE
 
+/* Does header inlining actually take place? */
+#undef MARPA_CAN_INLINE
+
+/* Have inline keyword */
+#undef MARPA_HAVE_INLINE
+
+/* Have __inline keyword */
+#undef MARPA_HAVE___INLINE
+
+/* Have __inline__ keyword */
+#undef MARPA_HAVE___INLINE__
+
 /* Define to the MARPA interface age */
 #undef MARPA_INTERFACE_AGE
 

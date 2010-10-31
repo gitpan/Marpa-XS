@@ -13,16 +13,38 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-Earley_Item * T_MARPA_EARLEY_ITEM
+Recce_C * T_MARPA_R_C
+Grammar * T_MARPA_G_C
 
-Recognizer * T_MARPA_R
+Marpa_Symbol_ID T_IV
+Marpa_Rule_ID T_IV
+
+Earley_Item * T_MARPA_EARLEY_ITEM
+Rule * T_MARPA_RULE
 
 INPUT
 
-T_MARPA_R
-	if (sv_isa($arg, \"Marpa::XS::Internal::R_C\")) {
+T_MARPA_G_C
+	if (sv_isa($arg, \"Marpa::XS::Internal::G_C\")) {
 	    IV tmp = SvIV((SV*)SvRV($arg));
-	    $var = INT2PTR(Recognizer *, tmp);
+	    $var = INT2PTR(Grammar *, tmp);
+	} else
+	    Perl_croak(aTHX_ \"%s: %s is not of type Marpa::XS::Internal::G_C\",
+			${$ALIAS?\q[GvNAME(CvGV(cv))]:\qq[\"$pname\"]},
+			\"$var\")
+
+T_MARPA_RULE
+	if (sv_isa($arg, \"Marpa::XS::Internal::Rule_C\")) {
+	    IV tmp = SvIV((SV*)SvRV($arg));
+	    $var = INT2PTR(Rule *, tmp);
+	} else
+	    Perl_croak(aTHX_ \"%s: %s is not of type Marpa::XS::Internal::Rule_C\",
+			${$ALIAS?\q[GvNAME(CvGV(cv))]:\qq[\"$pname\"]},
+			\"$var\")
+
+T_MARPA_R_C
+	if (sv_isa($arg, \"Marpa::XS::Internal::R_C\")) {
+            $var = (Recce_C *)SvPV_nolen((SV*)SvRV($arg));
 	} else
 	    Perl_croak(aTHX_ \"%s: %s is not of type Marpa::XS::Internal::R_C\",
 			${$ALIAS?\q[GvNAME(CvGV(cv))]:\qq[\"$pname\"]},

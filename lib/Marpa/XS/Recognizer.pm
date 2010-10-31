@@ -163,9 +163,9 @@ sub Marpa::XS::Internal::Earley_Item::new {
     my ( $class, $recce ) = @_;
     my $item = bless [], $class;
 
-    $item->[Marpa::XS::Internal::Earley_Item::C] =
-        Marpa::XS::Internal::Earley_Item_C->new(
-        $recce->[Marpa::XS::Internal::Recognizer::C], $item );
+    my $recce_c = $recce->[Marpa::XS::Internal::Recognizer::C];
+    my $earley_item_c = Marpa::XS::Internal::Earley_Item_C->new( $recce_c );
+    $item->[Marpa::XS::Internal::Earley_Item::C] = $earley_item_c;
     return $item;
 } ## end sub Marpa::XS::Internal::Earley_Item::new
 
@@ -189,6 +189,8 @@ sub Marpa::XS::Recognizer::new {
     Marpa::XS::exception(
         "${class}::new() grammar arg has wrong class: $grammar_class")
         if not $grammar_class eq 'Marpa::XS::Grammar';
+
+    my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
 
     my $problems = $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS];
     if ($problems) {
@@ -219,7 +221,7 @@ sub Marpa::XS::Recognizer::new {
     $recce->[Marpa::XS::Internal::Recognizer::WARNINGS] = 1;
     $recce->reset_evaluation();
     $recce->[Marpa::XS::Internal::Recognizer::C] =
-        Marpa::XS::Internal::R_C->new($recce);
+        Marpa::XS::Internal::R_C->new( $grammar_c );
     $recce->[Marpa::XS::Internal::Recognizer::MODE]           = 'default';
     $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] = 'none';
     $recce->[Marpa::XS::Internal::Recognizer::USE_LEO]        = 1;
@@ -786,7 +788,7 @@ sub Marpa::XS::Recognizer::show_progress {
                 $item_text .= Marpa::XS::show_dotted_rule( $rule, $position );
             }
             else {
-                $item_text .= Marpa::XS::brief_rule($rule);
+                $item_text .= $grammar->brief_rule($rule);
             }
             push @sort_data,
                 [
@@ -1343,7 +1345,7 @@ sub complete {
                     push @{ $target_item
                             ->[Marpa::XS::Internal::Earley_Item::LINKS] },
                         [ $parent_item, $earley_item ];
-                }
+                } ## end else [ if ($leo_item) ]
             }    # TRANSITION_STATE
 
         }    # PARENT_ITEM

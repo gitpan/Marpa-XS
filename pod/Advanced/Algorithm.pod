@@ -494,8 +494,8 @@ of exactly the type that the parser
 wants, on the fly.
 Presto, Kansas.
 For more about Ruby Slippers Parsing, see
-L<my blog post on the
-subject|http://blogs.perl.org/users/jeffrey_kegler/2010/06/parsing-with-ruby-slippers.html>.
+my blog post on the subject:
+L<http://blogs.perl.org/users/jeffrey_kegler/2010/06/parsing-with-ruby-slippers.html>.
 
 =head1 EARLEMES
 

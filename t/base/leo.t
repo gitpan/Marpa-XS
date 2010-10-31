@@ -71,25 +71,25 @@ Marpa::XS::Test::is( $grammar->show_symbols(),
 1: b, lhs=[] rhs=[2 7 8] terminal
 2: S, lhs=[0 1 4 5 6] rhs=[0 4 9]
 3: C, lhs=[2 3 7 8] rhs=[1 2 6 7]
-4: S[], lhs=[] rhs=[5] nullable=1 nulling
-5: C[], lhs=[] rhs=[8] nullable=1 nulling
+4: S[], lhs=[] rhs=[5] nullable nulling
+5: C[], lhs=[] rhs=[8] nullable nulling
 6: S['], lhs=[9] rhs=[]
-7: S['][], lhs=[10] rhs=[] nullable=1 nulling
+7: S['][], lhs=[10] rhs=[] nullable nulling
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_OF_STRING', 'Leo168 Rules' );
 0: S -> a S /* !used */
-1: S -> C /* !used nullable */
+1: S -> C /* !used */
 2: C -> a C b /* !used */
-3: C -> /* empty !used nullable */
+3: C -> /* empty !used */
 4: S -> a S
 5: S -> a S[]
 6: S -> C
 7: C -> a C b
 8: C -> a C[] b
 9: S['] -> S /* vlhs real=1 */
-10: S['][] -> /* empty nullable vlhs real=1 */
+10: S['][] -> /* empty vlhs real=1 */
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo168 AHFA' );

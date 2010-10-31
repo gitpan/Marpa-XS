@@ -20,7 +20,13 @@ use warnings;
 use Test::More tests => 8;
 use Marpa::XS::Test;
 
+package Marpa::XS;
+our $FORCE_PP;
+
 BEGIN {
+
+    # force perl-only version to be tested
+    $Marpa::XS::FORCE_PP = 1;
     Test::More::use_ok('Marpa::XS');
 }
 
@@ -54,11 +60,11 @@ Marpa::XS::Test::is( $g->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
 EOS
 
 Marpa::XS::Test::is( $g->show_symbols, <<'EOS', 'Aycock/Horspool Symbols' );
-0: S', stripped nullable=4
-1: S, stripped nullable=4
-2: A, stripped nullable=1
+0: S', stripped nullable
+1: S, stripped nullable
+2: A, stripped nullable
 3: a, stripped terminal
-4: E, stripped nullable=1 nulling
+4: E, stripped nullable nulling
 EOS
 
 Marpa::XS::Test::is( $g->show_nullable_symbols, 'stripped_',

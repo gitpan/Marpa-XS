@@ -2209,8 +2209,8 @@ sub Marpa::XS::Recognizer::value {
                     last CREATE_LINK_WORKLIST;
                 } ## end if ( $work_symbol->[...])
 
-                # Maps token links ($predecessor, $token_name, $value_ref)
-                # to link work items
+                # Collect links for or node items
+                # into link work items
                 @link_worklist =
                     map { @{ $_->[Marpa::XS::Internal::Earley_Item::LINKS] } }
                     @{$or_node_items};

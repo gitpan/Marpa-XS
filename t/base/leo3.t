@@ -62,28 +62,28 @@ Marpa::XS::Test::is( $grammar->show_symbols(),
 2: A, lhs=[1 7] rhs=[0 5]
 3: B, lhs=[2 8] rhs=[1 7]
 4: C, lhs=[3 9] rhs=[2 8]
-5: S[], lhs=[] rhs=[] nullable=1 nulling
-6: A[], lhs=[] rhs=[6] nullable=1 nulling
-7: B[], lhs=[] rhs=[] nullable=1 nulling
-8: C[], lhs=[] rhs=[] nullable=1 nulling
+5: S[], lhs=[] rhs=[] nullable nulling
+6: A[], lhs=[] rhs=[6] nullable nulling
+7: B[], lhs=[] rhs=[] nullable nulling
+8: C[], lhs=[] rhs=[] nullable nulling
 9: S['], lhs=[10] rhs=[]
-10: S['][], lhs=[11] rhs=[] nullable=1 nulling
+10: S['][], lhs=[11] rhs=[] nullable nulling
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_OF_STRING', 'Leo166 Rules' );
 0: S -> a A /* !used */
-1: A -> B /* !used nullable */
-2: B -> C /* !used nullable */
-3: C -> S /* !used nullable */
-4: S -> /* empty !used nullable */
+1: A -> B /* !used */
+2: B -> C /* !used */
+3: C -> S /* !used */
+4: S -> /* empty !used */
 5: S -> a A
 6: S -> a A[]
 7: A -> B
 8: B -> C
 9: C -> S
 10: S['] -> S /* vlhs real=1 */
-11: S['][] -> /* empty nullable vlhs real=1 */
+11: S['][] -> /* empty vlhs real=1 */
 END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );

@@ -215,7 +215,7 @@ sub Marpa::XS::Recognizer::show_recce_and_node {
                 . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
                 . Marpa::XS::show_dotted_rule( $rule, $position + 1 )
                 . "\n    "
-                . Marpa::XS::brief_virtual_rule( $rule, $position + 1 )
+                . $grammar->brief_virtual_rule( $rule, $position + 1 )
                 . "\n";
             last SHOW_RULE;
         } ## end if ( $is_virtual_rule and $verbose >= 2 )
@@ -224,7 +224,7 @@ sub Marpa::XS::Recognizer::show_recce_and_node {
         $text
             .= '    rule '
             . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
-            . Marpa::XS::brief_virtual_rule( $rule, $position + 1 ) . "\n";
+            . $grammar->brief_virtual_rule( $rule, $position + 1 ) . "\n";
 
     } ## end SHOW_RULE:
 
@@ -292,7 +292,7 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
                 . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
                 . Marpa::XS::show_dotted_rule( $rule, $position + 1 )
                 . "\n    "
-                . Marpa::XS::brief_virtual_rule( $rule, $position + 1 )
+                . $grammar->brief_virtual_rule( $rule, $position + 1 )
                 . "\n";
             last SHOW_RULE;
         } ## end if ( $is_virtual_rule and $verbose >= 2 )
@@ -301,7 +301,7 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
         $text
             .= '    rule '
             . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
-            . Marpa::XS::brief_virtual_rule( $rule, $position + 1 ) . "\n";
+            . $grammar->brief_virtual_rule( $rule, $position + 1 ) . "\n";
 
     } ## end SHOW_RULE:
 
@@ -460,6 +460,7 @@ package Marpa::XS::Internal::Value;
 sub Marpa::XS::Internal::Recognizer::set_null_values {
     my ($recce) = @_;
     my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c   = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $trace_values =
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_VALUES];
 
@@ -472,7 +473,10 @@ sub Marpa::XS::Internal::Recognizer::set_null_values {
     $#{$null_values} = $#{$symbols};
 
     SYMBOL: for my $symbol ( @{$symbols} ) {
-        next SYMBOL if not $symbol->[Marpa::XS::Internal::Symbol::NULLING];
+
+        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
+
+        next SYMBOL if not $grammar_c->symbol_is_nulling( $symbol_id );
 
         my $null_value = undef;
         if ( $symbol->[Marpa::XS::Internal::Symbol::NULL_VALUE] ) {
@@ -484,7 +488,6 @@ sub Marpa::XS::Internal::Recognizer::set_null_values {
         }
         next SYMBOL if not defined $null_value;
 
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
         $null_values->[$symbol_id] = $null_value;
 
         if ($trace_values) {
@@ -683,6 +686,7 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
 sub do_rank_all {
     my ( $recce, $depth_by_id ) = @_;
     my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
     my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
 
@@ -757,10 +761,9 @@ sub do_rank_all {
                 "Ranking closure '$ranking_action' not found")
                 if not defined $ranking_closure;
 
-            $ranking_closures_by_symbol{ $rule
-                    ->[Marpa::XS::Internal::Rule::LHS]
-                    ->[Marpa::XS::Internal::Symbol::NULL_ALIAS]
-                    ->[Marpa::XS::Internal::Symbol::NAME] } =
+            my $lhs_id = $rule ->[Marpa::XS::Internal::Rule::LHS]->[Marpa::XS::Internal::Symbol::ID];
+            my $lhs_null_alias = $symbols->[$grammar_c->symbol_null_alias($lhs_id)];
+            $ranking_closures_by_symbol{ $lhs_null_alias->[Marpa::XS::Internal::Symbol::NAME] } =
                 $ranking_closure;
         } ## end if ( not scalar @{ $rule->[Marpa::XS::Internal::Rule::RHS...]})
 
@@ -964,8 +967,6 @@ sub do_rank_all {
                 if ( not defined $rank_ref ) {
                     push @unranked_and_nodes, $child_and_node_id;
 
-# say STDERR "rank for a$child_and_node_id not defined -- re-adding to worklist";
-
                     next CHILD_AND_NODE;
                 } ## end if ( not defined $rank_ref )
 
@@ -1135,7 +1136,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                             $and_node->[Marpa::XS::Internal::And_Node::ID],
                             q{ },
                             $and_node->[Marpa::XS::Internal::And_Node::TAG],
-                            ', rule: ', Marpa::XS::brief_rule($rule)
+                            ', rule: ', $grammar->brief_rule($rule)
                             or Marpa::XS::exception(
                             'Could not print to trace file');
                     } ## end if ($trace_values)
@@ -1158,7 +1159,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                             $and_node->[Marpa::XS::Internal::And_Node::ID],
                             q{ },
                             $and_node->[Marpa::XS::Internal::And_Node::TAG],
-                            ', rule: ', Marpa::XS::brief_rule($rule),
+                            ', rule: ', $grammar->brief_rule($rule),
                             "\n",
                             "Incrementing virtual rule by $real_symbol_count symbols\n",
                             'Currently ',
@@ -1188,7 +1189,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                             $and_node->[Marpa::XS::Internal::And_Node::ID],
                             q{ },
                             $and_node->[Marpa::XS::Internal::And_Node::TAG],
-                            ', rule: ', Marpa::XS::brief_rule($rule),
+                            ', rule: ', $grammar->brief_rule($rule),
                             "\nAdding $real_symbol_count symbols; currently ",
                             ( scalar @virtual_rule_stack ),
                             ' rules; ', $virtual_rule_stack[-1], ' symbols'
@@ -1224,7 +1225,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                             $and_node->[Marpa::XS::Internal::And_Node::ID],
                             q{ },
                             $and_node->[Marpa::XS::Internal::And_Node::TAG],
-                            ', rule: ', Marpa::XS::brief_rule($rule),
+                            ', rule: ', $grammar->brief_rule($rule),
                             "\nAdding $real_symbol_count, now ",
                             ( scalar @virtual_rule_stack ),
                             ' rules; ', $virtual_rule_stack[-1], ' symbols'
@@ -1246,7 +1247,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                             $and_node->[Marpa::XS::Internal::And_Node::ID],
                             q{ },
                             $and_node->[Marpa::XS::Internal::And_Node::TAG],
-                            ', rule: ', Marpa::XS::brief_rule($rule),
+                            ', rule: ', $grammar->brief_rule($rule),
                             "\nSymbol count is $real_symbol_count, now ",
                             ( scalar @virtual_rule_stack + 1 ), ' rules',
                             or Marpa::XS::exception(
@@ -1302,7 +1303,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                                 warnings    => \@warnings,
                                 where       => 'computing value',
                                 long_where  => 'Computing value for rule: '
-                                    . Marpa::XS::brief_rule($rule),
+                                    . $grammar->brief_rule($rule),
                             }
                         );
                     } ## end if ( not $eval_ok or @warnings )
@@ -1336,6 +1337,7 @@ sub Marpa::XS::Internal::Recognizer::do_null_parse {
     my ( $recce, $start_rule ) = @_;
 
     my $start_symbol = $start_rule->[Marpa::XS::Internal::Rule::LHS];
+    my $start_symbol_id = $start_symbol->[Marpa::XS::Internal::Symbol::ID];
 
     # Cannot increment the null parse
     return if $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]++;
@@ -1343,7 +1345,6 @@ sub Marpa::XS::Internal::Recognizer::do_null_parse {
     my $evaluator_rules =
         $recce->[Marpa::XS::Internal::Recognizer::EVALUATOR_RULES];
 
-    my $start_symbol_id = $start_symbol->[Marpa::XS::Internal::Symbol::ID];
     my $start_rule_id   = $start_rule->[Marpa::XS::Internal::Rule::ID];
 
     my $and_node = [];
@@ -1462,6 +1463,7 @@ sub Marpa::XS::Recognizer::value {
     } ## end for my $arg_hash (@arg_hashes)
 
     my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c     = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $earley_sets = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_SETS];
     my $earley_hash = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_HASH];
 
@@ -1518,8 +1520,9 @@ sub Marpa::XS::Recognizer::value {
 
         return Marpa::XS::Internal::Recognizer::do_null_parse( $recce,
             $start_rule )
-            if $start_rule->[Marpa::XS::Internal::Rule::LHS]
-                ->[Marpa::XS::Internal::Symbol::NULLING];
+            if $grammar_c->symbol_is_nulling(
+            $start_rule->[Marpa::XS::Internal::Rule::LHS]
+                ->[Marpa::XS::Internal::Symbol::ID] );
 
         @task_list = ();
         push @task_list, [Marpa::XS::Internal::Task::INITIALIZE];
@@ -2081,7 +2084,9 @@ sub Marpa::XS::Recognizer::value {
             my $work_symbol =
                 $work_rule->[Marpa::XS::Internal::Rule::RHS]
                 ->[$work_position];
+            my $work_symbol_id = $work_symbol->[Marpa::XS::Internal::Symbol::ID];
 
+            # Rewrite this, & retroport to the Pure Perl version
             for my $item ( @{$or_node_items} ) {
 
                 my $or_sapling_set = $work_set;
@@ -2092,6 +2097,8 @@ sub Marpa::XS::Recognizer::value {
 
                 # If this is a Leo completion, translate the Leo links
                 for my $leo_link ( @{$leo_links} ) {
+
+                    # say STDERR join " ", __FILE__, __LINE__, "=== translating leo links ===";
 
                     my ( $leo_item, $cause, $token_name, $token_value ) =
                         @{$leo_link};
@@ -2115,6 +2122,9 @@ sub Marpa::XS::Recognizer::value {
                     LEO_ITEM: for ( ;; ) {
 
                         if ( not $next_leo_item ) {
+
+                            # die join " ", __FILE__, __LINE__, "next link cnt", (scalar @{$next_links})
+                                # if scalar @{$next_links} != 1;
 
                             #<<< perltidy cycles as of version 20090616
                             push @{ $item
@@ -2144,8 +2154,14 @@ sub Marpa::XS::Recognizer::value {
                             $state->[Marpa::XS::Internal::AHFA::ID],
                             $origin,
                             $or_sapling_set;
+
+                        # say STDERR join " ", __FILE__, __LINE__, "next leo item is name $name";
+
                         my $target_item = $earley_hash->{$name};
                         if ( not defined $target_item ) {
+
+                            # say STDERR join " ", __FILE__, __LINE__, "adding new leo item $name";
+
                             $target_item =
                                 Marpa::XS::Internal::Earley_Item->new($recce);
                             $target_item
@@ -2167,6 +2183,9 @@ sub Marpa::XS::Recognizer::value {
                             push @{ $earley_sets->[$or_sapling_set] },
                                 $target_item;
                         } ## end if ( not defined $target_item )
+
+                        # die join " ", __FILE__, __LINE__, "next link cnt", (scalar @{$next_links})
+                            # if scalar @{$next_links} != 1;
 
                         push @{ $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] },
@@ -2196,9 +2215,8 @@ sub Marpa::XS::Recognizer::value {
                 # All predecessors apply to a
                 # nulling work symbol.
 
-                if ( $work_symbol->[Marpa::XS::Internal::Symbol::NULLING] ) {
-                    my $nulling_symbol_id =
-                        $work_symbol->[Marpa::XS::Internal::Symbol::ID];
+                if ( $grammar_c->symbol_is_nulling($work_symbol_id) ) {
+                    my $nulling_symbol_id = $work_symbol_id;
                     $value_ref = \$null_values->[$nulling_symbol_id];
                     $token_name =
                         $work_symbol->[Marpa::XS::Internal::Symbol::NAME];
@@ -2206,10 +2224,10 @@ sub Marpa::XS::Recognizer::value {
                         map { [ $_, undef, $token_name, $value_ref ] }
                         @{$or_node_items};
                     last CREATE_LINK_WORKLIST;
-                } ## end if ( $work_symbol->[...])
+                } ## end if ( $grammar_c->symbol_is_nulling($work_symbol_id) )
 
-                # Maps token links ($predecessor, $token_name, $value_ref)
-                # to link work items
+                # Collect links for or node items
+                # into link work items
                 @link_worklist =
                     map { @{ $_->[Marpa::XS::Internal::Earley_Item::LINKS] } }
                     @{$or_node_items};
@@ -2315,8 +2333,7 @@ sub Marpa::XS::Recognizer::value {
 
                 if ( defined $cause ) {
 
-                    my $cause_symbol_id =
-                        $work_symbol->[Marpa::XS::Internal::Symbol::ID];
+                    my $cause_symbol_id = $work_symbol_id;
 
                     my $state =
                         $cause->[Marpa::XS::Internal::Earley_Item::STATE];

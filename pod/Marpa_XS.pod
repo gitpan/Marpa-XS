@@ -76,8 +76,7 @@ perltidy: '-dcsc -sil=0'
 PLEASE DO NOT USE THIS MODULE.
 As of now THIS MODULE CONTAINS NOTHING USEFUL.
 When complete, it will be the XS extension for
-L<the Marpa
-parser|Marpa>.
+the Marpa parser.
 
 Marpa::XS resides on CPAN
 so that the cpantesters can give me feedback
@@ -104,7 +103,7 @@ on it for anything mission-critical.
 
 =head2 Overview
 
-L<Marpa> parses any language whose
+L<Marpa::XS> parses any language whose
 grammar can be written in BNF.
 That includes recursive grammars,
 ambiguous grammars, infinitely ambiguous grammars and
@@ -788,7 +787,7 @@ on issues about which I really should have know better.
 
 =head1 SUPPORT
 
-L<Marpa> comes without warranty.
+L<Marpa::XS> comes without warranty.
 Support is provided
 on a volunteer basis 
 through the standard mechanisms for CPAN modules.
