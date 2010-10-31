@@ -226,6 +226,23 @@ PPCODE:
     }
 
 void
+symbol_is_counted_set( g, symbol_id, boolean )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+    int boolean;
+PPCODE:
+    marpa_symbol_is_counted_set( g, symbol_id, (boolean ? TRUE : FALSE));
+
+void
+symbol_is_counted( g, symbol_id )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+PPCODE:
+    { gboolean boolean = marpa_symbol_is_counted_value( g, symbol_id );
+    XPUSHs( sv_2mortal( newSViv(boolean) ) );
+    }
+
+void
 symbol_is_nullable_set( g, symbol_id, boolean )
     Grammar *g;
     Marpa_Symbol_ID symbol_id;
@@ -320,6 +337,16 @@ CODE:
 OUTPUT:
     RETVAL
 
+Marpa_Symbol_ID
+symbol_proper_alias( g, symbol_id )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+CODE:
+    RETVAL = marpa_symbol_proper_alias_value(g, symbol_id);
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
  # Rules
 
 Marpa_Rule_ID
@@ -330,7 +357,8 @@ rule_new( g, lhs, rhs_av )
 PREINIT:
     int length;
     Marpa_Symbol_ID* rhs;
-CODE:
+    Marpa_Rule_ID new_rule_id;
+PPCODE:
     length = av_len(rhs_av)+1;
     if (length <= 0) {
         rhs = (Marpa_Symbol_ID*)NULL;
@@ -346,17 +374,11 @@ CODE:
 	        rhs[i] = SvIV(*elem);
 	    }
 	}
-	Safefree(rhs);
     }
-    RETVAL = marpa_rule_new(g, lhs, rhs, length);
-    if (RETVAL < 0) {
-        if (length > 0) {
-	    Safefree(rhs);
-	}
-	XSRETURN_UNDEF;
-    }
-OUTPUT:
-    RETVAL
+    new_rule_id = marpa_rule_new(g, lhs, rhs, length);
+    Safefree(rhs);
+    if (new_rule_id < 0) { XSRETURN_UNDEF; }
+    XPUSHs( sv_2mortal( newSViv(new_rule_id) ) );
 
 Marpa_Symbol_ID
 rule_lhs( g, rule_id )

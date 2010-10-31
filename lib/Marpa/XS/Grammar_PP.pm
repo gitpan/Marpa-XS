@@ -94,7 +94,6 @@ use Marpa::XS::Offset qw(
     :package=Marpa::XS::Internal::Rule
 
     ID
-    NAME
     LHS { ref of the left hand symbol }
     RHS { array of symbol refs }
     =LAST_BASIC_DATA_FIELD
@@ -1493,11 +1492,10 @@ sub add_rule {
         $real_symbol_count;
 
     push @{$rules}, $new_rule;
-    my $lhs_count = do {
+    {
         my $lhs_rule_ids = $lhs->[Marpa::XS::Internal::Symbol::LH_RULE_IDS];
         push @{$lhs_rule_ids}, $new_rule_id;
-	scalar @{$lhs_rule_ids} - 1;
-    };
+    }
 
     SYMBOL: for my $symbol ( @{$rhs} ) {
         my $rhs_rule_ids =
@@ -1505,8 +1503,6 @@ sub add_rule {
         next SYMBOL if $new_rule_id ~~ @{$rhs_rule_ids};
         push @{$rhs_rule_ids}, $new_rule_id;
     } ## end for my $symbol ( @{$rhs} )
-
-    $new_rule->[Marpa::XS::Internal::Rule::NAME] = "$lhs_name:$lhs_count";
 
     if ($trace_rules) {
         print {$trace_fh} 'Added rule #', $#{$rules}, ': ',

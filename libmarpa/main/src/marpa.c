@@ -1,5 +1,5 @@
-/*170:*/
-#line 1318 "./marpa.w"
+/*177:*/
+#line 1357 "./marpa.w"
 
 /*
  * Copyright 2010 Jeffrey Kegler
@@ -35,17 +35,17 @@
 #include "config.h"
 #include "marpa.h"
 
-#line 1352 "./marpa.w"
+#line 1391 "./marpa.w"
 
-/*156:*/
-#line 1143 "./marpa.w"
+/*163:*/
+#line 1182 "./marpa.w"
 
 
 #undef G_LOG_DOMAIN
 #define G_LOG_DOMAIN "Marpa"
 
-/*:156*/
-#line 1353 "./marpa.w"
+/*:163*/
+#line 1392 "./marpa.w"
 
 /*20:*/
 #line 399 "./marpa.w"
@@ -58,7 +58,7 @@ const unsigned int marpa_interface_age= MARPA_INTERFACE_AGE;
 const unsigned int marpa_binary_age= MARPA_BINARY_AGE;
 
 /*:20*/
-#line 1354 "./marpa.w"
+#line 1393 "./marpa.w"
 
 /*18:*/
 #line 393 "./marpa.w"
@@ -74,11 +74,11 @@ GArray*lhs;
 /*:63*//*71:*/
 #line 692 "./marpa.w"
 GArray*rhs;
-/*:71*//*117:*/
-#line 886 "./marpa.w"
+/*:71*//*123:*/
+#line 912 "./marpa.w"
 
 struct marpa_symbol*alias;
-/*:117*/
+/*:123*/
 #line 617 "./marpa.w"
 
 /*61:*/
@@ -92,65 +92,68 @@ Marpa_Symbol_ID id;
 unsigned int is_accessible:1;
 /*:79*//*85:*/
 #line 746 "./marpa.w"
-unsigned int is_nullable:1;
+unsigned int is_counted:1;
 /*:85*//*91:*/
-#line 771 "./marpa.w"
-unsigned int is_nulling:1;
+#line 772 "./marpa.w"
+unsigned int is_nullable:1;
 /*:91*//*97:*/
-#line 796 "./marpa.w"
-unsigned int is_terminal:1;
+#line 797 "./marpa.w"
+unsigned int is_nulling:1;
 /*:97*//*103:*/
 #line 822 "./marpa.w"
-unsigned int is_productive:1;
+unsigned int is_terminal:1;
 /*:103*//*109:*/
-#line 847 "./marpa.w"
+#line 848 "./marpa.w"
+unsigned int is_productive:1;
+/*:109*//*115:*/
+#line 873 "./marpa.w"
 unsigned int is_start:1;
-/*:109*//*116:*/
-#line 883 "./marpa.w"
+/*:115*//*122:*/
+#line 909 "./marpa.w"
 
 unsigned int is_proper_alias:1;
 unsigned int is_nulling_alias:1;
-/*:116*/
+/*:122*/
 #line 619 "./marpa.w"
 
 };
 
-/*:54*//*127:*/
-#line 967 "./marpa.w"
+/*:54*//*134:*/
+#line 1006 "./marpa.w"
 
 struct marpa_rule{
-/*134:*/
-#line 1022 "./marpa.w"
-gsize length;
-/*:134*/
-#line 969 "./marpa.w"
-
-
 /*141:*/
-#line 1059 "./marpa.w"
-Marpa_Rule_ID id;
+#line 1061 "./marpa.w"
+gsize length;
 /*:141*/
-#line 971 "./marpa.w"
+#line 1008 "./marpa.w"
 
-/*143:*/
-#line 1063 "./marpa.w"
+
+/*148:*/
+#line 1098 "./marpa.w"
+Marpa_Rule_ID id;
+/*:148*/
+#line 1010 "./marpa.w"
+
+/*150:*/
+#line 1102 "./marpa.w"
 unsigned int is_accessible:1;
-/*:143*/
-#line 972 "./marpa.w"
+/*:150*/
+#line 1011 "./marpa.w"
 
-/*135:*/
-#line 1025 "./marpa.w"
+/*142:*/
+#line 1064 "./marpa.w"
 Marpa_Symbol_ID symbols[1];
-/*:135*/
-#line 973 "./marpa.w"
+/*:142*/
+#line 1012 "./marpa.w"
 
 };
 static inline gsize rule_sizeof(length){
 return sizeof(struct marpa_rule)+length*sizeof(Marpa_Symbol_ID);
 }
 
-/*:127*/
-#line 1355 "./marpa.w"
+/*:134*/
+#line 1394 "./marpa.w"
 
 /*36:*/
 #line 522 "./marpa.w"
@@ -188,34 +191,38 @@ void symbol_lhs_add(struct marpa_symbol*symbol,Marpa_Rule_ID rule_id);
 #line 714 "./marpa.w"
 static inline
 void symbol_rhs_add(struct marpa_symbol*symbol,Marpa_Rule_ID rule_id);
-/*:77*//*112:*/
-#line 863 "./marpa.w"
+/*:77*//*118:*/
+#line 889 "./marpa.w"
 
 static inline
 gboolean symbol_is_start_value(struct marpa_symbol*symbol);
-/*:112*//*122:*/
-#line 920 "./marpa.w"
+/*:118*//*126:*/
+#line 936 "./marpa.w"
+
+static inline struct marpa_symbol*symbol_proper_alias_value(struct marpa_symbol*symbol);
+/*:126*//*129:*/
+#line 958 "./marpa.w"
 
 static inline struct marpa_symbol*symbol_null_alias_value(struct marpa_symbol*symbol);
-/*:122*//*129:*/
-#line 999 "./marpa.w"
+/*:129*//*136:*/
+#line 1038 "./marpa.w"
 
 static inline
 struct marpa_rule*rule_new(struct marpa_g*g,
 Marpa_Symbol_ID lhs,Marpa_Symbol_ID*rhs,gint length);
-/*:129*//*133:*/
-#line 1016 "./marpa.w"
+/*:136*//*140:*/
+#line 1055 "./marpa.w"
 
 static inline void marpa_rule_free(struct marpa_rule*rule);
 
-/*:133*//*139:*/
-#line 1049 "./marpa.w"
+/*:140*//*146:*/
+#line 1088 "./marpa.w"
 
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule*rule);
 static inline Marpa_Symbol_ID*rule_rhs_get(struct marpa_rule*rule);
 static inline gsize rule_length_get(struct marpa_rule*rule);
-/*:139*/
-#line 1356 "./marpa.w"
+/*:146*/
+#line 1395 "./marpa.w"
 
 /*37:*/
 #line 528 "./marpa.w"
@@ -242,7 +249,7 @@ g_array_insert_val(g->rules,rule_id,rule);
 }
 
 /*:47*/
-#line 1357 "./marpa.w"
+#line 1396 "./marpa.w"
 
 /*21:*/
 #line 409 "./marpa.w"
@@ -290,12 +297,12 @@ g_array_free(g->rules,TRUE);
 
 {int id;for(id= 0;id<g->symbols->len;id++)
 {marpa_symbol_free(symbol_id2p(g,id));}}
-/*:58*//*131:*/
-#line 1007 "./marpa.w"
+/*:58*//*138:*/
+#line 1046 "./marpa.w"
 
 {int id;for(id= 0;id<g->rules->len;id++)
 {marpa_rule_free(rule_id2p(g,id));}}
-/*:131*/
+/*:138*/
 #line 496 "./marpa.w"
 }
 /*:28*//*33:*/
@@ -370,29 +377,34 @@ symbol->is_accessible= FALSE;
 /*:80*//*86:*/
 #line 747 "./marpa.w"
 
-symbol->is_nullable= FALSE;
+symbol->is_counted= FALSE;
 /*:86*//*92:*/
-#line 772 "./marpa.w"
+#line 773 "./marpa.w"
+
+symbol->is_nullable= FALSE;
+/*:92*//*98:*/
+#line 798 "./marpa.w"
 
 symbol->is_nulling= FALSE;
-/*:92*//*98:*/
-#line 797 "./marpa.w"
-
-symbol->is_terminal= FALSE;
 /*:98*//*104:*/
 #line 823 "./marpa.w"
 
-symbol->is_productive= FALSE;
+symbol->is_terminal= FALSE;
 /*:104*//*110:*/
-#line 848 "./marpa.w"
+#line 849 "./marpa.w"
+
+symbol->is_productive= FALSE;
+/*:110*//*116:*/
+#line 874 "./marpa.w"
 symbol->is_start= FALSE;
-/*:110*//*118:*/
-#line 888 "./marpa.w"
+/*:116*//*124:*/
+#line 914 "./marpa.w"
 
 symbol->is_proper_alias= FALSE;
 symbol->is_nulling_alias= FALSE;
 symbol->alias= NULL;
-/*:118*/
+
+/*:124*/
 #line 627 "./marpa.w"
 
 marpa_g_symbol_add(g,symbol->id,symbol);
@@ -454,49 +466,60 @@ struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 /*:83*//*87:*/
 #line 757 "./marpa.w"
 
-gboolean marpa_symbol_is_nullable_value(struct marpa_g*g,Marpa_Symbol_ID id)
-{return symbol_id2p(g,id)->is_nullable;}
+gboolean marpa_symbol_is_counted_value(struct marpa_g*g,Marpa_Symbol_ID id)
+{return symbol_id2p(g,id)->is_counted;}
 /*:87*//*89:*/
 #line 763 "./marpa.w"
+
+void marpa_symbol_is_counted_set(
+struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
+{symbol_id2p(g,id)->is_counted= value;}
+/*:89*//*93:*/
+#line 783 "./marpa.w"
+
+gboolean marpa_symbol_is_nullable_value(struct marpa_g*g,Marpa_Symbol_ID id)
+{return symbol_id2p(g,id)->is_nullable;}
+/*:93*//*95:*/
+#line 789 "./marpa.w"
 
 void marpa_symbol_is_nullable_set(
 struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 {symbol_id2p(g,id)->is_nullable= value;}
-/*:89*//*93:*/
-#line 782 "./marpa.w"
+/*:95*//*99:*/
+#line 808 "./marpa.w"
 
 gboolean marpa_symbol_is_nulling_value(struct marpa_g*g,Marpa_Symbol_ID id)
 {return symbol_id2p(g,id)->is_nulling;}
-/*:93*//*95:*/
-#line 788 "./marpa.w"
+/*:99*//*101:*/
+#line 814 "./marpa.w"
 
 void marpa_symbol_is_nulling_set(
 struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 {symbol_id2p(g,id)->is_nulling= value;}
-/*:95*//*99:*/
-#line 807 "./marpa.w"
+/*:101*//*105:*/
+#line 833 "./marpa.w"
 
 gboolean marpa_symbol_is_terminal_value(struct marpa_g*g,Marpa_Symbol_ID id)
 {return symbol_id2p(g,id)->is_terminal;}
-/*:99*//*101:*/
-#line 813 "./marpa.w"
+/*:105*//*107:*/
+#line 839 "./marpa.w"
 
 void marpa_symbol_is_terminal_set(
 struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 {symbol_id2p(g,id)->is_terminal= value;}
-/*:101*//*105:*/
-#line 833 "./marpa.w"
+/*:107*//*111:*/
+#line 859 "./marpa.w"
 
 gboolean marpa_symbol_is_productive_value(struct marpa_g*g,Marpa_Symbol_ID id)
 {return symbol_id2p(g,id)->is_productive;}
-/*:105*//*107:*/
-#line 839 "./marpa.w"
+/*:111*//*113:*/
+#line 865 "./marpa.w"
 
 void marpa_symbol_is_productive_set(
 struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 {symbol_id2p(g,id)->is_productive= value;}
-/*:107*//*111:*/
-#line 856 "./marpa.w"
+/*:113*//*117:*/
+#line 882 "./marpa.w"
 
 static inline
 gboolean symbol_is_start_value(struct marpa_symbol*symbol)
@@ -504,18 +527,26 @@ gboolean symbol_is_start_value(struct marpa_symbol*symbol)
 gboolean marpa_symbol_is_start_value(struct marpa_g*g,Marpa_Symbol_ID id){
 return symbol_is_start_value(symbol_id2p(g,id));
 }
-/*:111*//*114:*/
-#line 869 "./marpa.w"
+/*:117*//*120:*/
+#line 895 "./marpa.w"
 
 void marpa_symbol_is_start_set(struct marpa_g*g,Marpa_Symbol_ID id,gboolean value)
 {symbol_id2p(g,id)->is_start= value;}
-/*:114*//*119:*/
-#line 898 "./marpa.w"
+/*:120*//*125:*/
+#line 925 "./marpa.w"
 
-struct marpa_symbol*marpa_symbol_proper_alias_value(struct marpa_symbol*symbol)
-{return symbol->is_nulling_alias?symbol->alias:symbol;}
-/*:119*//*121:*/
-#line 909 "./marpa.w"
+static inline
+struct marpa_symbol*symbol_proper_alias_value(struct marpa_symbol*symbol)
+{return symbol->is_proper_alias?symbol:
+symbol->is_nulling_alias?symbol->alias:NULL;}
+Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g*g,Marpa_Symbol_ID symbol_id)
+{
+struct marpa_symbol*symbol= symbol_id2p(g,symbol_id);
+struct marpa_symbol*alias= symbol_proper_alias_value(symbol);
+return alias==NULL?-1:alias->id;
+}
+/*:125*//*128:*/
+#line 947 "./marpa.w"
 
 static inline
 struct marpa_symbol*symbol_null_alias_value(struct marpa_symbol*symbol)
@@ -527,8 +558,8 @@ struct marpa_symbol*symbol= symbol_id2p(g,symbol_id);
 struct marpa_symbol*alias= symbol_null_alias_value(symbol);
 return alias==NULL?-1:alias->id;
 }
-/*:121*//*124:*/
-#line 933 "./marpa.w"
+/*:128*//*131:*/
+#line 972 "./marpa.w"
 
 struct marpa_symbol*symbol_alias_create(struct marpa_g*g,
 struct marpa_symbol*symbol)
@@ -553,45 +584,45 @@ if(symbol_id<0){return-1;}
 if(symbol_id>=g->symbols->len){return-1;}
 return symbol_alias_create(g,symbol_id2p(g,symbol_id))->id;
 }
-/*:124*//*128:*/
-#line 979 "./marpa.w"
+/*:131*//*135:*/
+#line 1018 "./marpa.w"
 
 static inline
 struct marpa_rule*rule_new(struct marpa_g*g,
 Marpa_Symbol_ID lhs,Marpa_Symbol_ID*rhs,gint length)
 {
 struct marpa_rule*rule;
-/*136:*/
-#line 1026 "./marpa.w"
+/*143:*/
+#line 1065 "./marpa.w"
 
 if(!symbol_is_valid(g,lhs)){return NULL;}
 {int i;for(i= 0;i<length;i++){
 if(!symbol_is_valid(g,rhs[i])){return NULL;}
 }}
-/*:136*/
-#line 985 "./marpa.w"
+/*:143*/
+#line 1024 "./marpa.w"
 
 rule= g_malloc(rule_sizeof(length));
-/*137:*/
-#line 1031 "./marpa.w"
+/*144:*/
+#line 1070 "./marpa.w"
 
 rule->length= length;
 rule->symbols[0]= lhs;
 {int i;for(i= 0;i<length;i++){
 rule->symbols[i+1]= rhs[i];}}
-/*:137*/
-#line 987 "./marpa.w"
+/*:144*/
+#line 1026 "./marpa.w"
 
-/*142:*/
-#line 1060 "./marpa.w"
+/*149:*/
+#line 1099 "./marpa.w"
 rule->id= g->rules->len;
 
-/*:142*//*144:*/
-#line 1064 "./marpa.w"
+/*:149*//*151:*/
+#line 1103 "./marpa.w"
 
 rule->is_accessible= FALSE;
-/*:144*/
-#line 988 "./marpa.w"
+/*:151*/
+#line 1027 "./marpa.w"
 
 marpa_g_rule_add(g,rule->id,rule);
 return rule;
@@ -603,15 +634,15 @@ struct marpa_rule*rule= rule_new(g,lhs,rhs,length);
 return rule==NULL?-1:rule->id;
 }
 
-/*:128*//*132:*/
-#line 1011 "./marpa.w"
+/*:135*//*139:*/
+#line 1050 "./marpa.w"
 
 static inline void marpa_rule_free(struct marpa_rule*rule)
 {
 
 g_free(rule);}
-/*:132*//*138:*/
-#line 1036 "./marpa.w"
+/*:139*//*145:*/
+#line 1075 "./marpa.w"
 
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule*rule){
 return rule->symbols[0];}
@@ -625,31 +656,31 @@ static inline gsize rule_length_get(struct marpa_rule*rule){
 return rule->length;}
 gsize marpa_rule_length_value(struct marpa_g*g,Marpa_Rule_ID rule_id){
 return rule_length_get(rule_id2p(g,rule_id));}
-/*:138*//*145:*/
-#line 1074 "./marpa.w"
+/*:145*//*152:*/
+#line 1113 "./marpa.w"
 
 gboolean marpa_rule_is_accessible_value(struct marpa_g*g,Marpa_Rule_ID id)
 {return rule_id2p(g,id)->is_accessible;}
-/*:145*//*147:*/
-#line 1080 "./marpa.w"
+/*:152*//*154:*/
+#line 1119 "./marpa.w"
 
 void marpa_rule_is_accessible_set(
 struct marpa_g*g,Marpa_Rule_ID id,gboolean value)
 {rule_id2p(g,id)->is_accessible= value;}
-/*:147*//*150:*/
-#line 1119 "./marpa.w"
+/*:154*//*157:*/
+#line 1158 "./marpa.w"
 MARPA_SHIM
 struct marpa_earley_item*marpa_earley_item_new(void)
 {struct marpa_earley_item*item= 
 g_malloc(sizeof(struct marpa_earley_item));
 return item;}
-/*:150*//*152:*/
-#line 1127 "./marpa.w"
+/*:157*//*159:*/
+#line 1166 "./marpa.w"
 
 void marpa_earley_item_free(struct marpa_earley_item*item)
 {g_free(item);}
-/*:152*//*158:*/
-#line 1156 "./marpa.w"
+/*:159*//*165:*/
+#line 1195 "./marpa.w"
 
 
 
@@ -662,8 +693,8 @@ int marpa_effective_micro= 1000*MARPA_MINOR_VERSION+MARPA_MICRO_VERSION;
 int required_effective_micro= 1000*required_minor+required_micro;
 static char output_buffer[1000];
 
-/*160:*/
-#line 1186 "./marpa.w"
+/*167:*/
+#line 1225 "./marpa.w"
 
 
 if(required_major> MARPA_MAJOR_VERSION){
@@ -678,11 +709,11 @@ MARPA_MICRO_VERSION);
 return output_buffer;
 }
 
-/*:160*/
-#line 1168 "./marpa.w"
+/*:167*/
+#line 1207 "./marpa.w"
 
-/*161:*/
-#line 1202 "./marpa.w"
+/*168:*/
+#line 1241 "./marpa.w"
 
 
 if(required_major<MARPA_MAJOR_VERSION){
@@ -699,11 +730,11 @@ return output_buffer;
 }
 
 
-/*:161*/
-#line 1169 "./marpa.w"
+/*:168*/
+#line 1208 "./marpa.w"
 
-/*162:*/
-#line 1220 "./marpa.w"
+/*169:*/
+#line 1259 "./marpa.w"
 
 
 if(required_effective_micro<marpa_effective_micro){
@@ -720,11 +751,11 @@ return output_buffer;
 }
 
 
-/*:162*/
-#line 1170 "./marpa.w"
+/*:169*/
+#line 1209 "./marpa.w"
 
-/*163:*/
-#line 1238 "./marpa.w"
+/*170:*/
+#line 1277 "./marpa.w"
 
 if(required_effective_micro> marpa_effective_micro){
 sprintf(
@@ -740,18 +771,18 @@ MARPA_MICRO_VERSION);
 return output_buffer;
 }
 
-/*:163*/
-#line 1171 "./marpa.w"
+/*:170*/
+#line 1210 "./marpa.w"
 
 
 return"Perfect!";
 }
 
-/*:158*/
-#line 1358 "./marpa.w"
+/*:165*/
+#line 1397 "./marpa.w"
 
 
 
 
 
-/*:170*/
+/*:177*/

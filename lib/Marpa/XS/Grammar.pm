@@ -59,7 +59,6 @@ use Marpa::XS::Offset qw(
     =LAST_EVALUATOR_FIELD
     =LAST_RECOGNIZER_FIELD
 
-    COUNTED { used on rhs of counted rule? }
     WARN_IF_NO_NULL_VALUE { should have a null value -- warn
     if not }
 
@@ -73,7 +72,6 @@ use Marpa::XS::Offset qw(
     C { A C structure }
 
     ID
-    NAME
     LHS { ref of the left hand symbol }
     RHS { array of symbol refs }
     =LAST_BASIC_DATA_FIELD
@@ -1335,20 +1333,41 @@ sub Marpa::XS::Grammar::check_terminal {
     return $grammar_c->symbol_is_terminal( $symbol_id) ? 1 : 0;
 } ## end sub Marpa::XS::Grammar::check_terminal
 
+sub Marpa::XS::Internal::Symbol::wrap_symbol {
+    my ( $class, $symbol_id, $wrap_arg ) = @_;
+    my ( $grammar,   $symbol )   = @{$wrap_arg};
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    if (not defined $symbol) {
+	$symbol      = bless [], $class;
+	$#{$symbol} = Marpa::XS::Internal::Symbol::LAST_FIELD;
+    }
+    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+
+    my $proper_alias_id = $grammar_c->symbol_proper_alias($symbol_id);
+    my $name          = $symbol->[Marpa::XS::Internal::Symbol::NAME];
+    if ( not defined $name and defined $proper_alias_id ) {
+        my $proper_alias = $symbols->[$proper_alias_id];
+        $name = $symbol->[Marpa::XS::Internal::Symbol::NAME] =
+            $proper_alias->[Marpa::XS::Internal::Symbol::NAME] . '[]';
+    }
+    die("Internal Marpa Perl wrapper error: No name for symbol")
+        if not defined $name;
+    $symbol->[Marpa::XS::Internal::Symbol::ID] = $symbol_id;
+    $symbols->[$symbol_id] = $symbol;
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
+    $symbol_hash->{$name} = $symbol_id;
+    $wrap_arg->[1] = undef;
+    return;
+}
+
 sub Marpa::XS::Internal::Symbol::new {
     my ( $class, $grammar, $name ) = @_;
-
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $symbol      = bless [], $class;
-    my $grammar_c   = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
-    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-
     $#{$symbol} = Marpa::XS::Internal::Symbol::LAST_FIELD;
-    my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID] =
-        $grammar_c->symbol_new();
     $symbol->[Marpa::XS::Internal::Symbol::NAME] = $name;
-    $symbols->[$symbol_id]                       = $symbol;
-    $symbol_hash->{$name}                        = $symbol_id;
+    my $symbol_id = $grammar_c->symbol_new();
+    Marpa::XS::Internal::Symbol->wrap_symbol($symbol_id, [$grammar, $symbol]);
     return $symbol;
 } ## end sub Marpa::XS::Internal::Symbol::new
 
@@ -1385,7 +1404,6 @@ sub assign_user_symbol {
     my $symbol = assign_symbol( $grammar, $name );
     my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
 
-    my $greed;
     my $ranking_action;
     my $terminal;
 
@@ -1472,12 +1490,10 @@ sub add_rule {
     $new_rule->[Marpa::XS::Internal::Rule::LHS]            = $lhs;
     $new_rule->[Marpa::XS::Internal::Rule::RHS]            = $rhs;
 
-    my $lhs_count = do {
+    {
         my $lhs_id = $lhs->[Marpa::XS::Internal::Symbol::ID];
         $grammar_c->symbol_lhs_add( $lhs_id, $new_rule_id );
-	my @lhs_rule_ids = $grammar_c->symbol_lhs_rule_ids( $lhs_id );
-	$#lhs_rule_ids;
-    };
+    }
 
     {
         my $rh_symbol_id_seen = -1;
@@ -1494,9 +1510,6 @@ sub add_rule {
 
         } ## end for my $rh_symbol_id ( sort { $a <=> $b } map { $_->[...]})
     }
-
-    my $lhs_name = $lhs->[Marpa::XS::Internal::Symbol::NAME];
-    $new_rule->[Marpa::XS::Internal::Rule::NAME] = "$lhs_name:$lhs_count";
 
     if ($trace_rules) {
         print {$trace_fh} 'Added rule #', $#{$rules}, ': ',
@@ -1563,6 +1576,8 @@ sub add_user_rule {
     Marpa::XS::exception('Missing argument to add_user_rule')
         if not defined $grammar
             or not defined $options;
+
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
 
     my ( $lhs_name, $rhs_names, $action );
     my ( $min, $separator_name );
@@ -1683,13 +1698,15 @@ sub add_user_rule {
         if scalar @{$rhs_names} != 1;
 
     my $sequence_item = $rhs->[0];
-    $sequence_item->[Marpa::XS::Internal::Symbol::COUNTED] = 1;
+    $grammar_c->symbol_is_counted_set(
+        $sequence_item->[Marpa::XS::Internal::Symbol::ID], 1 );
 
     # create the separator symbol, if we're using one
     my $separator;
     if ( defined $separator_name ) {
         $separator = assign_user_symbol( $grammar, $separator_name );
-        $separator->[Marpa::XS::Internal::Symbol::COUNTED] = 1;
+        $grammar_c->symbol_is_counted_set(
+            $separator->[Marpa::XS::Internal::Symbol::ID], 1 );
     }
 
     # create the sequence symbol
@@ -2129,7 +2146,7 @@ sub nullable {
     for my $symbol ( @{$symbols} ) {
         my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
         my $name      = $symbol->[Marpa::XS::Internal::Symbol::NAME];
-        my $counted   = $symbol->[Marpa::XS::Internal::Symbol::COUNTED];
+        my $counted   = $grammar_c->symbol_is_counted($symbol_id);
         if ( $grammar_c->symbol_is_nullable($symbol_id) and $counted ) {
             my $problem =
                 qq{Nullable symbol "$name" is on rhs of counted rule};
@@ -2776,29 +2793,21 @@ sub setup_academic_grammar {
 
 # given a nullable symbol, create a nulling alias and make the first symbol non-nullable
 sub alias_symbol {
-    my $grammar         = shift;
-    my $nullable_symbol = shift;
-
+    my ($grammar, $nullable_symbol) = @_;
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
-    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
 
     # create the new, nulling symbol
-    my $alias = [];
-    $#{$alias} = Marpa::XS::Internal::Symbol::LAST_FIELD;
     my $alias_id =
         $grammar_c->symbol_alias(
         $nullable_symbol->[Marpa::XS::Internal::Symbol::ID] );
-    my $alias_name =
-        $nullable_symbol->[Marpa::XS::Internal::Symbol::NAME] . '[]';
-    $symbols->[$alias_id]                       = $alias;
-    $symbol_hash->{$alias_name}                 = $alias_id;
-    $alias->[Marpa::XS::Internal::Symbol::NAME] = $alias_name;
-    $alias->[Marpa::XS::Internal::Symbol::ID]   = $alias_id;
+    Marpa::XS::Internal::Symbol->wrap_symbol($alias_id, [$grammar]);
 
     # Eliminate in last pass
-    my $null_value = $nullable_symbol->[Marpa::XS::Internal::Symbol::NULL_VALUE];
-    $alias->[Marpa::XS::Internal::Symbol::NULL_VALUE]  = $null_value;
+    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $alias   = $symbols->[$alias_id];
+    my $null_value =
+        $nullable_symbol->[Marpa::XS::Internal::Symbol::NULL_VALUE];
+    $alias->[Marpa::XS::Internal::Symbol::NULL_VALUE] = $null_value;
     return $alias;
 
 } ## end sub alias_symbol

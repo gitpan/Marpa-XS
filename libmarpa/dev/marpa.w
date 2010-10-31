@@ -742,6 +742,32 @@ struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 /* static inline */
 void marpa_symbol_is_accessible_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
+@ Symbol Is Counted Boolean
+@<Bitfield symbol elements@> = unsigned int is_counted:1;
+@ @<Initialize symbol elements@> =
+symbol->is_counted = FALSE;
+@ The trace accessor returns the Boolean value.
+Right now this function uses a pointer
+to the symbol function.
+If that becomes private,
+the prototype of this function
+must be changed.
+\par
+The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id)
+{ return symbol_id2p(g, id)->is_counted; }
+@ @<Public function prototypes@> =
+gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id);
+@ The external mutator is temporary, for development.
+@<Function definitions@> =
+void marpa_symbol_is_counted_set(
+struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
+{ symbol_id2p(g, id)->is_counted = value; }
+@ @<Public function prototypes@> =
+/* static inline */
+void marpa_symbol_is_counted_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
+
 @ Symbol Is Nullable Boolean
 @<Bitfield symbol elements@> = unsigned int is_nullable:1;
 @ @<Initialize symbol elements@> =
@@ -889,17 +915,29 @@ struct marpa_symbol* alias;
 symbol->is_proper_alias = FALSE;
 symbol->is_nulling_alias = FALSE;
 symbol->alias = NULL;
+
 @ Proper Alias Trace Accessor:
-If this symbol is a nulling alias,
-returns the proper alias.
-Otherwise returns the original symbol.
-Never returns |NULL|.
+If this symbol has no proper alias, returns |NULL|.
+Otherwise it returns the proper alias.
+This implies that if
+the argument was the proper alias, it is returned.
 For now, this is also the internal accessor.
 @<Function definitions@> =
-struct marpa_symbol* marpa_symbol_proper_alias_value(struct marpa_symbol* symbol)
-{ return symbol->is_nulling_alias ? symbol->alias : symbol; }
+static inline
+struct marpa_symbol* symbol_proper_alias_value(struct marpa_symbol* symbol)
+{ return symbol->is_proper_alias? symbol :
+symbol->is_nulling_alias ? symbol->alias : NULL; }
+Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
+{
+struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+struct marpa_symbol* alias = symbol_proper_alias_value(symbol);
+return alias == NULL ? -1 : alias->id;
+}
+@ @<Private function prototypes@> =
+static inline struct marpa_symbol* symbol_proper_alias_value(struct marpa_symbol* symbol);
 @ @<Public function prototypes@> =
-struct marpa_symbol* marpa_symbol_proper_alias_value(struct marpa_symbol* symbol);
+Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
+
 @ Nulling Alias Trace Accessor:
 If this symbol has no nulling alias, returns |NULL|.
 Otherwise it returns the nulling alias.
@@ -921,6 +959,7 @@ return alias == NULL ? -1 : alias->id;
 static inline struct marpa_symbol* symbol_null_alias_value(struct marpa_symbol* symbol);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_symbol_null_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
+
 @ Given a proper nullable symbol as its argument,
 converts the argument into two "aliases".
 The proper (non-nullable) alias will have the same symbol ID

@@ -882,7 +882,7 @@ in the long form.
 =head2 Duplicate Rules
 
 Marpa throws an exception if a duplicate rule is added.
-For non-sequence rules, two rules are considered duplicates if
+Two rules are considered duplicates if
 
 =over
 
@@ -892,20 +892,16 @@ For non-sequence rules, two rules are considered duplicates if
 
 =back
 
-For two sequence rules to be considered duplicates,
-the same requirements
-hold as for non-sequence rules,
-but there is also an additional requirement.
-For two sequence rules to be considered duplicates,
-one of the following two conditions must hold
-
-=over
-
-=item * Both rules have no separator.
-
-=item * Both rules have identical separators.
-
-=back
+Note that
+a sequence rule and a non-sequence rule are considered
+duplicates if both have
+identical left and right hand sides.
+Similarly, two sequence rules
+can be duplicates even if they have
+have different separators and/or different counts.
+Sequence separators and counts
+play no role
+in determining if the rule is a duplicate.
 
 =head1 SYMBOL DESCRIPTORS
 
