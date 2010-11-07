@@ -15,8 +15,6 @@
 
 LIST OF UNDOCUMENTED METHODS, ETC.
 
-Marpa::show_location
-
 Marpa::Grammar::inaccessible_symbols
 Marpa::Grammar::show_accessible_symbols
 Marpa::Grammar::show_nullable_symbols

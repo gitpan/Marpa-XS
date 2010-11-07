@@ -86,11 +86,10 @@ DELETE_UNDEF_CONSTANT: for my $ix ( 0 .. $#{$unfreed_proberefs} ) {
         next DELETE_UNDEF_CONSTANT;
     } ## end if ( ref $unfreed_proberefs->[$ix] eq 'SCALAR' and not...)
 
-    if ($verbose)
-    {
-       require Devel::Peek;
-       say STDERR "Unfreed: ",  ${ $unfreed_proberefs->[$ix] };
-       Devel::Peek::Dump( ${ $unfreed_proberefs->[$ix] });
+    if ($verbose) {
+        require Devel::Peek;
+        say STDERR "Unfreed: ", $unfreed_proberefs->[$ix];
+        Devel::Peek::Dump( $unfreed_proberefs->[$ix] );
     }
 
 } ## end for my $ix ( 0 .. $#{$unfreed_proberefs} )

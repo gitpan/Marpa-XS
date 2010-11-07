@@ -60,11 +60,11 @@ Marpa::XS::Test::is( $g->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
 EOS
 
 Marpa::XS::Test::is( $g->show_symbols, <<'EOS', 'Aycock/Horspool Symbols' );
-0: S', stripped nullable
-1: S, stripped nullable
-2: A, stripped nullable
-3: a, stripped terminal
-4: E, stripped nullable nulling
+0: S', lhs=[0] rhs=[] nullable
+1: S, lhs=[1] rhs=[0] nullable
+2: A, lhs=[2 3] rhs=[1] nullable
+3: a, lhs=[] rhs=[2] terminal
+4: E, lhs=[4] rhs=[3] nullable nulling
 EOS
 
 Marpa::XS::Test::is( $g->show_nullable_symbols, 'stripped_',

@@ -377,57 +377,6 @@ sub Marpa::XS::Grammar::new {
     return $grammar;
 } ## end sub Marpa::XS::Grammar::new
 
-# For use some day to make locator() more efficient on repeated calls
-sub binary_search {
-    my ( $target, $data ) = @_;
-    my ( $lower, $upper ) = ( 0, $#{$data} );
-    while ( $lower <= $upper ) {
-        my $i = int +( ( $lower + $upper ) / 2 );
-        given ( $data->[$i] ) {
-            when ( $_ < $target ) { $lower = $i; }
-            when ( $_ > $target ) { $upper = $i; }
-            default               { return $i };
-        }
-    } ## end while ( $lower <= $upper )
-    return $lower;
-} ## end sub binary_search
-
-sub locator {
-    my $earleme = shift;
-    my $string  = shift;
-
-    my $lines;
-    $lines //= [0];
-    my $pos = pos ${$string} = 0;
-    NL: while ( ${$string} =~ /\n/gxms ) {
-        $pos = pos ${$string};
-        push @{$lines}, $pos;
-        last NL if $pos > $earleme;
-    }
-    my $line = ( @{$lines} ) - ( $pos > $earleme ? 2 : 1 );
-    my $line_start = $lines->[$line];
-    return ( $line, $line_start );
-} ## end sub locator
-
-sub Marpa::XS::show_location {
-    my ( $msg, $source, $earleme ) = @_;
-    my $result = q{};
-
-    my ( $line, $line_start ) = locator( $earleme, $source );
-    $result .= $msg . ' at line ' . ( $line + 1 ) . ", earleme $earleme\n";
-    given ( index ${$source}, "\n", $line_start ) {
-        when (undef) {
-            $result .= ( substr ${$source}, $line_start ) . "\n";
-        }
-        default {
-            $result .= ( substr ${$source}, $line_start, $_ - $line_start )
-                . "\n";
-        }
-    } ## end given
-    $result .= ( q{ } x ( $earleme - $line_start ) ) . "^\n";
-    return $result;
-} ## end sub Marpa::XS::show_location
-
 use constant GRAMMAR_OPTIONS => [
     qw{
         academic

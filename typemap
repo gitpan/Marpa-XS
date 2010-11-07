@@ -16,6 +16,7 @@
 Recce_C * T_MARPA_R_C
 Grammar * T_MARPA_G_C
 
+Marpa_Grammar_ID T_IV
 Marpa_Symbol_ID T_IV
 Marpa_Rule_ID T_IV
 

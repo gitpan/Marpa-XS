@@ -59,6 +59,42 @@ static inline Grammar* grammar_sv2c (SV *g_sv)
     return INT2PTR(Grammar *, tmp);
 }
 
+static void
+xs_rule_callback(Grammar *g, Marpa_Rule_ID id)
+{
+    SV* cb = g->rule_callback_arg;
+    if (!cb) return;
+    if (!SvOK(cb)) return;
+    dSP;
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newSViv( marpa_grammar_id_value(g))));
+    XPUSHs(sv_2mortal(newSViv(id)));
+    PUTBACK;
+    call_sv(cb, G_DISCARD);
+    FREETMPS;
+    LEAVE;
+}
+
+static void
+xs_symbol_callback(Grammar *g, Marpa_Symbol_ID id)
+{
+    SV* cb = g->symbol_callback_arg;
+    if (!cb) return;
+    if (!SvOK(cb)) return;
+    dSP;
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newSViv( marpa_grammar_id_value(g))));
+    XPUSHs(sv_2mortal(newSViv(id)));
+    PUTBACK;
+    call_sv(cb, G_DISCARD);
+    FREETMPS;
+    LEAVE;
+}
+
 static inline SV* recce_wrap( Recognizer* recce, SV* g_sv)
 {
     Recce_C *recce_c;
@@ -96,24 +132,6 @@ PPCODE:
    mPUSHi( version[2] );
 }
 
-void
-marpa_error(string)
-     char * string
-CODE:
-     g_error("%s", string);
-
-void
-marpa_warning(string)
-     char * string
-CODE:
-     g_warning("%s", string);
-
-void
-marpa_debug(string)
-     char * string
-CODE:
-     g_debug("%s", string);
-
 MODULE = Marpa::XS        PACKAGE = Marpa::XS::Internal::G_C
 
 Grammar *
@@ -125,6 +143,8 @@ PREINIT:
 PPCODE:
     Newxz( grammar, 1, Grammar );
     marpa_g_init( grammar );
+    marpa_symbol_callback_set( grammar, &xs_symbol_callback );
+    marpa_rule_callback_set( grammar, &xs_rule_callback );
     sv = sv_newmortal();
     sv_setref_pv(sv, grammar_c_class_name, (void*)grammar);
     XPUSHs(sv);
@@ -133,8 +153,53 @@ void
 DESTROY( grammar )
     Grammar *grammar;
 CODE:
+    {
+       SV *sv = marpa_symbol_callback_arg_peek(grammar);
+       if (sv) { SvREFCNT_dec(sv); }
+    }
+    {
+       SV *sv = marpa_rule_callback_arg_peek(grammar);
+       if (sv) { SvREFCNT_dec(sv); }
+    }
     marpa_g_destroy( grammar );
     Safefree( grammar );
+
+ # Note the Perl callback closure
+ # is, in the libmarpa context, the *ARGUMENT* of the callback,
+ # not the callback itself.
+ # The libmarpa callback is a wrapper
+ # that calls the Perl closure.
+void
+rule_callback_set( g, sv )
+    Grammar *g;
+    SV *sv;
+PPCODE:
+    {
+       SV *old_sv = marpa_rule_callback_arg_peek(g);
+       if (old_sv) { SvREFCNT_dec(old_sv); }
+    }
+    marpa_rule_callback_arg_set( g, sv );
+    SvREFCNT_inc(sv);
+
+void
+symbol_callback_set( g, sv )
+    Grammar *g;
+    SV *sv;
+PPCODE:
+    {
+       SV *old_sv = marpa_symbol_callback_arg_peek(g);
+       if (old_sv) { SvREFCNT_dec(old_sv); }
+    }
+    marpa_symbol_callback_arg_set( g, sv );
+    SvREFCNT_inc(sv);
+
+Marpa_Grammar_ID
+id( g )
+    Grammar *g;
+CODE:
+    RETVAL = marpa_grammar_id_value(g);
+OUTPUT:
+    RETVAL
 
 Marpa_Symbol_ID
 symbol_new( g )
@@ -441,6 +506,13 @@ PPCODE:
     { gboolean boolean = marpa_rule_is_accessible_value( g, rule_id );
     XPUSHs( sv_2mortal( newSViv(boolean) ) );
     }
+
+void
+rule_complete( g, rule_id )
+    Grammar *g;
+    Marpa_Rule_ID rule_id;
+PPCODE:
+    marpa_rule_complete( g, rule_id );
 
 MODULE = Marpa::XS        PACKAGE = Marpa::XS::Internal::R_C
 

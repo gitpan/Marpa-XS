@@ -31,7 +31,7 @@ my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version      = '0.001_010';
+my $marpa_xs_version      = '0.001_011';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -43,6 +43,7 @@ my %version = (
     'Marpa::XS'           => $marpa_xs_version,
     'PPI'                 => '1.206',
     'Test::Weaken'        => '3.004000',
+    'Task::Weaken'        => '0',
     'ExtUtils::PkgConfig' => 1.12,
     'Module::Build'       => 0.3601,
     'ExtUtils::CBuilder'  => 0.27,
@@ -56,7 +57,7 @@ my %configure_requires =
     map { ( $_, $version{$_} ) } qw( ExtUtils::PkgConfig Module::Build Glib );
 my %requires =
     map { ( $_, $version{$_} ) }
-    qw( Scalar::Util List::Util Carp Data::Dumper Storable Glib );
+    qw( Scalar::Util List::Util Task::Weaken Carp Data::Dumper Storable Glib );
 my %recommends = map { ( $_, $version{$_} ) } qw( PPI Test::Weaken );
 
 my @marpa_xs_use =

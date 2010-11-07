@@ -41,6 +41,9 @@
 
 \pageno=\contentspagenumber \advance\pageno by 1
 \let\maybe=\iftrue
+
+\def\marpa_sub#1{{\bf #1}: }
+
 @s not_eq normal @q unreserve a C++ keyword @>
 @s gboolean int
 @s Marpa_Rule_ID int
@@ -380,90 +383,55 @@ All the include files that users of Marpa
 will need.
 
 @<Body of public header file@> =
-
 #include <glib.h>
 #include <stdio.h>
-
-@ Private structures
-
-None yet.
-While there are none,
-this stub prevents \TeX\ from failing.
-
-@<Private structures@> =
-
 @ Constants
-
-@ Version Constants
-
-@<Version constants@> =
-
+@ Version Constants @<Private global variables@> =
 const unsigned int marpa_major_version = MARPA_MAJOR_VERSION;
 const unsigned int marpa_minor_version = MARPA_MINOR_VERSION;
 const unsigned int marpa_micro_version = MARPA_MICRO_VERSION;
 const unsigned int marpa_interface_age = MARPA_INTERFACE_AGE;
 const unsigned int marpa_binary_age = MARPA_BINARY_AGE;
-
 @ Return the version in a 3 element int array
-
 @<Function definitions@> =
-
 void marpa_version(int* version) {
         version[0] = MARPA_MAJOR_VERSION;
         version[1] = MARPA_MINOR_VERSION,
         version[2] = MARPA_MICRO_VERSION;
 }
-
-@
-
-@<Public function prototypes@> =
-
+@ @<Public function prototypes@> =
 void marpa_version(int* version);
 
-@ Header file.
-
-|GLIB_VAR| is to
+@ Header file.  |GLIB_VAR| is to
 prefix variable declarations so that they
 will be exported properly for Windows dlls.
-
 @f GLIB_VAR const
-
 @<Body of public header file@> =
-
 #ifndef __MARPA_H__
 #define __MARPA_H__ @#
-
 #include "glib.h" @#
-
 GLIB_VAR const guint marpa_major_version;@/
 GLIB_VAR const guint marpa_minor_version;@/
 GLIB_VAR const guint marpa_micro_version;@/
 GLIB_VAR const guint marpa_interface_age;@/
 GLIB_VAR const guint marpa_binary_age;@#
-
 #define MARPA_CHECK_VERSION(major,minor,micro) @| \
     @[ (MARPA_MAJOR_VERSION > (major) \
         @| || (MARPA_MAJOR_VERSION == (major) && MARPA_MINOR_VERSION > (minor)) \
         @| || (MARPA_MAJOR_VERSION == (major) && MARPA_MINOR_VERSION == (minor) \
         @|  && MARPA_MICRO_VERSION >= (micro)))
         @]@#
-
 @<Development phase public macros@>@/
-
 #define MARPA_CAT(a, b) @[ a ## b @]
-
 @<Inlining macros@>
-
+struct marpa_g;
 @<Public typedefs@>@/
+@<Callback typedefs@>@/
 @<Public structures@>@/
 @<Public function prototypes@>@/
-
 #if MARPA_CAN_INLINE || defined MARPA_STANDALONE
-
 @<Public inline function definitions@>@/
-
 #endif
-
 @# #endif /* |MARPA_H| */
 
 @ Marpa Global Setup
@@ -474,11 +442,9 @@ If I can't, I will need to deal with the issue
 of thread safety.
 
 @** Grammar Objects.
-
-@<Public structures@> =
-
-struct marpa_g {
-@<Pointer aligned grammar elements@>
+@<Public structures@> = struct marpa_g {
+@<Pointer aligned grammar elements@>@/
+@<Int aligned grammar elements@>@/
 };
 
 @ @<Function definitions@> =
@@ -497,9 +463,30 @@ void marpa_g_destroy(struct marpa_g *g)
 @ @<Public function prototypes@> =
 void marpa_g_destroy(struct marpa_g *g);
 
-@ The Grammar's Symbol List:
+@ \marpa_sub{The Grammar ID}
+A ID for the grammar.
+It must be unique process-wide.
+The counter which tracks grammar ID's
+(|next_grammar_id|)
+is (at this writing) the only global
+non-constant, and requires special handling to
+keep |libmarpa| MT-safe.
+(|next_grammar_id|) is accessed only via
+|glib|'s special atomic operations.
+@ @<Int aligned grammar elements@> = int id;
+@ @<Public typedefs@> = typedef gint Marpa_Grammar_ID;
+@ @<Private global variables@> = static gint next_grammar_id = 1;
+@ @<Initialize grammar elements@> =
+g->id = g_atomic_int_exchange_and_add(&next_grammar_id, 1);
+@ @<Function definitions@> =
+gint marpa_grammar_id_value(struct marpa_g* g) { return g->id; }
+@ @<Public function prototypes@> =
+gint marpa_grammar_id_value(struct marpa_g* g);
+
+@ {\marpa_sub{The Grammar's Symbol List}
 This lists the symbols for the grammar,
 with their |Marpa_Symbol_ID| as the index.
+\tolerance=9999\par}
 @<Pointer aligned grammar elements@> = GArray* symbols;
 @ @<Initialize grammar elements@> =
 g->symbols = g_array_new(FALSE, FALSE, sizeof(struct marpa_symbol *));
@@ -527,7 +514,7 @@ symbol_id2p(struct marpa_g* g, Marpa_Symbol_ID id);
 object.
 @<Private inline functions@> =
 static inline
-void marpa_g_symbol_add(
+void g_symbol_add(
     struct marpa_g *g,
     Marpa_Symbol_ID symbol_id,
     struct marpa_symbol*symbol)
@@ -622,16 +609,16 @@ struct marpa_symbol {
 @ @<Function definitions@> =
 static inline
 struct marpa_symbol* symbol_new(struct marpa_g *g)
-{
-    struct marpa_symbol* symbol = g_malloc(sizeof(struct marpa_symbol));
+{ struct marpa_symbol* symbol = g_malloc(sizeof(struct marpa_symbol));
     @<Initialize symbol elements@>@/
-    marpa_g_symbol_add(g, symbol->id, symbol);
+    { Marpa_Symbol_ID id = symbol->id;
+    g_symbol_add(g, id, symbol); }
    return symbol;
 }
 Marpa_Symbol_ID marpa_symbol_new(struct marpa_g *g)
-{
-    return symbol_new(g)->id;
-}
+{ Marpa_Symbol_ID id = symbol_new(g)->id;
+symbol_callback(g, id);
+return id; }
 
 @ @<Private function prototypes@> =
 static inline
@@ -930,8 +917,8 @@ symbol->is_nulling_alias ? symbol->alias : NULL; }
 Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 {
 struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
-struct marpa_symbol* alias = symbol_proper_alias_value(symbol);
-return alias == NULL ? -1 : alias->id;
+struct marpa_symbol* proper_alias = symbol_proper_alias_value(symbol);
+return proper_alias == NULL ? -1 : proper_alias->id;
 }
 @ @<Private function prototypes@> =
 static inline struct marpa_symbol* symbol_proper_alias_value(struct marpa_symbol* symbol);
@@ -969,7 +956,7 @@ The return value is a pointer to the nulling alias.
 TODO: I expect to delete
 the external version of this function after
 development.
-@<Function definitions@> = /* static inline */
+@<Function definitions@> = static inline
 struct marpa_symbol* symbol_alias_create(struct marpa_g* g,
 struct marpa_symbol* symbol)
 {
@@ -987,18 +974,80 @@ struct marpa_symbol* symbol)
     return alias;
 }
 Marpa_Symbol_ID marpa_symbol_alias_create(
-struct marpa_g* g, Marpa_Symbol_ID symbol_id)
-{
-if (symbol_id < 0) { return -1; }
-if (symbol_id >= g->symbols->len) { return -1; }
-return symbol_alias_create(g, symbol_id2p(g, symbol_id))->id;
-}
-@ @<Public function prototypes@> = 
-/* static inline */
+struct marpa_g* g, Marpa_Symbol_ID original_id)
+{ Marpa_Symbol_ID alias_id;
+    if (original_id < 0) { return -1; }
+    if (original_id >= g->symbols->len) { return -1; }
+    alias_id = symbol_alias_create(g, symbol_id2p(g, original_id))->id;
+    symbol_callback(g, alias_id);
+    return alias_id; }
+@ @<Private function prototypes@> = 
+static inline
 struct marpa_symbol* symbol_alias_create(struct marpa_g* g,
 struct marpa_symbol* symbol);
+@ @<Public function prototypes@> = 
 Marpa_Symbol_ID marpa_symbol_alias_create(
 struct marpa_g* g, Marpa_Symbol_ID symbol_id);
+
+@ {\bf Symbol callbacks}:  The user can define a callback
+(with argument) which is invoked whenever a symbol
+is created.
+@ Function pointer declarations are
+hard to type and impossible to read.
+This typedef localizes the damage.
+@<Callback typedefs@> =
+typedef void (Marpa_Symbol_Callback)(struct marpa_g *g, Marpa_Symbol_ID id);
+@ @<Pointer aligned grammar elements@> =
+    Marpa_Symbol_Callback* symbol_callback;
+    void *symbol_callback_arg;
+@ @<Function definitions@> =
+void marpa_symbol_callback_set(struct marpa_g *g, Marpa_Symbol_Callback*cb)
+{ g->symbol_callback = cb; }
+void marpa_symbol_callback_arg_set(struct marpa_g *g, void *cb_arg)
+{ g->symbol_callback_arg = cb_arg; }
+void* marpa_symbol_callback_arg_peek(struct marpa_g *g)
+{ return g->symbol_callback_arg; }
+@ @<Public function prototypes@> =
+void marpa_symbol_callback_set(struct marpa_g *g, Marpa_Symbol_Callback*cb);
+void marpa_symbol_callback_arg_set(struct marpa_g *g, void *cb_arg);
+void* marpa_symbol_callback_arg_peek(struct marpa_g *g);
+@ Do the symbol callback.
+@<Function definitions@> =
+static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id)
+{ Marpa_Symbol_Callback* cb = g->symbol_callback;
+if (cb) { (*cb)(g, id); } }
+@ @<Private function prototypes@> =
+static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id);
+
+@ {\bf Rule callbacks}:  The user can define a callback
+(with argument) which is invoked whenever a rule
+is created.
+@ Function pointer declarations are
+hard to type and impossible to read.
+This typedef localizes the damage.
+@<Callback typedefs@> =
+typedef void (Marpa_Rule_Callback)(struct marpa_g *g, Marpa_Rule_ID id);
+@ @<Pointer aligned grammar elements@> =
+    Marpa_Rule_Callback* rule_callback;
+    void *rule_callback_arg;
+@ @<Function definitions@> =
+void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb)
+{ g->rule_callback = cb; }
+void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg)
+{ g->rule_callback_arg = cb_arg; }
+void* marpa_rule_callback_arg_peek(struct marpa_g *g)
+{ return g->rule_callback_arg; }
+@ @<Public function prototypes@> =
+void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb);
+void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg);
+void* marpa_rule_callback_arg_peek(struct marpa_g *g);
+@ Do the rule callback.
+@<Function definitions@> =
+static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id)
+{ Marpa_Rule_Callback* cb = g->rule_callback;
+if (cb) { (*cb)(g, id); } }
+@ @<Private function prototypes@> =
+static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id);
 
 @** Rule Objects.
 @<Public typedefs@> =
@@ -1015,26 +1064,34 @@ static inline gsize rule_sizeof(length) {
 return sizeof(struct marpa_rule) + length*sizeof(Marpa_Symbol_ID);
 }
 
-@ @<Function definitions@> =
+@ Create a new rule:
+@<Function definitions@> =
 static inline
 struct marpa_rule* rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
 {
+    int i;
     struct marpa_rule* rule;
     @<Return |NULL| on invalid rule symbols@>@/
     rule = g_malloc(rule_sizeof(length));
     @<Initialize rule symbols@>@/
     @<Initialize rule elements@>@/
     marpa_g_rule_add(g, rule->id, rule);
+    @<Add this rule to the symbol rule lists@>
    return rule;
 }
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
 {
+    Marpa_Rule_ID rule_id;
     struct marpa_rule* rule = rule_new(g, lhs, rhs, length);
-    return rule == NULL ? -1 : rule->id;
+    if (!rule) { return -1; }
+    return  rule->id;
 }
-
+void marpa_rule_complete(struct marpa_g *g, Marpa_Rule_ID id)
+{
+    rule_callback(g, id);
+}
 @ @<Private function prototypes@> =
 static inline
 struct marpa_rule* rule_new(struct marpa_g *g,
@@ -1042,6 +1099,7 @@ Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
 @ @<Public function prototypes@> =
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
+void marpa_rule_complete(struct marpa_g *g, Marpa_Rule_ID id);
 
 @ @<Destroy grammar elements@> =
 {  int id; for (id = 0; id < g->rules->len; id++)
@@ -1054,6 +1112,111 @@ static inline void marpa_rule_free(struct marpa_rule* rule)
 g_free(rule); }
 @ @<Private function prototypes@> =
 static inline void marpa_rule_free(struct marpa_rule* rule);
+
+@ Add the rules to the symbol's rule lists:
+An obstack scratchpad might be useful for
+the copy of the RHS symbols.
+|alloca|, while tempting, should not used
+because an unusually long RHS could cause
+a stack overflow.
+Even if such case is pathological,
+a core dump is not the right response.
+@<Add this rule to the symbol rule lists@> =
+    symbol_lhs_add(symbol_id2p(g, rule->symbols[0]), rule->id);@;
+    if (rule->length > 0) {
+	gint rh_list_ix;
+	const gint alloc_size = rule->length*sizeof( Marpa_Symbol_ID);
+	Marpa_Symbol_ID *rh_symbol_list = g_slice_alloc(alloc_size);
+	gint rh_symbol_list_length = 1;
+	@<Create |rh_symbol_list|,
+	a duplicate-free list of the right hand side symbols@>@;
+       for (rh_list_ix = 0;
+	   rh_list_ix < rh_symbol_list_length;
+	   rh_list_ix++) {
+	    symbol_rhs_add(
+		symbol_id2p(g, rh_symbol_list[rh_list_ix]),
+		rule->id);
+       }@;
+       g_slice_free1(alloc_size, rh_symbol_list);
+    }
+
+@ \marpa_sub{Create a duplicate-free list of the right hand side symbols}
+The algorithm is a
+hand-coded
+insertion sort, modified to not insert duplicates.
+@ The first goal is to optimize for the usual case,
+where both the average and root mean square of
+number of unique symbols on the RHS of a rule
+is a small number -- usually less
+than 10.
+(Root mean square is more relevant than the average for
+comparison with worst case performance.)
+bizarrely long.
+A hand-inlined insertion sort is perfect for
+this.
+\par It might be thought that the below could
+be improved by finding the insertion point
+with a binary search, but when the number of RHS symbols
+for most rules is less than a certain number,
+a the higher-overhead binary search is worse,
+not better.
+This number is probably around 8, and in practice most rules
+are shorter than that.
+A reasonable alternative is to only use binary search above
+a certain size, but in most cases that will produce no
+measurable improvement.
+
+@ A second goal is that behavior for unusual and pathological
+cases be, if not optimal, reasonable.
+Worst case for insertion sort is $O(n^2)$).
+(This is why I used the root mean square, not a simple average.)
+This would be approached if most of the right hand symbols were
+in very long rules.
+$O(n^2)$ is in fact, not actually a worse case than the quicksort
+on which |qsort| is usually based.
+The hand-coding here means it would take some effort to
+construct a case in which
+the theoretical advantage of another
+sort algorithm would
+show up in practice.
+\par If anyone comes to care about very long right hand sides,
+this algorithm can be changed to switch over to mergesort
+when the right hand side exceeds a certain length.
+The cost of an extra comparision is tiny, but then again,
+so would the likelihood of any benefit from an alternative sort
+algorithm would also
+be tiny.
+
+@ The code assumes that the rhs has length greater than zero.
+@<Create |rh_symbol_list|, a duplicate-free list of the right hand side symbols@> =
+{
+/* Handle the first symbol as a special case */
+gint rhs_ix = rule->length-1;
+rh_symbol_list[0] = rhs_symbol_id(rule, rhs_ix);
+rh_symbol_list_length = 1;
+rhs_ix--;
+for (; rhs_ix >= 0; rhs_ix--) {
+    gint higher_ix;
+    Marpa_Symbol_ID new_symbol_id = rhs_symbol_id(rule, rhs_ix);
+    gint next_highest_ix = rh_symbol_list_length - 1;
+    while (next_highest_ix >= 0) {
+	Marpa_Symbol_ID current_symbol_id = rh_symbol_list[next_highest_ix];
+	if (current_symbol_id == new_symbol_id) goto ignore_this_symbol;
+	if (current_symbol_id < new_symbol_id) break;
+        next_highest_ix--;
+    }
+    /* Shift the higher symbol ID's up one slot */
+    for (higher_ix = rh_symbol_list_length-1;
+	    higher_ix > next_highest_ix;
+	    higher_ix--) {
+        rh_symbol_list[higher_ix+1] = rh_symbol_list[higher_ix];
+    }
+    /* Insert the next symbol */
+    rh_symbol_list[next_highest_ix+1] = new_symbol_id;
+    rh_symbol_list_length++;
+    ignore_this_symbol: ;
+}
+}
 
 @ Rule Symbols: The rule's left hand side (LHS), right hand side (RHS)
 and its length.  Length is the length of the RHS -- there is always
@@ -1074,21 +1237,26 @@ rule->symbols[0] = lhs;
     rule->symbols[i+1] = rhs[i]; } }
 @ @<Function definitions@> =
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule) {
-return rule->symbols[0]; }
+    return rule->symbols[0]; }
 Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
-return rule_lhs_get(rule_id2p(g, rule_id)); }
+    return rule_lhs_get(rule_id2p(g, rule_id)); }
 static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule) {
-return rule->symbols+1; }
+    return rule->symbols+1; }
 Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id) {
-return rule_rhs_get(rule_id2p(g, rule_id)); }
+    return rule_rhs_get(rule_id2p(g, rule_id)); }
 static inline gsize rule_length_get(struct marpa_rule *rule) {
-return rule->length; }
+    return rule->length; }
 gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
-return rule_length_get(rule_id2p(g, rule_id)); }
+    return rule_length_get(rule_id2p(g, rule_id)); }
+static inline Marpa_Symbol_ID
+    rhs_symbol_id(struct marpa_rule* rule, gint index) {
+	return rule->symbols[index+1];
+    }
 @ @<Private function prototypes@> =
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule);
 static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule);
 static inline gsize rule_length_get(struct marpa_rule *rule);
+static inline Marpa_Symbol_ID rhs_symbol_id(struct marpa_rule* rule, gint index);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
 Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id);
@@ -1340,7 +1508,7 @@ MARPA_PUBLIC_INLINE void MARPA_SLIST_ADD(MARPA_TEMPLATE_PREFIX) (
 
 @** Physical Layout.  
 @ Prematter:
-The output files are not source file,
+The output files are not source files,
 but I add the license to them anyway,
 as close to the top as possible.
 Also, it is helpful to someone first
@@ -1390,7 +1558,7 @@ So I add such a comment.
 #include "marpa.h"
 @h
 @<Logging domain@>@;
-@<Version constants@>@;
+@<Private global variables@>@;
 @<Private structures@>@;
 @<Private function prototypes@>@;
 @<Private inline functions@>@;
@@ -1427,7 +1595,6 @@ So I add such a comment.
 
 @ Public inline function definitions
 None yet.
-
 @<Public inline function definitions@> =
 
 @ Header inline function definitions
@@ -1474,10 +1641,6 @@ whenever |MARPA_PUBLIC_INLINE| is used,
 #else
 #define MARPA_PUBLIC_INLINE 
 #endif
-
-@
-
-@<Body of public header file@> =
 
 @ The file for standalone versions of the inline functions
 

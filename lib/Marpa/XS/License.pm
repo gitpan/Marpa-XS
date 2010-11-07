@@ -117,40 +117,8 @@ END_OF_STRING
 =cut
 
 my %original = (
-    'libmarpa/main/src/rtavl.c'    => 'libmarpa/orig/libavl/rtavl.c',
-    'libmarpa/main/src/rtavl.h'    => 'libmarpa/orig/libavl/rtavl.h',
     'libmarpa/main/src/obstack.c'  => 'libmarpa/orig/gnu/obstack.c',
     'libmarpa/main/src/obstack.h'  => 'libmarpa/orig/gnu/obstack.h',
-    'libmarpa/libavl/COPYING'      => 'libmarpa/orig/libavl/COPYING',
-    'libmarpa/libavl/COPYING.DOC'  => 'libmarpa/orig/libavl/COPYING.DOC',
-    'libmarpa/libavl/COPYING.LIB'  => 'libmarpa/orig/libavl/COPYING.LIB',
-    'libmarpa/libavl/README'       => 'libmarpa/orig/libavl/README',
-    'libmarpa/libavl/avl.w'        => 'libmarpa/orig/libavl/avl.w',
-    'libmarpa/libavl/bst.w'        => 'libmarpa/orig/libavl/bst.w',
-    'libmarpa/libavl/catalogue.w'  => 'libmarpa/orig/libavl/catalogue.w',
-    'libmarpa/libavl/examples.w'   => 'libmarpa/orig/libavl/examples.w',
-    'libmarpa/libavl/extra.w'      => 'libmarpa/orig/libavl/extra.w',
-    'libmarpa/libavl/glossary.w'   => 'libmarpa/orig/libavl/glossary.w',
-    'libmarpa/libavl/intro.w'      => 'libmarpa/orig/libavl/intro.w',
-    'libmarpa/libavl/libavl.w'     => 'libmarpa/orig/libavl/libavl.w',
-    'libmarpa/libavl/pavl.w'       => 'libmarpa/orig/libavl/pavl.w',
-    'libmarpa/libavl/pbst.w'       => 'libmarpa/orig/libavl/pbst.w',
-    'libmarpa/libavl/prb.w'        => 'libmarpa/orig/libavl/prb.w',
-    'libmarpa/libavl/preface.w'    => 'libmarpa/orig/libavl/preface.w',
-    'libmarpa/libavl/rb.w'         => 'libmarpa/orig/libavl/rb.w',
-    'libmarpa/libavl/references.w' => 'libmarpa/orig/libavl/references.w',
-    'libmarpa/libavl/rtavl-test.c' => 'libmarpa/orig/libavl/rtavl-test.c',
-    'libmarpa/libavl/rtavl.w'      => 'libmarpa/orig/libavl/rtavl.w',
-    'libmarpa/libavl/rtbst.w'      => 'libmarpa/orig/libavl/rtbst.w',
-    'libmarpa/libavl/rtrb.w'       => 'libmarpa/orig/libavl/rtrb.w',
-    'libmarpa/libavl/search-alg.w' => 'libmarpa/orig/libavl/search-alg.w',
-    'libmarpa/libavl/table.w'      => 'libmarpa/orig/libavl/table.w',
-    'libmarpa/libavl/tavl.w'       => 'libmarpa/orig/libavl/tavl.w',
-    'libmarpa/libavl/tbst.w'       => 'libmarpa/orig/libavl/tbst.w',
-    'libmarpa/libavl/test.c'       => 'libmarpa/orig/libavl/test.c',
-    'libmarpa/libavl/test.h'       => 'libmarpa/orig/libavl/test.h',
-    'libmarpa/libavl/texiweb.c'    => 'libmarpa/orig/libavl/texiweb.c',
-    'libmarpa/libavl/trb.w'        => 'libmarpa/orig/libavl/trb.w',
 );
 
 my %GNU_file = map { ( $_, 1 ) } qw(
@@ -170,20 +138,6 @@ my %GNU_file = map { ( $_, 1 ) } qw(
     libmarpa/main/src/Makefile.in
     libmarpa/main/src/Makefile
 );
-
-for my $shadowed_avl_file (
-    qw(
-    fdl.texi
-    rtavl.c
-    rtavl.h
-    )
-    )
-{
-    my $original =
-        File::Spec->catfile( qw(libmarpa orig libavl), $shadowed_avl_file );
-    my $copy = File::Spec->catfile( qw(libmarpa libavl), $shadowed_avl_file );
-    $original{$copy} = $original;
-} ## end for my $shadowed_avl_file ( qw( fdl.texi rtavl.c rtavl.h...))
 
 sub trivial {
     my ( $filename, $verbose ) = @_;
@@ -260,7 +214,6 @@ my %files_by_type = (
     'libmarpa/main/README'                  => \&trivial,
     'libmarpa/dev/README'                   => \&trivial,
     'libmarpa/main/src/standalone.c'        => \&trivial,
-    'libmarpa/libavl/README_MARPA'          => \&trivial,
     'libmarpa/libmarpa/dev/README'          => \&trivial,
     'README'                                => \&trivial,
     'author.t/accept_tidy'                  => \&trivial,
