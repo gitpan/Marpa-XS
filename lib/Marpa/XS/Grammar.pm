@@ -82,7 +82,6 @@ use Marpa::XS::Offset qw(
     ORIGINAL_RULE { for a rewritten rule, the original }
     VIRTUAL_START
     VIRTUAL_END
-    PRODUCTIVE { reachable from input symbol? }
 
     =LAST_FIELD
 );
@@ -151,14 +150,12 @@ use Marpa::XS::Offset qw(
     RULES { array of rule refs }
     SYMBOLS { array of symbol refs }
     AHFA { array of states }
-    PHASE { the grammar's phase }
     ACTIONS { Default package in which to find actions }
     DEFAULT_ACTION { Action for rules without one }
     CYCLE_RANKING_ACTION { Action for ranking rules which cycle }
     HAS_CYCLE { Does this grammar have a cycle? }
     TRACE_FILE_HANDLE
     STRIP { Boolean.  If true, strip unused data to save space. }
-    LHS_TERMINALS { Boolean.  If true, LHS terminals are allowed. }
     WARNINGS { print warnings about grammar? }
     TRACING { master flag, set if any tracing is being done
     (to control overhead for non-tracing processes) }
@@ -184,7 +181,6 @@ use Marpa::XS::Offset qw(
 
     =LAST_RECOGNIZER_FIELD
 
-    RULE_SIGNATURE_HASH
     START { ref to start symbol }
     START_NAME { name of original symbol }
     NFA { array of states }
@@ -200,29 +196,6 @@ use Marpa::XS::Offset qw(
 
     =LAST_FIELD
 );
-
-package Marpa::XS::Internal::Grammar;
-
-use POSIX qw(ceil);
-
-# values for grammar phases
-use Marpa::XS::Offset qw(
-
-    :package=Marpa::XS::Internal::Phase
-    NEW RULES PRECOMPUTED
-
-);
-
-sub phase_description {
-    my $phase = shift;
-    return 'grammar without rules'
-        if $phase == Marpa::XS::Internal::Phase::NEW;
-    return 'grammar with rules entered'
-        if $phase == Marpa::XS::Internal::Phase::RULES;
-    return 'precomputed grammar'
-        if $phase == Marpa::XS::Internal::Phase::PRECOMPUTED;
-    return 'unknown phase';
-} ## end sub phase_description
 
 package Marpa::XS::Internal::Grammar;
 
@@ -317,6 +290,14 @@ sub Marpa::XS::Internal::code_problems {
     Marpa::XS::exception(@msg);
 } ## end sub Marpa::XS::Internal::code_problems
 
+sub Marpa::XS::uncaught_error {
+     my ($error) = @_;
+     Carp::confess(
+	 "libmarpa reported an error which Marpa::XS did not catch\n",
+	 qq{  The libmarpa internal error code was "$error"},
+    );
+}
+
 package Marpa::XS::Internal::Grammar;
 
 my %grammar_by_id;
@@ -331,7 +312,6 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE] = *STDERR;
 
     $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC]        = 0;
-    $grammar->[Marpa::XS::Internal::Grammar::LHS_TERMINALS]   = 1;
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES]     = 0;
     $grammar->[Marpa::XS::Internal::Grammar::TRACING]         = 0;
     $grammar->[Marpa::XS::Internal::Grammar::STRIP]           = 1;
@@ -343,10 +323,7 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS]             = [];
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH]         = {};
     $grammar->[Marpa::XS::Internal::Grammar::RULES]               = [];
-    $grammar->[Marpa::XS::Internal::Grammar::RULE_SIGNATURE_HASH] = {};
     $grammar->[Marpa::XS::Internal::Grammar::AHFA_BY_NAME]        = {};
-    $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-        Marpa::XS::Internal::Phase::NEW;
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C] =
         Marpa::XS::Internal::G_C->new($grammar);
@@ -354,8 +331,9 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::ID] = $grammar_id;
     $grammar_by_id{$grammar_id} = $grammar;
     Scalar::Util::weaken( $grammar_by_id{$grammar_id} );
-    $grammar_c->symbol_callback_set(\&wrap_symbol_cb);
+    $grammar_c->message_callback_set(\&message_cb);
     $grammar_c->rule_callback_set(\&wrap_rule_cb);
+    $grammar_c->symbol_callback_set(\&wrap_symbol_cb);
 
     $grammar->set(@arg_hashes);
 
@@ -392,7 +370,7 @@ sub Marpa::XS::Grammar::set {
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
     my $tracing = $grammar->[Marpa::XS::Internal::Grammar::TRACING];
-    my $phase   = $grammar->[Marpa::XS::Internal::Grammar::PHASE];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
 
     for my $args (@arg_hashes) {
 
@@ -442,60 +420,58 @@ sub Marpa::XS::Grammar::set {
         if ( defined( my $value = $args->{'symbols'} ) ) {
             Marpa::XS::exception(
                 'symbols option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
+                if $grammar_c->is_precomputed();
             Marpa::XS::exception('symbols value must be REF to HASH')
                 if ref $value ne 'HASH';
             while ( my ( $symbol, $properties ) = each %{$value} ) {
                 assign_user_symbol( $grammar, $symbol, $properties );
             }
-            $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-                Marpa::XS::Internal::Phase::RULES;
         } ## end if ( defined( my $value = $args->{'symbols'} ) )
 
         if ( defined( my $value = $args->{'lhs_terminals'} ) ) {
-            Marpa::XS::exception(
-                'lhs_terminals option not allowed after grammar is precomputed'
-            ) if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
-            $grammar->[Marpa::XS::Internal::Grammar::LHS_TERMINALS] = $value;
-            $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-                Marpa::XS::Internal::Phase::RULES;
-        } ## end if ( defined( my $value = $args->{'lhs_terminals'} ))
+            my $ok = $grammar_c->is_lhs_terminal_ok_set($value);
+            if ( not $ok ) {
+                my $error = $grammar_c->error();
+                if ( $error eq "precomputed" ) {
+                    Marpa::XS::exception(
+                        'lhs_terminals option not allowed after grammar is precomputed'
+                    );
+                }
+		Marpa::XS::uncaught_error($error);
+            }
+        }
 
         if ( defined( my $value = $args->{'terminals'} ) ) {
             Marpa::XS::exception(
-                'terminals option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
+                'terminals option not allowed after grammar is precomputed'
+            ) if $grammar_c->is_precomputed();
             Marpa::XS::exception('terminals value must be REF to ARRAY')
                 if ref $value ne 'ARRAY';
             for my $symbol ( @{$value} ) {
                 assign_user_symbol( $grammar, $symbol, { terminal => 1 } );
             }
-            $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-                Marpa::XS::Internal::Phase::RULES;
         } ## end if ( defined( my $value = $args->{'terminals'} ) )
 
         if ( defined( my $value = $args->{'start'} ) ) {
             Marpa::XS::exception(
                 'start option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
+             if $grammar_c->is_precomputed();
             $grammar->[Marpa::XS::Internal::Grammar::START_NAME] = $value;
         } ## end if ( defined( my $value = $args->{'start'} ) )
 
         if ( defined( my $value = $args->{'rules'} ) ) {
             Marpa::XS::exception(
                 'rules option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
+             if $grammar_c->is_precomputed();
             Marpa::XS::exception('rules value must be reference to array')
                 if ref $value ne 'ARRAY';
             add_user_rules( $grammar, $value );
-            $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-                Marpa::XS::Internal::Phase::RULES;
         } ## end if ( defined( my $value = $args->{'rules'} ) )
 
         if ( defined( my $value = $args->{'academic'} ) ) {
             Marpa::XS::exception(
                 'academic option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
+                if $grammar_c->is_precomputed();
             $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] = $value;
         } ## end if ( defined( my $value = $args->{'academic'} ) )
 
@@ -526,12 +502,11 @@ sub Marpa::XS::Grammar::set {
         }
 
         if ( defined( my $value = $args->{'infinite_action'} ) ) {
-            if ( $value && $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED )
-            {
+            if ( $value && $grammar_c->is_precomputed() ) {
                 say {$trace_fh}
                     '"infinite_action" option is useless after grammar is precomputed'
                     or Marpa::XS::exception("Could not print: $ERRNO");
-            } ## end if ( $value && $phase >= ...)
+            }
             Marpa::XS::exception(
                 q{infinite_action must be 'warn', 'quiet' or 'fatal'})
                 if not $value ~~ [qw(warn quiet fatal)];
@@ -540,23 +515,21 @@ sub Marpa::XS::Grammar::set {
         } ## end if ( defined( my $value = $args->{'infinite_action'}...))
 
         if ( defined( my $value = $args->{'warnings'} ) ) {
-            if ( $value && $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED )
-            {
+            if ( $value && $grammar_c->is_precomputed() ) {
                 say {$trace_fh}
                     q{"warnings" option is useless after grammar is precomputed}
                     or Marpa::XS::exception("Could not print: $ERRNO");
-            } ## end if ( $value && $phase >= ...)
+            }
             $grammar->[Marpa::XS::Internal::Grammar::WARNINGS] = $value;
         } ## end if ( defined( my $value = $args->{'warnings'} ) )
 
         if ( defined( my $value = $args->{'inaccessible_ok'} ) ) {
-            if ( $value && $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED )
-            {
+            if ( $value && $grammar_c->is_precomputed() ) {
                 say {$trace_fh}
                     q{"inaccessible_ok" option is useless after grammar is precomputed}
                     or Marpa::XS::exception("Could not print: $ERRNO");
 
-            } ## end if ( $value && $phase >= ...)
+            }
             given ( ref $value ) {
                 when (q{}) {
                     $value //= {
@@ -578,12 +551,11 @@ sub Marpa::XS::Grammar::set {
         } ## end if ( defined( my $value = $args->{'inaccessible_ok'}...))
 
         if ( defined( my $value = $args->{'unproductive_ok'} ) ) {
-            if ( $value && $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED )
-            {
+            if ( $value && $grammar_c->is_precomputed() ) {
                 say {$trace_fh}
                     q{"unproductive_ok" option is useless after grammar is precomputed}
                     or Marpa::XS::exception("Could not print: $ERRNO");
-            } ## end if ( $value && $phase >= ...)
+            }
             given ( ref $value ) {
                 when (q{}) {
                     $value //= {
@@ -609,33 +581,6 @@ sub Marpa::XS::Grammar::set {
     return 1;
 } ## end sub Marpa::XS::Grammar::set
 
-=begin Implementation:
-
-In order to automatically ELIMINATE inaccessible and unproductive
-productions from a grammar, you have to first eliminate the
-unproductive productions, THEN the inaccessible ones.  I don't do
-this in the below.
-
-The reason is my purposes are primarily diagnostic.  The difference
-shows in the case of an unproductive start symbol.  Following the
-correct procedure for automatically cleaning the grammar, I would
-have to regard the start symbol and its productions as eliminated
-and therefore go on to report every other production and symbol as
-inaccessible.  Almost certainly all these inaccessiblity reports,
-while theoretically correct, are irrelevant, since the user will
-probably respond by making the start symbol productive, and the
-extra "information" would only get in the way.
-
-The downside is that in a few uncommon cases, a user relying entirely
-on the Marpa::XS warnings to clean up his grammar will have to go through
-more than a single pass of the diagnostics.  I think even those
-users will prefer less cluttered diagnostics, and I'm sure most
-users will.
-
-=end Implementation:
-
-=cut
-
 sub Marpa::XS::Grammar::precompute {
     my $grammar = shift;
 
@@ -653,45 +598,34 @@ sub Marpa::XS::Grammar::precompute {
         );
     } ## end if ($problems)
 
-    my $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE];
+    return $grammar if $grammar_c->is_precomputed();
 
-    # Be idempotent.  If the grammar is already precomputed, just
-    # return success without doing anything.
-    if ( $phase == Marpa::XS::Internal::Phase::PRECOMPUTED ) {
-        return $grammar;
-    }
+    if ( not $grammar_c->precompute() ) {
+        my $error = $grammar_c->error();
 
-    if ( $phase != Marpa::XS::Internal::Phase::RULES ) {
-        Marpa::XS::exception(
-            "Attempt to precompute grammar in inappropriate state\nAttempt to precompute ",
-            phase_description($phase)
-        );
-    } ## end if ( $phase != Marpa::XS::Internal::Phase::RULES )
+        # Be idempotent.  If the grammar is already precomputed, just
+        # return success without doing anything.
+        return $grammar if $error eq "precomputed";
 
-    SET_TERMINALS: {
-        my $lhs_terminals_ok =
-            $grammar->[Marpa::XS::Internal::Grammar::LHS_TERMINALS];
-        my $distinguished = terminals_distinguished($grammar);
-        if ( $distinguished and not $lhs_terminals_ok ) {
-            check_lhs_non_terminal($grammar);
-            last SET_TERMINALS;
+        if ( $error eq "no rules" ) {
+            Marpa::XS::exception(
+                'Attempted to precompute grammar with no rules');
         }
-        last SET_TERMINALS if $distinguished;
-        if ( not $lhs_terminals_ok ) {
-            mark_non_lhs_terminal($grammar);
-            last SET_TERMINALS;
-        }
-        if ( has_empty_rule($grammar) ) {
+        if ( $error eq 'empty rule and unmarked terminals' ) {
             Marpa::XS::exception(
                 'A grammar with empty rules must mark its terminals or unset lhs_terminals'
             );
         }
-        mark_all_symbols_terminal($grammar);
-    } ## end SET_TERMINALS:
+        if ( $error eq 'counted nullable' ) {
+            Marpa::XS::exception(
+		Marpa::XS::Grammar::show_problems($grammar),
+                'Counted nullables confuse Marpa::XS -- please rewrite the grammar'
+            );
+        }
+        Marpa::XS::uncaught_error($error);
+    }
 
     nulling($grammar);
-    nullable($grammar) or return $grammar;
-    productive($grammar);
     check_start($grammar) or return $grammar;
     accessible($grammar);
     if ( $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] ) {
@@ -711,6 +645,7 @@ sub Marpa::XS::Grammar::precompute {
                 $_->[Marpa::XS::Internal::Symbol::ID] )
             } @{ $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS] }
     };
+    populate_semantic_equivalences($grammar);
 
     if ($grammar->[Marpa::XS::Internal::Grammar::WARNINGS]
         and ref(
@@ -779,9 +714,6 @@ sub Marpa::XS::Grammar::precompute {
                 or Marpa::XS::exception("Could not print: $ERRNO");
         } ## end for my $symbol ( @{ $grammar->[...]})
     } ## end if ( $grammar->[Marpa::XS::Internal::Grammar::WARNINGS...])
-
-    $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
-        Marpa::XS::Internal::Phase::PRECOMPUTED;
 
     if ( $grammar->[Marpa::XS::Internal::Grammar::STRIP] ) {
 
@@ -1025,10 +957,7 @@ sub Marpa::XS::Grammar::show_rule {
 
     ELEMENT:
     for my $comment_element (
-        (   [ 1, '!used',        Marpa::XS::Internal::Rule::USED, ],
-            [ 1, 'unproductive', Marpa::XS::Internal::Rule::PRODUCTIVE, ],
-        )
-        )
+        [ 1, '!used', Marpa::XS::Internal::Rule::USED, ] )
     {
         my ( $reverse, $comment, $offset ) = @{$comment_element};
         next ELEMENT if not exists $rule->[$offset];
@@ -1038,6 +967,7 @@ sub Marpa::XS::Grammar::show_rule {
         push @comment, $comment;
     } ## end for my $comment_element ( ( [ 1, '!used', ...]))
 
+    $grammar_c->rule_is_productive($rule_id) or push @comment, 'unproductive';
     $grammar_c->rule_is_accessible($rule_id) or push @comment, 'inaccessible';
 
     ELEMENT:
@@ -1287,6 +1217,34 @@ sub get_grammar_by_id {
     $grammar;
 }
 
+sub message_cb {
+    my ( $grammar_id, $message_id ) = @_;
+    my $grammar     = get_grammar_by_id($grammar_id);
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $trace_fh =
+        $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
+    if ($message_id eq "counted nullable") {
+	my $symbol_id = $grammar_c->context("symbol_id");
+	my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+	my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+	my $problem =
+	    qq{Nullable symbol "$name" is on rhs of counted rule};
+	push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
+	    $problem;
+	return;
+    }
+    if ($message_id eq "lhs is terminal") {
+	my $symbol_id = $grammar_c->context("symbol_id");
+	my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+	my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+	Marpa::XS::exception(
+	    "lhs_terminals option is off, but Symbol $name is both an LHS and a terminal"
+	);
+    }
+    Marpa::XS::exception( "Unexpected message, type $message_id" );
+    return;
+}
+
 sub wrap_symbol_cb {
     my ( $grammar_id, $symbol_id ) = @_;
     my $grammar     = get_grammar_by_id($grammar_id);
@@ -1300,12 +1258,14 @@ sub wrap_symbol_cb {
         $grammar->[Marpa::XS::Internal::Grammar::NEXT_SYMBOL_NAME] = undef;
         last DETERMINE_NAME if defined $name;
         my $proper_alias_id = $grammar_c->symbol_proper_alias($symbol_id);
-        die
-            "Internal Marpa Perl wrapper error: No proper alias for unnamed symbol"
+        if ( defined $proper_alias_id ) {
+            my $proper_alias = $symbols->[$proper_alias_id];
+            $name = $symbol->[Marpa::XS::Internal::Symbol::NAME] =
+                $proper_alias->[Marpa::XS::Internal::Symbol::NAME] . '[]';
+            last DETERMINE_NAME;
+        }
+        die "Internal Marpa Perl wrapper error: No way to name unnamed symbol"
             if not defined $proper_alias_id;
-        my $proper_alias = $symbols->[$proper_alias_id];
-        $name = $symbol->[Marpa::XS::Internal::Symbol::NAME] =
-            $proper_alias->[Marpa::XS::Internal::Symbol::NAME] . '[]';
     }
     $symbol->[Marpa::XS::Internal::Symbol::NAME] = $name;
     $symbol->[Marpa::XS::Internal::Symbol::ID] = $symbol_id;
@@ -1316,35 +1276,52 @@ sub wrap_symbol_cb {
 }
 
 sub wrap_rule_cb {
-    my ( $grammar_id, $rule_id ) = @_;
+    my ( $grammar_id, $new_rule_id ) = @_;
     my $grammar   = get_grammar_by_id($grammar_id);
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rule      = bless [], 'Marpa::XS::Internal::Rule';
+    my $new_rule      = bless [], 'Marpa::XS::Internal::Rule';
+    $#$new_rule = Marpa::XS::Internal::Rule::LAST_FIELD;
     my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    $rule->[Marpa::XS::Internal::Rule::ID] = $rule_id;
-    $rules->[$rule_id] = $rule;
+    $new_rule->[Marpa::XS::Internal::Rule::ID] = $new_rule_id;
+    $rules->[$new_rule_id] = $new_rule;
 
     {
         ## Scope all the variables, even the useful stuff,
         # so they can't be used later
         # This "shadowing" code is eventually to be eliminated
-        my $new_rule = $rules->[$rule_id];
-        my $lhs_id   = $grammar_c->rule_lhs($rule_id);
-        my @rhs_ids  = $grammar_c->rule_rhs($rule_id);
-        my $symbols  = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+        my $lhs_id  = $grammar_c->rule_lhs($new_rule_id);
+        my @rhs_ids = $grammar_c->rule_rhs($new_rule_id);
+        my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+        $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS] =
+            $grammar_c->rule_is_virtual_lhs($new_rule_id);
+        $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS] =
+            $grammar_c->rule_is_virtual_rhs($new_rule_id);
+        $new_rule->[Marpa::XS::Internal::Rule::DISCARD_SEPARATION] =
+            $grammar_c->rule_is_discard_separation($new_rule_id);
+        $new_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] =
+            $grammar_c->real_symbol_count($new_rule_id);
+        my $original_rule_id = $grammar_c->rule_original($new_rule_id);
+
+        if ( defined $original_rule_id ) {
+            $new_rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE] =
+                $rules->[$original_rule_id];
+        }
+        $new_rule->[Marpa::XS::Internal::Rule::USED] =
+            $grammar_c->rule_is_used($new_rule_id);
         $new_rule->[Marpa::XS::Internal::Rule::LHS] = $symbols->[$lhs_id];
         $new_rule->[Marpa::XS::Internal::Rule::RHS] =
             [ map { $symbols->[$_] } @rhs_ids ];
+
     }
 
     my $trace_rules = $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES];
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
     if ($trace_rules) {
-        my $lhs_id  = $grammar_c->rule_lhs($rule_id);
-        my @rhs_ids = $grammar_c->rule_rhs($rule_id);
+        my $lhs_id  = $grammar_c->rule_lhs($new_rule_id);
+        my @rhs_ids = $grammar_c->rule_rhs($new_rule_id);
         my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-        print {$trace_fh} 'Added rule #', $rule_id, ': ',
+        print {$trace_fh} 'Added rule #', $new_rule_id, ': ',
             $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME], ' -> ',
             join( q{ },
             map { $symbols->[$_]->[Marpa::XS::Internal::Symbol::NAME] }
@@ -1353,6 +1330,26 @@ sub wrap_rule_cb {
             or Marpa::XS::exception("Could not print: $ERRNO");
     } ## end if ($trace_rules)
     return;
+}
+
+sub populate_semantic_equivalences {
+    my ($grammar) = @_;
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    RULE: for my $rule ( @{$rules} ) {
+
+        # Do I need to copy the actions for this rule from another rule?
+        my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
+        my $semantic_equivalent_id =
+            $grammar_c->semantic_equivalent($rule_id);
+        next RULE if not defined $semantic_equivalent_id;
+        my $semantic_equivalent = $rules->[$semantic_equivalent_id];
+        $rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
+            $semantic_equivalent->[Marpa::XS::Internal::Rule::RANKING_ACTION];
+        next RULE if not defined $grammar_c->rule_length($rule_id);
+        $rule->[Marpa::XS::Internal::Rule::ACTION] =
+            $semantic_equivalent->[Marpa::XS::Internal::Rule::ACTION];
+    }
 }
 
 sub Marpa::XS::Internal::Symbol::new {
@@ -1437,7 +1434,7 @@ sub Marpa::XS::Internal::Rule::action_set {
     $rule->[Marpa::XS::Internal::Rule::ACTION] = $action;
 }
 
-sub add_rule {
+sub pshim_add_rule {
 
     my ($arg_hash) = @_;
     my $grammar;
@@ -1458,11 +1455,11 @@ sub add_rule {
     my $grammar_c   = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $rules       = $grammar->[Marpa::XS::Internal::Grammar::RULES];
 
-    my $new_rule_id = $grammar_c->rule_new(
+    my $new_rule_id = $grammar_c->rule_start_shim(
 	$lhs->[Marpa::XS::Internal::Symbol::ID],
 	[ map { $_->[Marpa::XS::Internal::Symbol::ID] } @{$rhs} ]
     );
-    $grammar_c->rule_complete($new_rule_id);
+    $grammar_c->rule_complete_shim($new_rule_id);
     my $new_rule = $rules->[$new_rule_id];
     return $new_rule;
 } ## end sub add_rule
@@ -1523,6 +1520,7 @@ sub add_user_rule {
             or not defined $options;
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
 
     my ( $lhs_name, $rhs_names, $action );
     my ( $min, $separator_name );
@@ -1545,9 +1543,6 @@ sub add_user_rule {
             };
         } ## end given
     } ## end while ( my ( $option, $value ) = each %{$options} )
-
-    my $rule_signature_hash =
-        $grammar->[Marpa::XS::Internal::Grammar::RULE_SIGNATURE_HASH];
 
     my $lhs = assign_user_symbol( $grammar, $lhs_name );
     $rhs_names //= [];
@@ -1581,149 +1576,86 @@ sub add_user_rule {
 
     my $rhs = [ map { assign_user_symbol( $grammar, $_ ); } @{$rhs_names} ];
 
-    # Don't allow the user to duplicate a rule
-    my $rule_signature = join q{,},
-        map { $_->[Marpa::XS::Internal::Symbol::ID] } ( $lhs, @{$rhs} );
-    Marpa::XS::exception( 'Duplicate rule: ',
-        $lhs_name, ' -> ', ( join q{ }, @{$rhs_names} ) )
-        if exists $rule_signature_hash->{$rule_signature};
-
-    $rule_signature_hash->{$rule_signature} = 1;
-
-    if ( scalar @{$rhs_names} == 0 or not defined $min ) {
-
+    # Is this is an ordinary, non-counted rule?
+    my $is_ordinary_rule = scalar @{$rhs_names} == 0 || !defined $min;
+    if ( defined $separator_name and $is_ordinary_rule ) {
         if ( defined $separator_name ) {
             Marpa::XS::exception(
                 'separator defined for rule without repetitions');
         }
+    }
 
-        # This is an ordinary, non-counted rule,
-        # which we'll take care of first as a special case
-        my $ordinary_rule = add_rule(
-            {   grammar => $grammar,
-                lhs     => $lhs,
-                rhs     => $rhs,
-            }
-        );
+    my @rhs_ids = map { $_->[Marpa::XS::Internal::Symbol::ID] } @{$rhs};
+    my $lhs_id = $lhs->[Marpa::XS::Internal::Symbol::ID];
+
+    if ( $is_ordinary_rule ) {
+        my $ordinary_rule_id = $grammar_c->rule_new( $lhs_id, \@rhs_ids );
+	if (not defined $ordinary_rule_id) {
+	    my $rule_description = "$lhs_name -> " . ( join q{ }, @{$rhs_names} );
+	    my $error = $grammar_c->error();
+	    my $problem_description =
+		$error eq "duplicate rule"
+		? 'Duplicate rule'
+		: qq{Unknown problem ("$error")};
+	    Marpa::XS::exception( "$problem_description: $rule_description" );
+	}
+        my $ordinary_rule    = $rules->[$ordinary_rule_id];
         $ordinary_rule->action_set( $grammar, $action );
         $ordinary_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
             $ranking_action;
-
         return;
-
     }    # not defined $min
-
-    # At this point we know that min must be 0 or 1
-    # and that there is at least one symbol on the rhs
-
-    # nulling rule is special case
-    if ( $min == 0 ) {
-
-        # For a zero-length sequence
-        # with an action
-        # warn if we don't also have a null value.
-        if ($action) {
-            $lhs->[Marpa::XS::Internal::Symbol::WARN_IF_NO_NULL_VALUE] = 1;
-        }
-
-        my $nulling_rule = add_rule(
-            {   grammar => $grammar,
-                lhs     => $lhs,
-                rhs     => [],
-            }
-        );
-        if ($ranking_action) {
-            $nulling_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
-                $ranking_action;
-        }
-        $min = 1;
-    } ## end if ( $min == 0 )
 
     Marpa::XS::exception('Only one rhs symbol allowed for counted rule')
         if scalar @{$rhs_names} != 1;
 
-    my $sequence_item = $rhs->[0];
-    $grammar_c->symbol_is_counted_set(
-        $sequence_item->[Marpa::XS::Internal::Symbol::ID], 1 );
+    # For a zero-length sequence
+    # with an action
+    # warn if we don't also have a null value.
+    if ( $min == 0 and $action ) {
+        $lhs->[Marpa::XS::Internal::Symbol::WARN_IF_NO_NULL_VALUE] = 1;
+    }
 
     # create the separator symbol, if we're using one
     my $separator;
+    my $separator_id = -1;
     if ( defined $separator_name ) {
         $separator = assign_user_symbol( $grammar, $separator_name );
-        $grammar_c->symbol_is_counted_set(
-            $separator->[Marpa::XS::Internal::Symbol::ID], 1 );
+	$separator_id = $separator->[Marpa::XS::Internal::Symbol::ID];
     }
 
-    # create the sequence symbol
-    my $sequence_name = $rhs_names->[0] . "[Seq:$min-*]";
-    if ( defined $separator_name ) {
-        my $punctuation_free_separator_name = $separator_name;
-        $punctuation_free_separator_name =~ s/[^[:alnum:]]/_/gxms;
-        $sequence_name .= '[Sep:' . $punctuation_free_separator_name . ']';
-    }
-    my $sequence = assign_symbol( $grammar, $sequence_name );
+    # Name the internal lhs symbol
+    my $internal_lhs_name = $lhs_name . '[Subseq:' . $lhs_id . ':' . $rhs_ids[0] . ']';
+    $grammar->[Marpa::XS::Internal::Grammar::NEXT_SYMBOL_NAME] =
+        $internal_lhs_name;
 
-    # The top sequence rule
-    my $top_sequence_rule = add_rule(
-        {   grammar => $grammar,
-            lhs     => $lhs,
-            rhs     => [$sequence],
-        }
-    );
-    $top_sequence_rule->action_set( $grammar, $action );
-    $top_sequence_rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS]       = 1;
-    $top_sequence_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] = 0;
-    $top_sequence_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
+    my $original_rule_id =
+        $grammar_c->sequence_new( $lhs_id, $rhs_ids[0],
+	{ separator => $separator_id,
+	    keep => $keep_separation,
+	    proper => $proper_separation,
+	    min => $min,
+	} );
+    if ( not defined $original_rule_id ) {
+        my $rule_description = "$lhs_name -> " . ( join q{ }, @{$rhs_names} );
+        my $error = $grammar_c->error();
+        my $problem_description =
+            $error eq "duplicate rule"
+            ? 'Duplicate rule'
+            : qq{Unknown problem ("$error")};
+        Marpa::XS::exception("$problem_description: $rule_description");
+    }
+
+    # The original rule for a sequence rule is
+    # not actually used in parsing,
+    # but some of the rewritten sequence rules are its
+    # semantic equivalents.
+    my $original_rule = $rules->[$original_rule_id];
+    $original_rule->action_set( $grammar, $action );
+    $original_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
         $ranking_action;
-    $top_sequence_rule->[Marpa::XS::Internal::Rule::DISCARD_SEPARATION] =
-        ( not $keep_separation and defined $separator );
 
-    # An alternative top sequence rule needed for perl5 separation
-    if ( defined $separator and not $proper_separation ) {
-	my $alternative_rule =
-        add_rule(
-            {   grammar            => $grammar,
-                lhs                => $lhs,
-                rhs                => [ $sequence, $separator, ],
-            }
-        );
-	$alternative_rule->action_set($grammar, $action);
-	$alternative_rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS]       = 1;
-	$alternative_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] = 1;
-	$alternative_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] = $ranking_action;
-	$alternative_rule->[Marpa::XS::Internal::Rule::DISCARD_SEPARATION] = !$keep_separation;
-    } ## end if ( defined $separator and not $proper_separation )
-
-    my @separated_rhs =
-        defined $separator
-        ? ( $separator, $sequence_item )
-        : ($sequence_item);
-
-    my $counted_rhs = [ $sequence_item, (@separated_rhs) x ( $min - 1 ) ];
-
-    # Minimal sequence rule
-    my $minimal_sequence_rule = add_rule(
-        {   grammar => $grammar,
-            lhs     => $sequence,
-            rhs     => $counted_rhs,
-        }
-    );
-    $minimal_sequence_rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS] = 1;
-    $minimal_sequence_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] =
-        scalar @{$counted_rhs};
-
-    # iterating sequence rule
-    my @iterating_rhs = ( $sequence, @separated_rhs );
-    my $iterating_sequence_rule = add_rule(
-        {   grammar           => $grammar,
-            lhs               => $sequence,
-            rhs               => \@iterating_rhs,
-        }
-    );
-    $iterating_sequence_rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS] = 1;
-    $iterating_sequence_rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS] = 1;
-    $iterating_sequence_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] =
-        scalar @separated_rhs;
+    $grammar->[Marpa::XS::Internal::Grammar::NEXT_SYMBOL_NAME] = undef;
 
     return;
 
@@ -1792,188 +1724,22 @@ sub accessible {
     $grammar_c->symbol_is_accessible_set( $start_id, 1 );
 
     my $symbol_work_set = [$start];
-    my $rule_work_set   = [];
 
-    my $work_to_do = 1;
-
-    while ($work_to_do) {
-        $work_to_do = 0;
-
-        SYMBOL_PASS: while ( my $work_symbol = shift @{$symbol_work_set} ) {
-            my $work_symbol_id = $work_symbol->[Marpa::XS::Internal::Symbol::ID];
-            PRODUCED_RULE:
-            for my $rule_id (
-                $grammar_c->symbol_lhs_rule_ids($work_symbol_id) )
-            {
-
-                my $rule = $rules->[$rule_id];
-                next PRODUCED_RULE
-                    if $grammar_c->rule_is_accessible( $rule_id );
-
-                $grammar_c->rule_is_accessible_set( $rule_id, 1 );
-
-                $work_to_do++;
-                push @{$rule_work_set}, $rule;
-
-            } ## end for my $rule_id ( $grammar_c->symbol_lhs_rule_ids(...))
-        }    # SYMBOL_PASS
-
-        RULE: while ( my $work_rule = shift @{$rule_work_set} ) {
+    SYMBOL_PASS: while ( my $work_symbol = shift @{$symbol_work_set} ) {
+        my $work_symbol_id = $work_symbol->[Marpa::XS::Internal::Symbol::ID];
+        for my $rule_id ( $grammar_c->symbol_lhs_rule_ids($work_symbol_id) ) {
+            my $work_rule  = $rules->[$rule_id];
             my $rhs_symbol = $work_rule->[Marpa::XS::Internal::Rule::RHS];
-
             RHS: for my $symbol ( @{$rhs_symbol} ) {
                 my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
                 next RHS if $grammar_c->symbol_is_accessible($symbol_id);
                 $grammar_c->symbol_is_accessible_set( $symbol_id, 1 );
-                $work_to_do++;
                 push @{$symbol_work_set}, $symbol;
             } ## end for my $symbol ( @{$rhs_symbol} )
-
         }    # RULE
-
-    }    # work_to_do loop
-
-    return 1;
-
-} ## end sub accessible
-
-sub productive {
-    my ($grammar) = @_;
-
-    my $grammar_c   = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-
-    # All nullable and terminal symbols are productive.
-    for my $symbol ( @{$symbols} ) {
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-        $grammar_c->symbol_is_productive_set( $symbol_id,
-                   $grammar_c->symbol_is_terminal($symbol_id)
-                || $grammar_c->symbol_is_nullable($symbol_id) );
-    } ## end for my $symbol ( @{$symbols} )
-
-    my @workset;
-    my @potential_productive_symbol_ids =
-        ( map { $_->[Marpa::XS::Internal::Symbol::ID] } @{$symbols} );
-    @workset[@potential_productive_symbol_ids] =
-        (1) x scalar @potential_productive_symbol_ids;
-
-    while ( my @symbol_ids = grep { $workset[$_] } ( 0 .. $#{$symbols} ) ) {
-        @workset = ();
-        SYMBOL: for my $symbol ( map { $symbols->[$_] } @symbol_ids ) {
-
-            my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-
-            # Look for the first rule with no unproductive symbols
-            # on the RHS.  (It could be an empty rule.)
-            # If there is one, this is a productive symbol.
-            # If there is none, we have not yet shown this
-            # symbol to be productive.
-            next SYMBOL if not defined List::Util::first {
-                not defined List::Util::first {
-                    not $grammar_c->symbol_is_productive(
-                        $_->[Marpa::XS::Internal::Symbol::ID] );
-                }
-                @{ $rules->[$_]->[Marpa::XS::Internal::Rule::RHS] };
-            }
-            $grammar_c->symbol_lhs_rule_ids($symbol_id);
-
-            $grammar_c->symbol_is_productive_set( $symbol_id, 1 );
-
-            my @potential_new_productive_symbol_ids =
-                grep { not $grammar_c->symbol_is_productive($_) }
-                map {
-                $rules->[$_]->[Marpa::XS::Internal::Rule::LHS]
-                    ->[Marpa::XS::Internal::Symbol::ID]
-                } $grammar_c->symbol_rhs_rule_ids($symbol_id);
-            @workset[@potential_new_productive_symbol_ids] =
-                (1) x scalar @potential_new_productive_symbol_ids;
-        } ## end for my $symbol ( map { $symbols->[$_] } @symbol_ids )
-    } ## end while ( my @symbol_ids = grep { $workset[$_] } ( 0 .. $#...))
-
-    # Now that we know productivity for all the symbols,
-    # determine it for the rules.
-    # If the are no unproductive symbols on the RHS of
-    # a rule, then the rule is productive.
-    # The double negative catches the vacuous case:
-    # A rule with an empty RHS is productive.
-    RULE: for my $rule ( @{$rules} ) {
-        next RULE
-            if defined List::Util::first {
-            not $grammar_c->symbol_is_productive(
-                $_->[Marpa::XS::Internal::Symbol::ID] );
-        }
-        @{ $rule->[Marpa::XS::Internal::Rule::RHS] };
-        $rule->[Marpa::XS::Internal::Rule::PRODUCTIVE]++;
-    } ## end for my $rule ( @{$rules} )
-
-    return 1;
-
-} ## end sub productive
-
-sub has_empty_rule {
-    my ($grammar) = @_;
-    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    RULE: for my $rule ( @{$rules} ) {
-        next RULE if scalar @{ $rule->[Marpa::XS::Internal::Rule::RHS] };
-        Marpa::XS::exception(
-            'A grammar with empty rules must mark its terminals or unset lhs_terminals'
-        );
-    } ## end for my $rule ( @{$rules} )
-    return;
-} ## end sub has_empty_rule
-
-sub terminals_distinguished {
-    my ($grammar) = @_;
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    for my $symbol ( @{$symbols} ) {
-        return 1
-            if $grammar_c->symbol_is_terminal(
-                    $symbol->[Marpa::XS::Internal::Symbol::ID]
-            );
-    } ## end for my $symbol ( @{$symbols} )
-    return 0;
-} ## end sub terminals_distinguished
-
-sub mark_all_symbols_terminal {
-    my ($grammar) = @_;
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    for my $symbol ( @{$symbols} ) {
-        $grammar_c->symbol_is_terminal_set(
-            $symbol->[Marpa::XS::Internal::Symbol::ID], 1 );
     }
     return 1;
-} ## end sub mark_all_symbols_terminal
-
-sub check_lhs_non_terminal {
-    my ($grammar) = @_;
-    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    SYMBOL: for my $symbol ( @{$symbols} ) {
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-        next SYMBOL if not $grammar_c->symbol_is_terminal($symbol_id);
-        next SYMBOL if not scalar $grammar_c->symbol_lhs_rule_ids($symbol_id);
-        my $name = $symbol->[Marpa::XS::Internal::Symbol::NAME];
-        Marpa::XS::exception(
-            "lhs_terminals option is off, but Symbol $name is both on LHS and a terminal"
-        );
-    } ## end for my $symbol ( @{$symbols} )
-    return 1;
-} ## end sub check_lhs_non_terminal
-
-sub mark_non_lhs_terminal {
-    my ($grammar) = @_;
-    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    SYMBOL: for my $symbol ( @{$symbols} ) {
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-        next SYMBOL if scalar $grammar_c->symbol_lhs_rule_ids($symbol_id);
-        $grammar_c->symbol_is_terminal_set( $symbol_id, 1 );
-    } ## end for my $symbol ( @{$symbols} )
-    return 1;
-} ## end sub mark_non_lhs_terminal
+} ## end sub accessible
 
 # Assumes that, at the point when nulling() is called,
 # no symbol already has NULLING set.  The loop control
@@ -1986,7 +1752,9 @@ sub nulling {
 
     my @worklist =
         map  { $_->[Marpa::XS::Internal::Rule::LHS] }
-        grep { not scalar @{ $_->[Marpa::XS::Internal::Rule::RHS] } }
+        grep {
+	not scalar @{ $_->[Marpa::XS::Internal::Rule::RHS] }
+	}
         @{$rules};
 
     SYMBOL: while ( my $symbol = pop @worklist ) {
@@ -2022,95 +1790,6 @@ sub nulling {
     return 1;
 
 } ## end sub nulling
-
-# Assumes that nulling symbols have been marked, but
-# that no symbol has been marked nullable -- the loop control
-# logic requires this.
-#
-# Returns undef if there was a problem
-sub nullable {
-    my ($grammar) = @_;
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-
-    # All nulling symbols are nullable, but this fact does not
-    # seem to offer a speed-up, because Marpa allows
-    # terminals to be nullable.  These terminals can be nullable
-    # but not nulling, and we need to find the nullable which
-    # derive these nullable terminals, not just the nulling
-    # symbols.
-    my @worklist =
-        map  { $_->[Marpa::XS::Internal::Rule::LHS] }
-        grep { not scalar @{ $_->[Marpa::XS::Internal::Rule::RHS] } }
-        @{$rules};
-
-    SYMBOL: while ( my $symbol = pop @worklist ) {
-
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-
-        # this one we've already done
-        next SYMBOL if $grammar_c->symbol_is_nullable($symbol_id);
-
-        # terminals can be nullable if they are also LHS symbols
-
-        # Assume it is not nullable and look for a nullable rule
-        # with this symbol on the LHS
-        my $nullable = 0;
-        RULE:
-        for my $lh_rule_id ( $grammar_c->symbol_lhs_rule_ids($symbol_id) )
-        {
-            for my $rh_symbol (
-                @{ $rules->[$lh_rule_id]->[Marpa::XS::Internal::Rule::RHS] } )
-            {
-                next RULE
-                    if not $grammar_c->symbol_is_nullable(
-                            $rh_symbol->[Marpa::XS::Internal::Symbol::ID]
-                    );
-            } ## end for my $rh_symbol ( @{ $rules->[$lh_rule_id]->[...]})
-
-            # No non-nullable symbol found, so the rule and therefore its
-            # LHS symbol are nullable
-            $nullable = 1;
-            last RULE;
-
-        } ## end for my $lh_rule_id ( $grammar_c->symbol_lhs_rule_ids(...))
-
-        next SYMBOL if not $nullable;
-
-        $grammar_c->symbol_is_nullable_set( $symbol_id,  1 );
-
-        for my $rh_rule_id ( $grammar_c->symbol_rhs_rule_ids($symbol_id) ) {
-            push @worklist,
-                $rules->[$rh_rule_id]->[Marpa::XS::Internal::Rule::LHS];
-        }
-
-    } ## end while ( my $symbol = pop @worklist )
-
-    my $counted_nullable_count;
-    for my $symbol ( @{$symbols} ) {
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-        my $name      = $symbol->[Marpa::XS::Internal::Symbol::NAME];
-        my $counted   = $grammar_c->symbol_is_counted($symbol_id);
-        if ( $grammar_c->symbol_is_nullable($symbol_id) and $counted ) {
-            my $problem =
-                qq{Nullable symbol "$name" is on rhs of counted rule};
-            push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-                $problem;
-            $counted_nullable_count++;
-        } ## end if ( $grammar_c->symbol_is_nullable($symbol_id) and ...)
-    } ## end for my $symbol ( @{$symbols} )
-    if ($counted_nullable_count) {
-        my $problem =
-            'Counted nullables confuse Marpa::XS -- please rewrite the grammar';
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        return;
-    } ## end if ($counted_nullable_count)
-
-    return 1;
-
-} ## end sub nullable
 
 # This assumes the CHAF rewrite has been done,
 # so that every symbol is either nulling or
@@ -2804,11 +2483,11 @@ sub rewrite_as_CHAF {
         my $rule = $rules->[$rule_id];
 
         # Rules are useless unless proven otherwise
+	next RULE if not $rule->[Marpa::XS::Internal::Rule::USED];
         $rule->[Marpa::XS::Internal::Rule::USED] = 0;
 
-        # unreachable rules are useless
-        my $productive = $rule->[Marpa::XS::Internal::Rule::PRODUCTIVE];
-        next RULE if not $productive;
+        # unreachable and unproductive rules are useless
+        next RULE if not $grammar_c->rule_is_productive( $rule_id );
         next RULE if not $grammar_c->rule_is_accessible( $rule_id );
 
         my $rhs = $rule->[Marpa::XS::Internal::Rule::RHS];
@@ -3078,7 +2757,7 @@ sub rewrite_as_CHAF {
 
                 # Add new rule.
 
-                my $new_rule = add_rule(
+                my $new_rule = pshim_add_rule(
                     {   grammar => $grammar,
                         lhs     => $subproduction_lhs,
                         rhs     => $factor_rhs,
@@ -3098,10 +2777,6 @@ sub rewrite_as_CHAF {
                 my $new_rule_id = $new_rule->[Marpa::XS::Internal::Rule::ID];
 
                 $new_rule->[Marpa::XS::Internal::Rule::USED]          = 1;
-
-		$grammar_c->rule_is_accessible_set($new_rule_id, 1);
-
-                $new_rule->[Marpa::XS::Internal::Rule::PRODUCTIVE]    = 1;
                 $new_rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE] = $rule;
                 $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_START] =
                     $subproduction_start_ix;
@@ -3142,7 +2817,7 @@ sub rewrite_as_CHAF {
         $grammar_c->symbol_is_start_set( $new_start_symbol_id, 1 );
 
         # Create a new start rule
-        my $new_start_rule = add_rule(
+        my $new_start_rule = pshim_add_rule(
             {   grammar           => $grammar,
                 lhs               => $new_start_symbol,
                 rhs               => [$old_start_symbol],
@@ -3152,11 +2827,6 @@ sub rewrite_as_CHAF {
 
         $new_start_rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS] = 1;
         $new_start_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] = 1;
-        $new_start_rule->[Marpa::XS::Internal::Rule::PRODUCTIVE] =
-            $start_is_productive;
-
-        $grammar_c->rule_is_accessible_set( $new_start_rule_id, 1 );
-
         $new_start_rule->[Marpa::XS::Internal::Rule::USED]       = 1;
     } ## end if ( not $start_is_nulling )
 
@@ -3203,7 +2873,7 @@ sub rewrite_as_CHAF {
         } ## end else [ if ($new_start_symbol) ]
         $grammar_c->symbol_is_start_set( $nulling_new_start_symbol_id, 1 );
 
-        my $new_start_alias_rule = add_rule(
+        my $new_start_alias_rule = pshim_add_rule(
             {   grammar => $grammar,
                 lhs     => $nulling_new_start_symbol,
                 rhs     => [],
@@ -3216,11 +2886,6 @@ sub rewrite_as_CHAF {
             $new_start_alias_rule->[Marpa::XS::Internal::Rule::ID];
 
         # Nulling rules are not considered useful, but the top-level one is an exception
-        $new_start_alias_rule->[Marpa::XS::Internal::Rule::PRODUCTIVE] =
-            $start_is_productive;
-
-	$grammar_c->rule_is_accessible_set( $new_start_alias_rule_id, 1 );
-
         $new_start_alias_rule->[Marpa::XS::Internal::Rule::USED]       = 1;
 
     } ## end if ($nulling_old_start)

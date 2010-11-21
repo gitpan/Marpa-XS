@@ -120,30 +120,32 @@ my $show_rules_output = $grammar->show_rules();
 
 Marpa::XS::Test::is( $show_rules_output, <<'END_RULES', 'Rewritten Rules' );
 0: statement -> optional_whitespace expression optional_whitespace optional_modifier optional_whitespace /* !used */
-1: statements -> statement[Seq:1-*][Sep:comma] /* vrhs discard_sep real=0 */
-2: statements -> statement[Seq:1-*][Sep:comma] comma /* vrhs discard_sep real=1 */
-3: statement[Seq:1-*][Sep:comma] -> statement /* vlhs real=1 */
-4: statement[Seq:1-*][Sep:comma] -> statement[Seq:1-*][Sep:comma] comma statement /* vlhs vrhs real=2 */
-5: block -> /* empty !used */
-6: block -> statements[Seq:1-*] /* vrhs real=0 */
-7: statements[Seq:1-*] -> statements /* vlhs real=1 */
-8: statements[Seq:1-*] -> statements[Seq:1-*] statements /* vlhs vrhs real=1 */
-9: optional_whitespace -> whitespace
-10: optional_whitespace -> /* empty !used */
-11: optional_modifier -> modifier
-12: optional_modifier -> /* empty !used */
-13: statement -> optional_whitespace expression statement[R0:2] /* vrhs real=2 */
-14: statement -> optional_whitespace expression optional_whitespace[] optional_modifier[] optional_whitespace[]
-15: statement -> optional_whitespace[] expression statement[R0:2] /* vrhs real=2 */
-16: statement -> optional_whitespace[] expression optional_whitespace[] optional_modifier[] optional_whitespace[]
-17: statement[R0:2] -> optional_whitespace statement[R0:3] /* vlhs vrhs real=1 */
-18: statement[R0:2] -> optional_whitespace optional_modifier[] optional_whitespace[] /* vlhs real=3 */
-19: statement[R0:2] -> optional_whitespace[] statement[R0:3] /* vlhs vrhs real=1 */
-20: statement[R0:3] -> optional_modifier optional_whitespace /* vlhs real=2 */
-21: statement[R0:3] -> optional_modifier optional_whitespace[] /* vlhs real=2 */
-22: statement[R0:3] -> optional_modifier[] optional_whitespace /* vlhs real=2 */
-23: block['] -> block /* vlhs real=1 */
-24: block['][] -> /* empty vlhs real=1 */
+1: statements -> statement /* !used */
+2: statements -> statements[Subseq:8:5] /* vrhs discard_sep real=0 */
+3: statements -> statements[Subseq:8:5] comma /* vrhs discard_sep real=1 */
+4: statements[Subseq:8:5] -> statement /* vlhs real=1 */
+5: statements[Subseq:8:5] -> statements[Subseq:8:5] comma statement /* vlhs vrhs real=2 */
+6: block -> statements /* !used */
+7: block -> /* empty !used */
+8: block -> block[Subseq:0:8] /* vrhs real=0 */
+9: block[Subseq:0:8] -> statements /* vlhs real=1 */
+10: block[Subseq:0:8] -> block[Subseq:0:8] statements /* vlhs vrhs real=1 */
+11: optional_whitespace -> whitespace
+12: optional_whitespace -> /* empty !used */
+13: optional_modifier -> modifier
+14: optional_modifier -> /* empty !used */
+15: statement -> optional_whitespace expression statement[R0:2] /* vrhs real=2 */
+16: statement -> optional_whitespace expression optional_whitespace[] optional_modifier[] optional_whitespace[]
+17: statement -> optional_whitespace[] expression statement[R0:2] /* vrhs real=2 */
+18: statement -> optional_whitespace[] expression optional_whitespace[] optional_modifier[] optional_whitespace[]
+19: statement[R0:2] -> optional_whitespace statement[R0:3] /* vlhs vrhs real=1 */
+20: statement[R0:2] -> optional_whitespace optional_modifier[] optional_whitespace[] /* vlhs real=3 */
+21: statement[R0:2] -> optional_whitespace[] statement[R0:3] /* vlhs vrhs real=1 */
+22: statement[R0:3] -> optional_modifier optional_whitespace /* vlhs real=2 */
+23: statement[R0:3] -> optional_modifier optional_whitespace[] /* vlhs real=2 */
+24: statement[R0:3] -> optional_modifier[] optional_whitespace /* vlhs real=2 */
+25: block['] -> block /* vlhs real=1 */
+26: block['][] -> /* empty vlhs real=1 */
 END_RULES
 
 # Marpa::XS::Display::End

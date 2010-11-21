@@ -206,13 +206,10 @@ sub Marpa::XS::Recognizer::new {
             'Marpa::XS cannot proceed' );
     }
 
-    my $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE];
-    if ( $phase != Marpa::XS::Internal::Phase::PRECOMPUTED ) {
+    if ( !$grammar_c->is_precomputed() ) {
         Marpa::XS::exception(
-            'Attempt to parse grammar in inappropriate phase ',
-            Marpa::XS::Internal::Phase::description($phase)
-        );
-    } ## end if ( $phase != Marpa::XS::Internal::Phase::PRECOMPUTED)
+            'Attempt to parse grammar which is not precomputed');
+    }
 
     # set the defaults
     local $Marpa::XS::Internal::TRACE_FH = my $trace_fh =
@@ -829,16 +826,22 @@ sub report_progress {
             my $marpa_rule = $LR0_item->[Marpa::XS::Internal::LR0_item::RULE];
             my $marpa_position =
                 $LR0_item->[Marpa::XS::Internal::LR0_item::POSITION];
-            my $original_rule =
-                $marpa_rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
-                // $marpa_rule;
+            my $chaf_start =
+                $marpa_rule->[Marpa::XS::Internal::Rule::VIRTUAL_START];
+            my $original_rule = $marpa_rule;
+	    if (defined $chaf_start
+		and ( my $chaf_original_rule =
+		    $marpa_rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE] )
+		)
+	    {
+		my $original_rule = $chaf_original_rule;
+	    }
             my $original_rhs =
                 $original_rule->[Marpa::XS::Internal::Rule::RHS];
 
             # position in original rule, to be calculated
             my $original_position;
-            if ( my $chaf_start =
-                $marpa_rule->[Marpa::XS::Internal::Rule::VIRTUAL_START] )
+            if ( defined $chaf_start )
             {
                 my $chaf_rhs = $marpa_rule->[Marpa::XS::Internal::Rule::RHS];
                 $original_position =

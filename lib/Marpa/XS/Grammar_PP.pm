@@ -1439,6 +1439,7 @@ sub add_rule {
         $discard_separation;
     $new_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] =
         $real_symbol_count;
+    $new_rule->[Marpa::XS::Internal::Rule::USED] = 1;
 
     push @{$rules}, $new_rule;
     {
@@ -1607,6 +1608,18 @@ sub add_user_rule {
 
     }    # not defined $min
 
+    # The original rule for a sequence rule --
+    # not actually used.
+    my $original_rule = add_rule(
+        {   grammar        => $grammar,
+            lhs            => $lhs,
+            rhs            => $rhs,
+            action         => $action,
+            ranking_action => $ranking_action,
+        }
+    );
+    $original_rule->[Marpa::XS::Internal::Rule::USED] = 0;
+
     # At this point we know that min must be 0 or 1
     # and that there is at least one symbol on the rhs
 
@@ -1647,12 +1660,9 @@ sub add_user_rule {
     }
 
     # create the sequence symbol
-    my $sequence_name = $rhs_names->[0] . "[Seq:$min-*]";
-    if ( defined $separator_name ) {
-        my $punctuation_free_separator_name = $separator_name;
-        $punctuation_free_separator_name =~ s/[^[:alnum:]]/_/gxms;
-        $sequence_name .= '[Sep:' . $punctuation_free_separator_name . ']';
-    }
+    my $sequence_name = $lhs_name . '[Subseq:'
+	. $lhs->[Marpa::XS::Internal::Symbol::ID] . ':'
+	. $rhs->[0]->[Marpa::XS::Internal::Symbol::ID] . ']';
     my $sequence = assign_symbol( $grammar, $sequence_name );
 
     # The top sequence rule
@@ -1925,7 +1935,7 @@ sub check_lhs_non_terminal {
                 };
         my $name = $symbol->[Marpa::XS::Internal::Symbol::NAME];
         Marpa::XS::exception(
-            "lhs_terminals option is off, but Symbol $name is both on LHS and a terminal"
+            "lhs_terminals option is off, but Symbol $name is both an LHS and a terminal"
         );
     } ## end for my $symbol ( @{$symbols} )
     return 1;
@@ -2062,11 +2072,9 @@ sub nullable {
         } ## end if ( $nullable and $counted )
     } ## end for my $symbol ( @{$symbols} )
     if ($counted_nullable_count) {
-        my $problem =
-            'Counted nullables confuse Marpa::XS -- please rewrite the grammar';
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        return;
+        Marpa::XS::exception( Marpa::XS::Grammar::show_problems($grammar),
+            'Counted nullables confuse Marpa::XS -- please rewrite the grammar'
+        );
     } ## end if ($counted_nullable_count)
 
     return 1;
@@ -2781,7 +2789,10 @@ sub rewrite_as_CHAF {
     RULE: for my $rule_id ( 0 .. ( $rule_count - 1 ) ) {
         my $rule = $rules->[$rule_id];
 
-        # Rules are useless unless proven otherwise
+        # Ignore rules already marked useless, but then re-mark
+	# all rules as useless --
+	# Rules will be considered useless unless proved otherwise
+	next RULE if not $rule->[Marpa::XS::Internal::Rule::USED];
         $rule->[Marpa::XS::Internal::Rule::USED] = 0;
 
         # unreachable rules are useless

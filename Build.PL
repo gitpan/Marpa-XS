@@ -31,7 +31,7 @@ my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version      = '0.001_011';
+my $marpa_xs_version      = '0.001_012';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -210,7 +210,25 @@ $subclass_code .= <<'SUBCLASS';
         my $self = shift;
         my $from = 'xs/XS.xs';
         my $to = 'lib/Marpa/XS.xs';
+        my $base = $self->base_dir();
+        my $blib = $self->blib;
         $self->add_to_cleanup($to);
+        my $bundle = File::Spec->catfile($blib, qw(arch auto Marpa XS XS.bundle) );
+	my $marpa_c = File::Spec->catfile($base, qw(libmarpa main src marpa.c) );
+	SOURCE: for my $try_source ($marpa_c) {
+	    say STDERR "comparing to $marpa_c: $bundle";
+	    next SOURCE if $self->up_to_date([$marpa_c], $bundle);
+	    say STDERR "Unlinking $bundle";
+	    unlink $bundle;
+	}
+	my $XS_o = File::Spec->catfile($base, qw(lib Marpa XS.o ) );
+	my $marpa_h = File::Spec->catfile($base, qw(libmarpa main src marpa.h) );
+	SOURCE: for my $try_source ($marpa_h) {
+	    say STDERR "comparing to $marpa_h: $XS_o";
+	    next SOURCE if $self->up_to_date([$marpa_h], $XS_o);
+	    say STDERR "Unlinking $XS_o";
+	    unlink $XS_o;
+	}
         $self->copy_if_modified( from => $from, to => $to );
         $self->process_xs($to);
     }

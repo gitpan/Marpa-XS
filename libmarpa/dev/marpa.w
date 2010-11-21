@@ -27,6 +27,8 @@
 \def\skipxTeX{\\{skip\_\TEX/}}
 \def\copyxTeX{\\{copy\_\TEX/}}
 
+\secpagedepth=1
+
 \def\title{Code for Marpa}
 \def\topofcontents{\null\vfill
   \centerline{\titlefont Code for Marpa}
@@ -52,7 +54,7 @@
 
 @** Introduction.
 
-@*2 Naming conventions.
+@*0 Naming conventions.
 
 External Names have |marpa_| or |MARPA_| as their prefix,
 as appropriate under the capitalization conventions.
@@ -74,6 +76,10 @@ positive names (|is_found|) are preferred
 to negative names (|is_not_lost|).
 
 For function names, some final verbs have special meanings.
+In the description below |j| stands for an object,
+and |f| for a field of that object.
+In cases where there is not ambiguity about which
+object a field might belong to, |j| will often be omitted.
 
 \li |j_f_get| returns field |f| of object |j|.
 It is an internal function, and often will be declared
@@ -83,10 +89,23 @@ It is an internal function, and often will be declared
 It is an internal function, and often will be declared
 |static inline|.
 
+\li |marpa_j_f_look| returns field |f| of object |j|.
+It is an external equivalent of |j_f_get|.
+The returned value is still owned by object |j| -- it should
+not be modified or freed.
+
 \li |marpa_j_f_peek| returns field |f| of object |j|.
 It is an external equivalent of |j_f_get|.
 The returned value is still owned by object |j| -- it should
 not be modified or freed.
+
+The difference between "peek" and "look" is somewhat
+subjective.
+"Look" functions are expected to be called in the normal
+course of operation, including in production code.
+"Peek" functions break the encapsulation rules.
+Their use is expected to be limited
+to debugging or tracing situations.
 
 \li |marpa_j_f_set| sets field |f| of object |j|.
 It's the external equivalent of |j_f_put|.
@@ -97,7 +116,7 @@ The returned value is owned by the caller.
 If it is a pointer, it points to memory which must
 be freed with |g_splice_free|.
 
-@*2 Abbreviations.
+@*0 Abbreviations.
 
 The following abbreviations are used in Marpa's variable names:
 
@@ -106,7 +125,7 @@ The following abbreviations are used in Marpa's variable names:
 \li recce for Recognizer
 \li alloc for Allocate
 
-@*2 Development Plans.
+@*0 Development Plans.
 
 These are notes to myself,
 most of which will only be relevant
@@ -114,32 +133,22 @@ while |libmarpa| is being written.
 Most of these notes will be revised
 and then deleted as development proceeds.
 
-@*3 Short Term To Do List.
+@*1 Short Term To Do List.
+
+\li The |rule_complete| call.  Do I really need that?
 
 \li Rewrite Leo link coversion code before converting 
 from Perl.
 
-@*3 Long Term To Do List.
+@*1 Long Term To Do List.
+
+\li Gather up all the non-internal grammar error cookies,
+and make sure they are accounted for in the Perl upper layer.
 
 \li When symbols and rules are no longer Perl objects,
 have them destroyed when the Grammar object is destroyed.
 
-@*3 Development Phase Features.
-
-A number of macros are to support features that are
-temporary -- shims and hacks to allow "test as I go"
-development.
-These macros, and the features they guard, are destined
-for elimination in the final version.
-In addition to the macros,
-"development phase only" features include structure members.
-
-@ Development Phase Macros
-@s MARPA_SHIM const
-@<Development phase public macros@> =
-#define MARPA_SHIM @/
-
-@*3 Development Note: Marpa layers.
+@*1 Development Note: Marpa layers.
 
 |libmarpa|, implemented here is intended as the bottom of potentially
 four layers.
@@ -181,12 +190,12 @@ Iterfaces between layers are named after the lower
 of the two layers.  For example the interface between
 |libmarpa| and the glue layer is the |libmarpa| interface.
 
-@*3 Development Note: Representing Objects.
+@*1 Development Note: Representing Objects.
 Representation of objects is most commonly in one
 of three forms: cookies, ID's or pointers to C structures.
 A lot of thought went into which is used where.
 
-@*4 Object ID's.
+@*2 Object ID's.
 Object ID's are integers.  They are always issued in sequence.
 They are guaranteed unique.
 (Note that in C,
@@ -204,7 +213,7 @@ Wraparound issues for object ID's are ignored.
 By the time any object ID wraps, memory will have long
 since overflowed.
 
-@*4 Object Cookies.
+@*2 Object Cookies.
 Object cookies represent objects in a way that is convenient
 and safe in the application layer, which will usually be a 4GL.
 Right now it is Perl.
@@ -236,7 +245,7 @@ This means that so long as
 a recognizer object cookie exists,
 the underlying grammar cannot be destroyed.
 
-@*4 Object pointers.
+@*2 Object pointers.
 The most efficient representation of objects
 are pointers to structures.
 These are the main representation of objects
@@ -284,7 +293,7 @@ grammar and recognizer objects,
 it owns them during their lifetime,
 and it is up to the glue layer to destroy them.
 
-@*3 Development Note: Converting Elements.
+@*1 Development Note: Converting Elements.
 \li Init the data element.
 
 \li Add a destructor.
@@ -294,13 +303,11 @@ Add a comment in the place where the destructor must eventually
 be called, as a reminder.
 This will usually be in the Recognizer or Grammar destructor.
 
-\li {Add whatever mutators are needed,
+{\hbadness=10000 \raggedright \noindent \li
+Add whatever mutators are needed,
 initially as un-inlined externals.
-Mark these with the |MARPA_SHIM| define.
 At the end of development, it should be possible to
-|#define| |MARPA_SHIM| as |static inline|,
-or to simply replace |MARPA_SHIM| with
-|static inline|.
+eliminate the external versions of these.
 \tolerance=9999\par}
 
 \li Now that there are a full set of initializers,
@@ -322,7 +329,7 @@ Convert all Perl code to use the external accessor of the C element.
 
 \li Eliminate the Perl element.
 
-@*3 Development Note: Converting Objects.
+@*1 Development Note: Converting Objects.
 
 \li First, all elements of an object must be converted to C,
 as described above.
@@ -352,7 +359,7 @@ longer be called in the course of destroying the Perl object.
 Make sure the destructor will be called when necessary.
 This will usually be when the Recognizer or Grammar object is destroyed.
 
-@*2 Memory Allocation.
+@*0 Memory Allocation.
 
 Starting out I'll allocate with |g_malloc| and possible |g_slice|.
 Once other stuff is in shape, I may consider selective use of the
@@ -421,11 +428,11 @@ GLIB_VAR const guint marpa_binary_age;@#
         @| || (MARPA_MAJOR_VERSION == (major) && MARPA_MINOR_VERSION == (minor) \
         @|  && MARPA_MICRO_VERSION >= (micro)))
         @]@#
-@<Development phase public macros@>@/
 #define MARPA_CAT(a, b) @[ a ## b @]
-@<Inlining macros@>
-struct marpa_g;
-@<Public typedefs@>@/
+@<Inlining macros@>@/
+@<Public defines@>@/
+struct marpa_g;@/
+@<Public typedefs@>@/@\
 @<Callback typedefs@>@/
 @<Public structures@>@/
 @<Public function prototypes@>@/
@@ -445,6 +452,7 @@ of thread safety.
 @<Public structures@> = struct marpa_g {
 @<Pointer aligned grammar elements@>@/
 @<Int aligned grammar elements@>@/
+@<Bit aligned grammar elements@>@/
 };
 
 @ @<Function definitions@> =
@@ -463,9 +471,10 @@ void marpa_g_destroy(struct marpa_g *g)
 @ @<Public function prototypes@> =
 void marpa_g_destroy(struct marpa_g *g);
 
-@ \marpa_sub{The Grammar ID}
-A ID for the grammar.
-It must be unique process-wide.
+@*0 The Grammar ID.
+A unique ID for the grammar.
+This must be unique not just per-thread,
+but process-wide.
 The counter which tracks grammar ID's
 (|next_grammar_id|)
 is (at this writing) the only global
@@ -483,10 +492,9 @@ gint marpa_grammar_id_value(struct marpa_g* g) { return g->id; }
 @ @<Public function prototypes@> =
 gint marpa_grammar_id_value(struct marpa_g* g);
 
-@ {\marpa_sub{The Grammar's Symbol List}
+@*0 The Grammar's Symbol List.
 This lists the symbols for the grammar,
 with their |Marpa_Symbol_ID| as the index.
-\tolerance=9999\par}
 @<Pointer aligned grammar elements@> = GArray* symbols;
 @ @<Initialize grammar elements@> =
 g->symbols = g_array_new(FALSE, FALSE, sizeof(struct marpa_symbol *));
@@ -501,11 +509,19 @@ GArray *marpa_g_symbols_peek(struct marpa_g* g)
 @ @<Public function prototypes@> =
 GArray *marpa_g_symbols_peek(struct marpa_g* g);
 
+@ Symbol count accesor.
+@<Function definitions@> =
+static inline gint symbol_count(struct marpa_g* g) {
+   return g->symbols->len;
+}
+@ @<Private function prototypes@> =
+static inline gint symbol_count(struct marpa_g* g);
+
 @ Internal accessor to find a symbol by its id.
 @<Function definitions@> =
 static inline struct marpa_symbol*
 symbol_id2p(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return ((struct marpa_symbol **)g->symbols->data)[id]; }
+{ return g_array_index(g->symbols, struct marpa_symbol*, id); }
 @ @<Private function prototypes@> =
 static inline struct marpa_symbol*
 symbol_id2p(struct marpa_g* g, Marpa_Symbol_ID id);
@@ -532,7 +548,7 @@ return symbol_id < g->symbols->len && symbol_id >= 0;
 static inline gint symbol_is_valid(
 struct marpa_g *g, Marpa_Symbol_ID symbol_id);
 
-@ The Grammar's Rule List:
+@*0 The Grammar's Rule List.
 This lists the rules for the grammar,
 with their |Marpa_Rule_ID| as the index.
 @<Pointer aligned grammar elements@> = GArray* rules;
@@ -553,7 +569,7 @@ GArray *marpa_g_rules_peek(struct marpa_g* g);
 @<Function definitions@> =
 static inline struct marpa_rule*
 rule_id2p(struct marpa_g* g, Marpa_Rule_ID id)
-{ return ((struct marpa_rule **)g->rules->data)[id]; }
+{ return g_array_index(g->rules, struct marpa_rule*, id); }
 @ @<Private function prototypes@> =
 static inline struct marpa_rule*
 rule_id2p(struct marpa_g* g, Marpa_Rule_ID id);
@@ -569,6 +585,164 @@ void marpa_g_rule_add(
 {
     g_array_insert_val(g->rules, rule_id, rule);
 }
+
+@*0 Grammar Boolean: Precomputed.
+@<Bit aligned grammar elements@> = unsigned int is_precomputed:1;
+@ @<Initialize grammar elements@> =
+g->is_precomputed = FALSE;
+@ The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_is_precomputed(struct marpa_g* g)
+{ return g->is_precomputed; }
+@ @<Public function prototypes@> =
+gboolean marpa_is_precomputed(struct marpa_g* g);
+
+@*0 Grammar Boolean: LHS Terminal OK.
+Traditionally, a BNF grammar did {\bf not} allow a symbol
+which was a terminal symbol of the grammar, to also be a LHS
+symbol.
+By default, this is allowed under Marpa.
+@<Bit aligned grammar elements@> = unsigned int is_lhs_terminal_ok:1;
+@ @<Initialize grammar elements@> =
+g->is_lhs_terminal_ok = TRUE;
+@ The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_is_lhs_terminal_ok(struct marpa_g* g)
+{ return g->is_lhs_terminal_ok; }
+@ @<Public function prototypes@> =
+gboolean marpa_is_lhs_terminal_ok(struct marpa_g* g);
+@ Returns |TRUE| on success,
+|FALSE| on failure.
+@<Function definitions@> =
+gboolean marpa_is_lhs_terminal_ok_set(
+struct marpa_g*g, gboolean value)
+{
+    if (g->is_precomputed) {
+        g->error = "precomputed";
+	return FALSE;
+    }
+    g->is_lhs_terminal_ok = value;
+    return TRUE;
+}
+@ @<Public function prototypes@> =
+gboolean marpa_is_lhs_terminal_ok_set( struct marpa_g*g, gboolean value);
+
+@*0 The Grammar's Context.
+The "context" is a hash of miscellaneous data,
+by keyword.
+It is so called because its purpose is to 
+provide callbacks with "context" ---
+data about
+|libmarpa|'s state which is not conveniently
+available in other forms.
+@<Pointer aligned grammar elements@> = GHashTable* context;
+@ @<Initialize grammar elements@> =
+g->context = g_hash_table_new_full( g_str_hash, g_str_equal, NULL, g_free );
+@ @<Destroy grammar elements@> = g_hash_table_destroy(g->context);
+
+@ @<Public defines@> =
+#define MARPA_CONTEXT_INT 1@/
+#define MARPA_CONTEXT_CONST 2@/
+#define MARPA_IS_CONTEXT_INT(v) @| @[ ((v)->type == MARPA_CONTEXT_INT) @]@/
+#define MARPA_CONTEXT_INT_VALUE(v) @| \
+@[ ((v)->type == MARPA_CONTEXT_INT ? ((struct marpa_context_int_value*)v)->data : G_MININT) @]@/
+#define MARPA_CONTEXT_STRING_VALUE(v) @| \
+@[ ((v)->type == MARPA_CONTEXT_CONST ? ((struct marpa_context_const_value*)v)->data : NULL) @]@/
+@ @<Public structures@> =
+struct marpa_context_int_value {
+   gint type;
+   gint data;
+};
+@ @<Public structures@> =
+struct marpa_context_const_value {
+   gint type;
+   const gchar* data;
+};
+@ @<Public structures@> =
+union marpa_context_value {
+   gint type;
+   struct marpa_context_int_value int_value;
+   struct marpa_context_const_value const_value;
+};
+
+@ Add an integer to the context.
+These functions might be converted to be public.
+For now they are only for use by |libmarpa| in setting
+values to be read by the higher layers,
+are therefore internal.
+
+The const qualifier on the key is deliberately discarded.
+As implemented, the keys are treated as const's by
+|g_hash_table_insert|, but the compiler can't know
+that is my intention.
+For type safety, I do want to keep the |const|
+qualifier in other contexts.
+@<Function definitions@> =
+static inline
+void context_int_add(struct marpa_g* g, const gchar* key, gint payload)
+{
+    struct marpa_context_int_value* value = g_new(struct marpa_context_int_value, 1);
+    value->type = MARPA_CONTEXT_INT;
+    value->data = payload;
+    g_hash_table_insert(g->context, (gpointer)key, value);
+}
+@ @<Private function prototypes@> =
+static inline
+void context_int_add(struct marpa_g* g, const gchar* key, gint value);
+@ @<Function definitions@> =
+static inline
+void marpa_context_const_add(struct marpa_g* g, const gchar* key, const gchar* payload)
+{
+    struct marpa_context_const_value* value = g_new(struct marpa_context_const_value, 1);
+    value->type = MARPA_CONTEXT_CONST;
+    value->data = payload;
+    g_hash_table_insert(g->context, (gpointer)key, value);
+}
+@ @<Private function prototypes@> =
+static inline
+void marpa_context_const_add(struct marpa_g* g, const gchar* key, const gchar* value);
+
+@ Clear the current context.
+Used to create a "clean slate" in the context.
+@<Function definitions@> =
+static inline void context_clear(struct marpa_g* g) {
+    g_hash_table_remove_all(g->context); }
+@ @<Private function prototypes@> =
+static inline void context_clear(struct marpa_g* g);
+
+@ Check that symbol is in valid range.
+@<Function definitions@> =
+union marpa_context_value* marpa_context_value_look(struct marpa_g* g, const gchar* key)
+{ return g_hash_table_lookup(g->context, key); }
+@ @<Public function prototypes@> =
+union marpa_context_value* marpa_context_value_look(struct marpa_g* g, const gchar* key);
+
+@*0 The Grammar's Error ID.
+This is an error flag for the grammar.
+Error status is not necessarily cleared
+on successful return, so that
+it is only valid when an external
+function has indicated there is an error,
+and becomes invalid again when another external method
+is called on the grammar.
+Checking it at other times may reveal "stale" error
+messages.
+@<Public typedefs@> =
+typedef const gchar* Marpa_Error_ID;
+@ @<Pointer aligned grammar elements@> = Marpa_Error_ID error;
+@ @<Initialize grammar elements@> =
+g->error = 0;
+@ There is no destructor.
+The error strings are assummed to be
+{\bf not} error messages, but "cookies".
+These cookies are constants residing in static memory
+(which may be read-only depending on implementation).
+They cannot and should not be de-allocated.
+@ @<Function definitions@> =
+Marpa_Error_ID marpa_error_value(struct marpa_g* g)
+{ return g->error ? : "unknown error"; }
+@ @<Public function prototypes@> =
+Marpa_Error_ID marpa_error_value(struct marpa_g* g);
 
 @** Recognizer Objects.
 
@@ -603,7 +777,7 @@ typedef gint Marpa_Symbol_ID;
 struct marpa_symbol {
     @<Pointer aligned symbol elements@>@/
     @<Int aligned symbol elements@>@/
-    @<Bitfield symbol elements@>@/
+    @<Bit aligned symbol elements@>@/
 };
 
 @ @<Function definitions@> =
@@ -639,7 +813,7 @@ static inline void marpa_symbol_free(struct marpa_symbol* symbol);
 @<Int aligned symbol elements@> = Marpa_Symbol_ID id;
 @ @<Initialize symbol elements@> = symbol->id = g->symbols->len;
 
-@ Symbol LHS Rules Element:
+@*0 Symbol LHS Rules Element.
 This tracks the rules for which this symbol is the LHS.
 It is an optimization --- the same information could be found
 by scanning the rules every time this information is needed.
@@ -671,7 +845,7 @@ void symbol_lhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id);
 @ @<Public function prototypes@> =
 void marpa_symbol_lhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id);
 
-@ Symbol RHS Rules Element:
+@*0 Symbol RHS Rules Element.
 This tracks the rules for which this symbol is the RHS.
 It is an optimization --- the same information could be found
 by scanning the rules every time this information is needed.
@@ -704,7 +878,7 @@ void symbol_rhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id);
 void marpa_symbol_rhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id);
 
 @ Symbol Is Accessible Boolean
-@<Bitfield symbol elements@> = unsigned int is_accessible:1;
+@<Bit aligned symbol elements@> = unsigned int is_accessible:1;
 @ @<Initialize symbol elements@> =
 symbol->is_accessible = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -730,7 +904,7 @@ struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 void marpa_symbol_is_accessible_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Counted Boolean
-@<Bitfield symbol elements@> = unsigned int is_counted:1;
+@<Bit aligned symbol elements@> = unsigned int is_counted:1;
 @ @<Initialize symbol elements@> =
 symbol->is_counted = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -746,17 +920,9 @@ gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_counted; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_counted_set(
-struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_counted = value; }
-@ @<Public function prototypes@> =
-/* static inline */
-void marpa_symbol_is_counted_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Nullable Boolean
-@<Bitfield symbol elements@> = unsigned int is_nullable:1;
+@<Bit aligned symbol elements@> = unsigned int is_nullable:1;
 @ @<Initialize symbol elements@> =
 symbol->is_nullable = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -781,7 +947,7 @@ struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 void marpa_symbol_is_nullable_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Nulling Boolean
-@<Bitfield symbol elements@> = unsigned int is_nulling:1;
+@<Bit aligned symbol elements@> = unsigned int is_nulling:1;
 @ @<Initialize symbol elements@> =
 symbol->is_nulling = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -806,7 +972,7 @@ struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 void marpa_symbol_is_nulling_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Terminal Boolean
-@<Bitfield symbol elements@> = unsigned int is_terminal:1;
+@<Bit aligned symbol elements@> = unsigned int is_terminal:1;
 @ @<Initialize symbol elements@> =
 symbol->is_terminal = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -832,7 +998,7 @@ void marpa_symbol_is_terminal_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolea
 
 
 @ Symbol Is Productive Boolean
-@<Bitfield symbol elements@> = unsigned int is_productive:1;
+@<Bit aligned symbol elements@> = unsigned int is_productive:1;
 @ @<Initialize symbol elements@> =
 symbol->is_productive = FALSE;
 @ The trace accessor returns the Boolean value.
@@ -857,7 +1023,7 @@ struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Start Boolean
-@<Bitfield symbol elements@> = unsigned int is_start:1;
+@<Bit aligned symbol elements@> = unsigned int is_start:1;
 @ @<Initialize symbol elements@> = symbol->is_start = FALSE;
 @ Accessor: The trace accessor returns the Boolean value.
 Right now this function uses a pointer
@@ -893,7 +1059,7 @@ it is essential that there be no "proper nullable"
 symbols.  Therefore, all proper nullable symbols in
 the original grammar are converted into two, aliased,
 symbols: a non-nullable (or "proper") alias and a nulling alias.
-@<Bitfield symbol elements@> =
+@<Bit aligned symbol elements@> =
 unsigned int is_proper_alias:1;
 unsigned int is_nulling_alias:1;
 @ @<Pointer aligned symbol elements@> =
@@ -968,7 +1134,7 @@ struct marpa_symbol* symbol)
     alias->is_nulling_alias = TRUE;
     alias->is_nulling = TRUE;
     alias->is_nullable = TRUE;
-    alias->is_productive = symbol->is_productive;
+    alias->is_productive = TRUE;
     alias->is_accessible = symbol->is_accessible;
     alias->alias = symbol;
     return alias;
@@ -1019,36 +1185,6 @@ if (cb) { (*cb)(g, id); } }
 @ @<Private function prototypes@> =
 static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id);
 
-@ {\bf Rule callbacks}:  The user can define a callback
-(with argument) which is invoked whenever a rule
-is created.
-@ Function pointer declarations are
-hard to type and impossible to read.
-This typedef localizes the damage.
-@<Callback typedefs@> =
-typedef void (Marpa_Rule_Callback)(struct marpa_g *g, Marpa_Rule_ID id);
-@ @<Pointer aligned grammar elements@> =
-    Marpa_Rule_Callback* rule_callback;
-    void *rule_callback_arg;
-@ @<Function definitions@> =
-void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb)
-{ g->rule_callback = cb; }
-void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg)
-{ g->rule_callback_arg = cb_arg; }
-void* marpa_rule_callback_arg_peek(struct marpa_g *g)
-{ return g->rule_callback_arg; }
-@ @<Public function prototypes@> =
-void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb);
-void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg);
-void* marpa_rule_callback_arg_peek(struct marpa_g *g);
-@ Do the rule callback.
-@<Function definitions@> =
-static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id)
-{ Marpa_Rule_Callback* cb = g->rule_callback;
-if (cb) { (*cb)(g, id); } }
-@ @<Private function prototypes@> =
-static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id);
-
 @** Rule Objects.
 @<Public typedefs@> =
 typedef gint Marpa_Rule_ID;
@@ -1057,17 +1193,24 @@ struct marpa_rule {
     @<Widely aligned rule elements@>@/
     /* Pointer aligned rule elements */@/
     @<Int aligned rule elements@>@/
-    @<Bitfield rule elements@>@/
+    @<Bit aligned rule elements@>@/
     @<Final rule elements@>@/
 };
-static inline gsize rule_sizeof(length) {
+@ @<Function definitions@> =
+static inline gsize rule_sizeof(gint length) {
 return sizeof(struct marpa_rule) + length*sizeof(Marpa_Symbol_ID);
 }
+@ @<Private function prototypes@> =
+static inline gsize rule_sizeof(gint length);
 
-@ Create a new rule:
+@*0 Rule Construction.
+@ Set up the basic data.
+This logic is intended to be common to all individual rules.
+The name comes from the idea that this logic "starts"
+the initialization of a rule.
 @<Function definitions@> =
 static inline
-struct marpa_rule* rule_new(struct marpa_g *g,
+struct marpa_rule* rule_start(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
 {
     int i;
@@ -1080,38 +1223,247 @@ Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
     @<Add this rule to the symbol rule lists@>
    return rule;
 }
+@ @<Function definitions@> =
+Marpa_Rule_ID marpa_rule_start_shim(struct marpa_g *g,
+Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
+{
+    struct marpa_rule* rule = rule_start(g, lhs, rhs, length);
+    if (!rule) { return -1; }
+    return  rule->id;
+}
+@ "Complete" rule.  Do the callback to the upper layers
+telling them about the new rule.
+The term "complete" comes from the idea that this completes
+the initialization process.
+This function may go away once development is finished.
+@<Function definitions@> =
+void marpa_rule_complete_shim(struct marpa_g *g, Marpa_Rule_ID id)
+{
+    rule_callback(g, id);
+}
+@ @<Function definitions@> =
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
 {
     Marpa_Rule_ID rule_id;
-    struct marpa_rule* rule = rule_new(g, lhs, rhs, length);
-    if (!rule) { return -1; }
-    return  rule->id;
+    struct marpa_rule* rule;
+    if (is_rule_duplicate(g, lhs, rhs, length) == TRUE) {
+	g->error = (Marpa_Error_ID)"duplicate rule";
+        return -1;
+    }@;
+    rule = rule_start(g, lhs, rhs, length);
+    if (!rule) { return -1; }@;
+    rule_id = rule->id;
+    rule_callback(g, rule_id);
+    return rule_id;
 }
-void marpa_rule_complete(struct marpa_g *g, Marpa_Rule_ID id)
+
+@ @<Function definitions@> =
+Marpa_Rule_ID marpa_sequence_new(struct marpa_g *g,
+Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID rhs_id, Marpa_Symbol_ID separator_id,
+gint min, gint flags )
 {
-    rule_callback(g, id);
+    Marpa_Rule_ID original_rule_id;
+    struct marpa_rule* original_rule;
+    Marpa_Symbol_ID internal_lhs_id, *temp_rhs;
+    if (min < 0) {
+	g->error = (Marpa_Error_ID)"bad min";
+        return -1;
+    }@;
+    if (is_rule_duplicate(g, lhs_id, &rhs_id, 1) == TRUE) {
+	g->error = (Marpa_Error_ID)"duplicate rule";
+        return -1;
+    }@;
+
+    @<Add the original rule for a sequence@>@;
+    @<Check that the separator is valid or -1@>@;
+    @<Mark the counted symbols@>@;
+    if (min == 0) { @<Add the nulling rule for a sequence@>@; }
+    min = 1;
+    @<Create the internal LHS symbol@>@;
+    @<Allocate the temporary rhs buffer@>@;
+    @<Add the top rule for the sequence@>@;
+    if (separator_id >= 0 && !(flags & MARPA_PROPER_SEPARATION)) {
+	@<Add the alternate top rule for the sequence@>@;
+    }
+    @<Add the minimum rule for the sequence@>@;
+    @<Add the iterating rule for the sequence@>@;
+    @<Free the temporary rhs buffer@>@;
+    return original_rule_id;
+}
+@ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_sequence_new(struct marpa_g *g,
+Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID rhs_id, Marpa_Symbol_ID separator_id,
+gint min, gint flags );
+@ @<Return -1 for an internal error@> = g->error = "internal_error"; return -1;
+@ As a side effect, this checks the LHS and RHS symbols for validity.
+@<Add the original rule for a sequence@> =
+    original_rule = rule_start(g, lhs_id, &rhs_id, 1);
+    if (!original_rule) { @<Return -1 for an internal error@> }
+    original_rule->is_used = 0;
+    original_rule_id = original_rule->id;
+    rule_callback(g, original_rule_id);
+@ @<Check that the separator is valid or -1@> =
+if (separator_id != -1 && !symbol_is_valid(g, separator_id)) {
+    g->error = "bad separator"; return -1;
+}
+@ @<Mark the counted symbols@> =
+symbol_id2p(g, rhs_id)->is_counted = 1;
+if (separator_id >= 0) { symbol_id2p(g, separator_id)->is_counted = 1; }
+@ @<Add the nulling rule for a sequence@> =
+	{ struct marpa_rule* rule = rule_start(g, lhs_id, 0, 0);
+	if (!rule) { @<Return -1 for an internal error@> }
+	rule->is_semantic_equivalent = TRUE;
+	rule->original = original_rule_id;
+	rule_callback(g, rule->id);
+	}
+@ @<Create the internal LHS symbol@> =
+    internal_lhs_id = symbol_new(g)->id;
+    symbol_callback(g, internal_lhs_id);
+@ @<Allocate the temporary rhs buffer@> =
+temp_rhs = g_new(Marpa_Symbol_ID, MAX(2, (1 + (separator_id < 0 ? 1 : 2) * (min - 1))));
+@ @<Free the temporary rhs buffer@> = g_free(temp_rhs);
+@ @<Add the top rule for the sequence@> =
+{ struct marpa_rule* rule;
+temp_rhs[0] = internal_lhs_id;
+rule = rule_start(g, lhs_id, temp_rhs, 1);
+if (!rule) { @<Return -1 for an internal error@> }
+rule->original = original_rule_id;
+rule->is_semantic_equivalent = TRUE;
+/* Real symbol count remains at default of 0 */
+rule->is_virtual_rhs = TRUE;
+rule->is_discard = !(flags & MARPA_KEEP_SEPARATION) && separator_id >= 0;
+rule_callback(g, rule->id);
+}
+@ This "alternate" top rule is needed if a final separator is allowed.
+@<Add the alternate top rule for the sequence@> =
+{ struct marpa_rule* rule;
+    temp_rhs[0] = internal_lhs_id;
+    temp_rhs[1] = separator_id;
+    rule = rule_start(g, lhs_id, temp_rhs, 2);
+    if (!rule) { @<Return -1 for an internal error@> }
+    rule->original = original_rule_id;
+    rule->is_semantic_equivalent = TRUE;
+    rule->is_virtual_rhs = TRUE;
+    rule->real_symbol_count = 1;
+    rule->is_discard = !(flags & MARPA_KEEP_SEPARATION);
+    rule_callback(g, rule->id);
+}
+@ The traditional way to write a sequence in BNF is with one
+rule to represent the minimum, and another to deal with iteration.
+That's the core of Marpa's rewrite.  This is the minimum
+rule.
+@<Add the minimum rule for the sequence@> =
+{ struct marpa_rule* rule;
+gint rhs_ix, i;
+    temp_rhs[0] = rhs_id;
+    rhs_ix = 1;
+    for (i = 0; i < min - 1; i++) {
+        if (separator_id >= 0) temp_rhs[rhs_ix++] = separator_id;
+        temp_rhs[rhs_ix++] = rhs_id;
+    }
+    rule = rule_start(g, internal_lhs_id, temp_rhs, rhs_ix);
+    if (!rule) { @<Return -1 for an internal error@> }
+    rule->is_virtual_lhs = TRUE;
+    rule->real_symbol_count = rhs_ix;
+    rule_callback(g, rule->id);
+}
+@ @<Add the iterating rule for the sequence@> =
+{ struct marpa_rule* rule;
+gint rhs_ix = 0;
+    temp_rhs[rhs_ix++] = internal_lhs_id;
+    if (separator_id >= 0) temp_rhs[rhs_ix++] = separator_id;
+    temp_rhs[rhs_ix++] = rhs_id;
+    rule = rule_start(g, internal_lhs_id, temp_rhs, rhs_ix);
+    if (!rule) { @<Return -1 for an internal error@> }
+    rule->is_virtual_lhs = TRUE;
+    rule->is_virtual_rhs = TRUE;
+    rule->real_symbol_count = rhs_ix - 1;
+    rule_callback(g, rule->id);
+}
+
+@ Does this rule duplicate an already existing rule?
+A duplicate is a rule with the same lhs symbol,
+the same rhs length,
+and the same symbol in each position on the rhs.
+
+Note that this definition of duplicate applies to
+sequences as well.  That means that a sequence rule
+can be a duplicate of a non-sequence rule of length 1,
+if they have the same lhs symbols and the same rhs
+symbol.
+Also, that means you cannot define sequences
+that differ only in the separator, or only in the
+minimum count.
+
+I do not think the
+restrictions on sequence rules represent real limitations.
+Multiple sequences with the same lhs and rhs would be
+very confusing.
+And users who really, really want such them are free
+to write the sequences out as BNF rules.
+After all, sequence rules are only a shorthand.
+And shorthand is counter-productive when it makes
+you lose track of what you are trying to say.
+
+The algorithm is the first get a list of all the rules
+with the same LHS, which is very fast because
+I have pre-computed it.
+If there are no such rules, the new rule is
+unique (not a duplicate).
+If there are such rules, I look at them,
+trying to find one that duplicates the new
+rule.
+For each old rule, I first compare its length to
+the new rule, and then its right hand side
+symbols, one by one.
+If all these comparisons succeed, I conclude
+that the old rule duplicates the new one
+and return |TRUE|.
+If, after having done the comparison for all
+the "same LHS" rules, I have found no duplicates,
+then I conclude there is no duplicate of the new
+rule, and return |FALSE|.
+@s rule_is_not_duplicate int
+@<Function definitions@> =
+static inline
+gboolean is_rule_duplicate(struct marpa_g* g,
+Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID* rhs_ids, gint length)
+{
+    gint ix;
+    struct marpa_symbol* lhs = symbol_id2p(g, lhs_id);
+    GArray* same_lhs_array = lhs->lhs;
+    gint same_lhs_count = same_lhs_array->len;
+    for (ix = 0; ix < same_lhs_count; ix++) {
+	Marpa_Rule_ID same_lhs_rule_id = ((Marpa_Rule_ID *)(same_lhs_array->data))[ix];
+	gint rhs_position;
+	struct marpa_rule* rule = rule_id2p(g, same_lhs_rule_id);
+	if (rule->length != length) { goto rule_is_not_duplicate; }
+	for (rhs_position = 0; rhs_position < rule->length; rhs_position++) {
+	    if (rhs_symbol_id(rule, rhs_position) != rhs_ids[rhs_position]) {
+	        goto rule_is_not_duplicate;
+	    }
+	}
+	return TRUE; /* This rule duplicates the new one */
+	rule_is_not_duplicate: ;
+    }
+    return FALSE; /* No duplicate rules were found */
 }
 @ @<Private function prototypes@> =
 static inline
-struct marpa_rule* rule_new(struct marpa_g *g,
+gboolean is_rule_duplicate(struct marpa_g* g,
+Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID* rhs_ids, gint length);
+
+@ @<Private function prototypes@> =
+static inline
+struct marpa_rule* rule_start(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
 @ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_rule_start_shim(struct marpa_g *g,
+Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
+void marpa_rule_complete_shim(struct marpa_g *g, Marpa_Rule_ID id);
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
-void marpa_rule_complete(struct marpa_g *g, Marpa_Rule_ID id);
-
-@ @<Destroy grammar elements@> =
-{  int id; for (id = 0; id < g->rules->len; id++)
-{ marpa_rule_free(rule_id2p(g, id)); } }
-@ TODO: Any rule elements which need to be freed go here.
-@<Function definitions@> =
-static inline void marpa_rule_free(struct marpa_rule* rule)
-{
-/* Free rule elements */
-g_free(rule); }
-@ @<Private function prototypes@> =
-static inline void marpa_rule_free(struct marpa_rule* rule);
 
 @ Add the rules to the symbol's rule lists:
 An obstack scratchpad might be useful for
@@ -1218,9 +1570,24 @@ for (; rhs_ix >= 0; rhs_ix--) {
 }
 }
 
-@ Rule Symbols: The rule's left hand side (LHS), right hand side (RHS)
-and its length.  Length is the length of the RHS -- there is always
-exactly one LHS symbol.
+@*0 Rule Destruction.
+@ @<Destroy grammar elements@> =
+{  int id; for (id = 0; id < g->rules->len; id++)
+{ marpa_rule_free(rule_id2p(g, id)); } }
+@ TODO: Any rule elements which need to be freed go here.
+@<Function definitions@> =
+static inline void marpa_rule_free(struct marpa_rule* rule)
+{
+/* Free rule elements */
+g_free(rule); }
+@ @<Private function prototypes@> =
+static inline void marpa_rule_free(struct marpa_rule* rule);
+
+@*0 Rule Symbols.
+A rule takes the traditiona form of
+a left hand side (LHS), and a right hand side (RHS).
+The {\bf length} of a rule is the length of the RHS ---
+there is always exactly one LHS symbol.
 @<Widely aligned rule elements@> = gsize length;
 @ The symbols come at the end of the |marpa_rule| structure,
 so that they can be variable length.
@@ -1238,60 +1605,495 @@ rule->symbols[0] = lhs;
 @ @<Function definitions@> =
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule) {
     return rule->symbols[0]; }
+@ @<Private function prototypes@> =
+static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule);
+@ @<Function definitions@> =
 Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
     return rule_lhs_get(rule_id2p(g, rule_id)); }
+@ @<Public function prototypes@> =
+Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
+@ @<Function definitions@> =
 static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule) {
     return rule->symbols+1; }
+@ @<Private function prototypes@> =
+static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule);
+@ @<Function definitions@> =
 Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id) {
     return rule_rhs_get(rule_id2p(g, rule_id)); }
+@ @<Public function prototypes@> =
+Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id);
+@ @<Function definitions@> =
 static inline gsize rule_length_get(struct marpa_rule *rule) {
     return rule->length; }
+@ @<Private function prototypes@> =
+static inline gsize rule_length_get(struct marpa_rule *rule);
+@ @<Function definitions@> =
 gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
     return rule_length_get(rule_id2p(g, rule_id)); }
+@ @<Public function prototypes@> =
+gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
+
+@ @<Function definitions@> =
+static inline Marpa_Symbol_ID
+lhs_symbol_id(struct marpa_rule* rule) { return rule->symbols[0]; }
+@ @<Private function prototypes@> =
+static inline Marpa_Symbol_ID lhs_symbol_id(struct marpa_rule* rule);
+@ @<Function definitions@> =
 static inline Marpa_Symbol_ID
     rhs_symbol_id(struct marpa_rule* rule, gint index) {
 	return rule->symbols[index+1];
     }
 @ @<Private function prototypes@> =
-static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule);
-static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule);
-static inline gsize rule_length_get(struct marpa_rule *rule);
 static inline Marpa_Symbol_ID rhs_symbol_id(struct marpa_rule* rule, gint index);
-@ @<Public function prototypes@> =
-Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
-Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id);
-gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
 
-@ Rule ID: This is the unique identifier for the rule.
+@*0 Rule ID.
+The {bf rule ID} is a number which
+acts as the unique identifier for a rule.
 @<Int aligned rule elements@> = Marpa_Rule_ID id;
 @ @<Initialize rule elements@> = rule->id = g->rules->len;
 
-@ Rule Is Accessible Boolean
-@<Bitfield rule elements@> = unsigned int is_accessible:1;
+@*0 Rule Boolean: Keep Separator.
+When this rule is evaluated by the semantics,
+do they want to see the separators?
+Default is that they are thrown away.
+Usually the role of the separators is only syntactic,
+and that is what is wanted.
+For non-sequence rules, this flag should be false.
+@<Public defines@> =
+#define MARPA_KEEP_SEPARATION @| @[0x1@]@/
+@ @<Bit aligned rule elements@> = unsigned int is_discard:1;
 @ @<Initialize rule elements@> =
-rule->is_accessible = FALSE;
-@ The trace accessor returns the Boolean value.
-Right now this function uses a pointer
-to the rule function.
-If that becomes private,
-the prototype of this function
-must be changed.
+rule->is_discard = FALSE;
+@ @<Function definitions@> =
+gboolean marpa_rule_is_discard_separation(struct marpa_g* g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->is_discard; }
+@ @<Public function prototypes@> =
+gboolean marpa_rule_is_discard_separation(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Rule Boolean: Proper Separation.
+In Marpa's terminology,
+proper separation means that a sequence
+cannot legally end with a separator.
+In "proper" separation,
+the term separator is interpreted strictly,
+as something which separates two list items.
+A separator coming after the final list item does not separate
+two items, and therefore traditionally was considered a syntax
+error.
 \par
+Proper separation is often inconvenient,
+or even counter-productive.
+Increasingly, the
+practice is to be "liberal"
+and to allow a separator to come after the last list
+item.
+Liberal separation is the default in Marpa.
+\par
+There is not bitfield for this, because proper separation is
+a completely syntactic matter,
+taken care of in the rewrite itself.
+@<Public defines@> =
+#define MARPA_PROPER_SEPARATION @| @[0x2@]@/
+
+@*0 Accessible Rules.
+@ A rule is accessible if its LHS is accessible.
+@<Function definitions@> =
+gboolean marpa_rule_is_accessible(struct marpa_g* g, Marpa_Rule_ID id)
+{ struct marpa_rule* rule =  rule_id2p(g, id);
+Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
+ return symbol_id2p(g, lhs_id)->is_accessible; }
+@ @<Public function prototypes@> =
+gboolean marpa_rule_is_accessible(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Productive Rules.
+@ A rule is productive if every symbol on its RHS is productive.
+@<Function definitions@> =
+gboolean marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID id)
+{ struct marpa_rule* rule =  rule_id2p(g, id);
+gint rh_ix;
+for (rh_ix = 0; rh_ix < rule->length; rh_ix++) {
+   Marpa_Symbol_ID rhs_id = rhs_symbol_id(rule, rh_ix);
+   if ( !symbol_id2p(g, rhs_id)->is_productive ) return FALSE;
+}
+return TRUE; }
+@ @<Public function prototypes@> =
+gboolean marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Rule Boolean: Used.
+@<Bit aligned rule elements@> = unsigned int is_used:1;
+@ @<Initialize rule elements@> =
+rule->is_used = TRUE;
+@ This is the external accessor.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_rule_is_accessible_value(struct marpa_g* g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->is_accessible; }
+gboolean marpa_rule_is_used_value(struct marpa_g* g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->is_used; }
 @ @<Public function prototypes@> =
-gboolean marpa_rule_is_accessible_value(struct marpa_g* g, Marpa_Rule_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_rule_is_accessible_set(
-struct marpa_g*g, Marpa_Rule_ID id, gboolean value)
-{ rule_id2p(g, id)->is_accessible = value; }
-@ @<Public function prototypes@> =
-/* static inline */
-void marpa_rule_is_accessible_set( struct marpa_g*g, Marpa_Rule_ID id, gboolean value);
+gboolean marpa_rule_is_used_value(struct marpa_g* g, Marpa_Rule_ID id);
 
+@*0 Rule Boolean: Virtual LHS.
+This is for Marpa's "internal semantics".
+When Marpa rewrites rules, it does so in a way invisible to
+the user's semantics.
+It does this by marking rules so that it can reassemble
+the results of rewritten rules to appear "as if"
+they were the result of evaluating the original,
+un-rewritten rule.
+\par
+All Marpa's rewrites allow the rewritten rules to be
+"dummied up" to look like the originals.
+That this must be possible for any rewrite was one of
+Marpa's design criteria.
+It was an especially non-negotiable criteria, because
+almost the only reason for parsing a grammar is to apply the
+semantics specified for the original grammar.
+@<Bit aligned rule elements@> = unsigned int is_virtual_lhs:1;
+@ @<Initialize rule elements@> =
+rule->is_virtual_lhs = FALSE;
+@ The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_rule_is_virtual_lhs_value(struct marpa_g* g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->is_virtual_lhs; }
+@ @<Public function prototypes@> =
+gboolean marpa_rule_is_virtual_lhs_value(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Rule Boolean: Virtual RHS.
+@<Bit aligned rule elements@> = unsigned int is_virtual_rhs:1;
+@ @<Initialize rule elements@> =
+rule->is_virtual_rhs = FALSE;
+@ The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_rule_is_virtual_rhs_value(struct marpa_g* g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->is_virtual_rhs; }
+@ @<Public function prototypes@> =
+gboolean marpa_rule_is_virtual_rhs_value(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Rule Callbacks.
+The user can define a callback
+(with argument) which is invoked whenever a rule
+is created.
+@ Function pointer declarations are
+hard to type and impossible to read.
+This typedef localizes the damage.
+@<Callback typedefs@> =
+typedef void (Marpa_Rule_Callback)(struct marpa_g *g, Marpa_Rule_ID id);
+@ @<Pointer aligned grammar elements@> =
+    Marpa_Rule_Callback* rule_callback;
+    void *rule_callback_arg;
+@ @<Function definitions@> =
+void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb)
+{ g->rule_callback = cb; }
+@ @<Public function prototypes@> =
+void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb);
+@ @<Function definitions@> =
+void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg)
+{ g->rule_callback_arg = cb_arg; }
+@ @<Public function prototypes@> =
+void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg);
+@ @<Function definitions@> =
+void* marpa_rule_callback_arg_peek(struct marpa_g *g)
+{ return g->rule_callback_arg; }
+@ @<Public function prototypes@> =
+void* marpa_rule_callback_arg_peek(struct marpa_g *g);
+@ Do the rule callback.
+@<Function definitions@> =
+static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id)
+{ Marpa_Rule_Callback* cb = g->rule_callback;
+if (cb) { (*cb)(g, id); } }
+@ @<Private function prototypes@> =
+static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id);
+
+@*0 Rule Original.
+In many cases, Marpa will rewrite a rule.
+If this rule is the result of a rewriting, this element contains
+the ID of the original rule.
+@ @<Int aligned rule elements@> = Marpa_Rule_ID original;
+@ @<Initialize rule elements@> = rule->original = -1;
+@ @<Function definitions@> =
+Marpa_Rule_ID marpa_rule_original(struct marpa_g *g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->original; }
+
+@*0 Rule Real Symbol Count.
+This is another data element used for the "internal semantics" --
+the logic to reassemble results of rewritten rules so that they
+look as if they came from the original, un-rewritten rules.
+The value of this field is meaningful if and only if
+the rule has a virtual rhs or a virtual lhs.
+@ @<Int aligned rule elements@> = gint real_symbol_count;
+@ @<Initialize rule elements@> = rule->real_symbol_count = 0;
+@ @<Function definitions@> =
+gint marpa_real_symbol_count(struct marpa_g *g, Marpa_Rule_ID id)
+{ return rule_id2p(g, id)->real_symbol_count; }
+
+@*0 Semantic Equivalents.
+@<Bit aligned rule elements@> = unsigned int is_semantic_equivalent:1;
+@ @<Initialize rule elements@> =
+rule->is_semantic_equivalent = FALSE;
+@ Semantic equivalence arises out of Marpa's rewritings.
+When a rule is rewritten,
+some (but not all!) of the resulting rules have the
+same semantics as the original rule.
+It is this "original rule" that |semantic_equivalent()| returns.
+
+If this rule is the semantic equivalent of another rule,
+this external accessor returns the "original rule".
+Otherwise it returns -1.
+@<Function definitions@> =
+Marpa_Rule_ID marpa_rule_semantic_equivalent_value(struct marpa_g* g, Marpa_Rule_ID id)
+{
+struct marpa_rule* rewrite_rule = rule_id2p(g, id);
+return rewrite_rule->is_semantic_equivalent ? rewrite_rule->original : -1; }
+@ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_rule_semantic_equivalent_value(struct marpa_g* g, Marpa_Rule_ID id);
+
+@** Precomputing the Grammar.
+Marpa's logic divides roughly into three pieces -- grammar precomputation,
+the actual parsing of input tokens,
+and semantic evaluation.
+Precomputing the grammar is a complex process.
+This section describes the top-level method for precomputation.
+Individual subcomponents of the precomputation are
+covered in the next few
+sections.
+
+@*0 Implementation: Inacessible and Unproductive Rules.
+The textbooks say that,
+in order to automatically {\bf eliminate} inaccessible and unproductive
+productions from a grammar, you have to first eliminate the
+unproductive productions, {\bf then} the inaccessible ones.
+
+In practice, this advice does not seem very helpful.
+Imagine the (quite possible) case
+of an unproductive start symbol.
+Following the
+correct procedure for automatically cleaning the grammar, I would
+have to regard the start symbol and its productions as eliminated
+and therefore go on to report every other production and symbol as
+inaccessible.  Almost certainly all these inaccessiblity reports,
+while theoretically correct, would be irrelevant.
+What the user probably wants to
+is to make the start symbol productive.
+
+In |libmarpa|,
+inaccessibility is determined based on the assumption that
+unproductive symbols will be make productive somehow,
+and not eliminated.
+The downside of this choice is that, in a few uncommon cases,
+a user relying entirely
+on the Marpa::XS warnings to clean up his grammar will have to go through
+more than a single pass of the diagnostics.
+(As of this writing, I personally have yet to encounter such a case.)
+The upside is that in the more frequent cases, the user is spared
+a lot of useless diagnostics.
+
+=end Implementation:
+
+=cut
+
+
+@<Function definitions@> =
+struct marpa_g* marpa_precompute(struct marpa_g* g)
+{
+    @<Declare precomputation variables@>@;
+    @<Fail for empty grammar@>@;
+    @<Fail if already precomputed@>@;
+    @<Census LHS symbols@>@;
+    @<Census terminals@>@;
+    if (have_marked_terminals) {
+	@<Fatal if LHS terminal when not allowed@>@;
+    } else {
+	@<Fatal if empty rule and unmarked terminals@>;
+	if (g->is_lhs_terminal_ok) {
+	    @<Mark all symbols terminal@>@;
+	} else {
+	    @<Mark non-LHS symbols terminal@>@;
+	}
+    }
+    @<Census nullable symbols@>@;
+    @<Census productive symbols@>@;
+    @<Free boolean vectors@>@;
+    g->is_precomputed = TRUE;
+    return g;
+}
+@ @<Public function prototypes@> =
+struct marpa_g* marpa_precompute(struct marpa_g* g);
+@ @<Declare precomputation variables@> =
+gint pre_rewrite_rule_count = g->rules->len;
+gint pre_rewrite_symbol_count = g->symbols->len;
+
+@ @<Fail for empty grammar@> =
+if (g->rules->len <= 0) { g->error = "no rules"; return NULL; }
+@ The upper layers have a lot of latitude with this one.
+There's no harm done, so the upper layers can simply ignore this one.
+On the other hand, the upper layer may see this as a sign of a major
+logic error, and treat it as a fatal error.
+Anything in between these two extremes is also possible.
+@<Fail if already precomputed@> =
+if (g->is_precomputed) { g->error = "precomputed"; return NULL; }
+@ Loop over the rules, producing bit vector of LHS symbols, and of
+symbols which are the LHS of empty rules.
+While at it, set a flag to indicate if there are empty rules.
+@<Census LHS symbols@> = {;}
+{ Marpa_Rule_ID rule_id;
+lhs_v = bv_create(pre_rewrite_symbol_count);
+empty_lhs_v = bv_shadow(lhs_v);
+for (rule_id = 0; rule_id < pre_rewrite_rule_count; rule_id++) {
+    struct marpa_rule* rule = rule_id2p(g, rule_id);
+    Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
+    bv_bit_set(lhs_v, lhs_id);
+    if (rule->length <= 0) {
+	bv_bit_set(empty_lhs_v, lhs_id);
+	have_empty_rule = 1;
+    }
+}
+}
+@ Loop over the symbols, producing the boolean vector of symbols
+already marked as terminal,
+and a flag which indicates if there are any.
+@<Census terminals@> =
+{ Marpa_Symbol_ID symbol_id;
+terminal_v = bv_create(pre_rewrite_symbol_count);
+for (symbol_id = 0; symbol_id < pre_rewrite_symbol_count; symbol_id++) {
+    struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+    if (symbol->is_terminal) {
+	bv_bit_set(terminal_v, symbol_id);
+	have_marked_terminals = 1;
+    }
+} }
+@ @<Free boolean vectors@> =
+bv_free(terminal_v);
+@ @<Declare precomputation variables@> =
+Bit_Vector terminal_v;
+gboolean have_marked_terminals = 0;
+
+@ @<Fatal if empty rule and unmarked terminals@> =
+if (have_empty_rule && g->is_lhs_terminal_ok) {
+     g->error = "empty rule and unmarked terminals";
+    return NULL;
+}
+@ Any optimization should be for the non-error case, in which
+there are no LHS terminals, and the entire list of symbols must
+be scanned to discover this.
+It is faster to stop scanning symbols on the first error, if there is
+an error, but when that happens it is a fatal error,
+and for that, this code is already plenty fast enough.
+@<Fatal if LHS terminal when not allowed@> = 
+if (!g->is_lhs_terminal_ok) {
+    gboolean have_bad_lhs = 0;
+    gint start = 0;
+    gint min, max;
+    Bit_Vector bad_lhs_v = bv_clone(terminal_v);
+    bv_and(bad_lhs_v, bad_lhs_v, lhs_v);
+    while ( bv_scan(bad_lhs_v, start, &min, &max) ) {
+	gint i;
+	for (i = min; i <= max; i++) {
+	    context_int_add(g, "symbol_id", i);
+	    message(g, "lhs is terminal");
+	}
+        start = max+2;
+	have_bad_lhs = 1;
+    }
+    bv_free(bad_lhs_v);
+    if (have_bad_lhs) {
+        g->error = "lhs is terminal";
+	return NULL;
+    }
+}
+
+@ @<Mark all symbols terminal@> =
+{ Marpa_Symbol_ID symbol_id;
+bv_fill(terminal_v);
+for (symbol_id = 0; symbol_id < g->symbols->len; symbol_id++)
+{ symbol_id2p(g, symbol_id)->is_terminal = 1; } }
+@ @<Mark non-LHS symbols terminal@> = 
+{ gint start = 0;
+gint min, max;
+bv_not(terminal_v, lhs_v);
+while ( bv_scan(terminal_v, start, &min, &max) ) {
+    gint symbol_id;
+    for (symbol_id = min; symbol_id <= max; symbol_id++) {
+     symbol_id2p(g, symbol_id)->is_terminal = 1;
+    }
+    start = max+2;
+}
+}
+@ @<Free boolean vectors@> =
+bv_free(lhs_v);
+bv_free(empty_lhs_v);
+@ @<Declare precomputation variables@> =
+Bit_Vector lhs_v;
+Bit_Vector empty_lhs_v;
+gboolean have_empty_rule = 0;
+
+@ @<Census nullable symbols@> = 
+nullable_v = bv_clone(empty_lhs_v);
+rhs_closure(g, nullable_v);
+{ gint min, max, start, symbol_id;
+gint counted_nullables = 0;
+    for ( start = 0; bv_scan(nullable_v, start, &min, &max); start = max+2 ) {
+	for (symbol_id = min; symbol_id <= max; symbol_id++) {
+	    struct marpa_symbol *symbol = symbol_id2p(g, symbol_id);
+	    if (symbol->is_counted) {
+		context_int_add(g, "symbol_id", symbol_id);
+		message(g, "counted nullable");
+		counted_nullables++;
+	    }
+	    symbol->is_nullable = 1;
+} }
+if (counted_nullables) {
+    g->error = "counted nullable";
+    return NULL;
+}
+}
+@ @<Declare precomputation variables@> =
+Bit_Vector nullable_v;
+@ @<Free boolean vectors@> =
+bv_free(nullable_v);
+
+@ @<Census productive symbols@> = 
+productive_v = bv_shadow(nullable_v);
+bv_or(productive_v, nullable_v, terminal_v);
+rhs_closure(g, productive_v);
+{ gint min, max, start, symbol_id;
+    for ( start = 0; bv_scan(productive_v, start, &min, &max); start = max+2 ) {
+	for (symbol_id = min; symbol_id <= max; symbol_id++) {
+	    struct marpa_symbol *symbol = symbol_id2p(g, symbol_id);
+	    symbol->is_productive = 1;
+} }
+}
+@ @<Declare precomputation variables@> =
+Bit_Vector productive_v;
+@ @<Free boolean vectors@> =
+bv_free(productive_v);
+
+@** Rewriting the Grammar.
+
+\li First, compute transition matrices (symbol $\times$ symbol)
+for the closure of the 
+descendant relations.
+The descendant
+relation is reflexive --- every symbol is its own descendant.
+
+\li Next, invert this [$(x,y) \equiv (y,x)$] to get the transition
+matrix for the ancestor relation.  (Necessary to compute this?)
+
+\li Next, the accessible symbols are the descendants of the
+start symbol.
+
+\li Fast way to determine productive?
+
+\li The nulling symbols are the productive symbols, less those
+which are the ancestors of terminal symbols.
+
+\li Next, nullable symbols.
+
+\li Next, Cycles.  Unit-descent is descent
+via a rule where one and only one symbol is not
+nullable.
+Unit-descent is {\bf not} reflexive: $\neg ((x,y) \Leftrightarrow (y,x))$.
+The cycles will be all symbols $x$ where bit $(x,x)$
+is set
+in the transitive closure of the unit-descent matrix.
 
 @** Earley Item Objects.
 Here are some thought about potential optimizations:
@@ -1323,7 +2125,7 @@ struct marpa_earley_item {
      int dummy; /* until I get some contents */
 };
 @ Initialize Earley Item Object
-@<Function definitions@> = MARPA_SHIM@/
+@<Function definitions@> =
 struct marpa_earley_item* marpa_earley_item_new(void)
 { struct marpa_earley_item* item =
         g_malloc(sizeof(struct marpa_earley_item));
@@ -1340,17 +2142,496 @@ void marpa_earley_item_free(struct marpa_earley_item* item);
 Memory for the base of the Earley item object is allocated with 
 |g_malloc|.
 
-@** Error and Message Logging.
-Marpa uses the |glib| Message Logging framework.
-Message logging is in the "Marpa" domain,
-except for memory allocation.
+@** Boolean Vectors.
+Marpa's boolean vectors are adapted from
+Steffen Beyer's Bit-Vector package on CPAN.
+This is a combined Perl package and C library for handling
+bit vectors.
+Someone looking for a bit vector package would do best
+to look at Steffen's first.
+|libmarpa|'s boolean vectors are tightly tied in
+with its own needs and environment.
+@<Private typedefs@> =
+typedef guint Bit_Vector_Piece;
+typedef Bit_Vector_Piece* Bit_Vector;
+@ Some defines and constants
+@d BV_BITS(bv) *(bv-3)
+@d BV_SIZE(bv) *(bv-2)
+@d BV_MASK(bv) *(bv-1)
+@<Private global variables@> =
+static const int bv_wordbits = sizeof(Bit_Vector_Piece)*8u;
+static const int bv_modmask = sizeof(Bit_Vector_Piece)*8u-1u;
+static const int bv_hiddenwords = 3;
+static const int bv_lsb = 1u;
+static const int bv_msb = (1u << (sizeof(Bit_Vector_Piece)*8u-1u));
 
+@ Given a number of bits, compute the size.
+@<Function definitions@> =
+static inline guint bv_bits_to_size(gint bits)
+{
+    return (bits+bv_modmask)/bv_wordbits;
+}
+@ @<Private function prototypes@> =
+static inline guint bv_bits_to_size(gint bits);
+@ Given a number of bits, compute the unused-bit mask.
+@<Function definitions@> =
+static inline bv_bits_to_unused_mask(gint bits)
+{
+    guint mask = bits & bv_modmask;
+    if (mask) mask = (guint) ~(~0uL << mask); else mask = (guint) ~0uL;
+    return(mask);
+}
+@ @<Private function prototypes@> =
+static inline bv_bits_to_unused_mask(gint bits);
+
+@*0 Create a Boolean Vector.
+Always start with an all-zero vector.
+Note this code is a bit tricky ---
+the pointer returned is to the data.
+This is offset from the |g_malloc|'d space,
+by |bv_hiddenwords|.
+@<Function definitions@> =
+static inline Bit_Vector bv_create(gint bits)
+{
+    guint size = bv_bits_to_size(bits);
+    guint bytes = (size + bv_hiddenwords) << sizeof(guint);
+    guint* addr = (Bit_Vector) g_malloc0((size_t) bytes);
+    *addr++ = bits;
+    *addr++ = size;
+    *addr++ = bv_bits_to_unused_mask(bits);
+    return addr;
+}
+@ @<Private function prototypes@> =
+static inline Bit_Vector bv_create(gint bits);
+
+@*0 Shadow a Boolean Vector.
+Create another vector the same size as the original, but with
+all bits unset.
+@<Function definitions@> =
+static inline Bit_Vector bv_shadow(Bit_Vector bv)
+{
+    return bv_create(BV_BITS(bv));
+}
+@ @<Private function prototypes@> =
+static inline Bit_Vector bv_shadow(Bit_Vector bv);
+
+@*0 Clone a Boolean Vector.
+Given a boolean vector, creates a new vector which is
+an exact duplicate.
+This call allocates a new vector, which must be |g_free|'d.
+@<Function definitions@> =
+Bit_Vector bv_clone(Bit_Vector bv)
+{
+    guint  bits;
+    Bit_Vector twin;
+    guint *p_twin;
+    bits = BV_BITS(bv);
+    p_twin = twin = bv_create(bits);
+    if (bits > 0)
+    {
+        gint count = BV_SIZE(bv);
+	while (count--) *p_twin++ = *bv++;
+    }
+    return(twin);
+}
+@ @<Private function prototypes@> =
+Bit_Vector bv_clone(Bit_Vector bv);
+
+@*0 Free a Boolean Vector.
+@<Function definitions@> =
+static inline void bv_free(Bit_Vector vector) {
+    vector -= bv_hiddenwords;
+    g_free(vector);
+}
+@ @<Private function prototypes@> =
+static inline void bv_free(Bit_Vector vector);
+
+@*0 Fill a Boolean Vector.
+@<Function definitions@> =
+static inline void bv_fill(Bit_Vector bv)
+{
+    guint size = BV_SIZE(bv);
+    if (size <= 0) return;
+    while (size--) *bv++ = ~0u;
+    *(--bv) &= BV_MASK(bv);
+}
+@ @<Private function prototypes@> =
+static inline void bv_fill(Bit_Vector bv);
+
+@*0 Set a Boolean Vector Bit.
+@ @<Function definitions@> =
+static inline void bv_bit_set(Bit_Vector vector, gint bit) {
+    *(vector+(bit/bv_wordbits)) |= (bv_lsb << (bit%bv_wordbits));
+}
+@ @<Private function prototypes@> =
+static inline void bv_bit_set(Bit_Vector vector, gint bit);
+
+@*0 Clear a Boolean Vector Bit.
+@<Function definitions@> =
+static inline void bv_bit_clear(Bit_Vector vector, gint bit) {
+    *(vector+(bit/bv_wordbits)) &= ~ (bv_lsb << (bit%bv_wordbits));
+}
+@ @<Private function prototypes@> =
+static inline void bv_bit_clear(Bit_Vector vector, gint bit);
+
+@*0 Test a Boolean Vector Bit.
+@<Function definitions@> =
+static inline gboolean bv_bit_test(Bit_Vector vector, gint bit) {
+    return (*(vector+(bit/bv_wordbits)) & (bv_lsb << (bit%bv_wordbits))) != 0u;
+}
+@ @<Private function prototypes@> =
+static inline gboolean bv_bit_test(Bit_Vector vector, gint bit);
+@*0 Set a Boolean Vector to all Ones.
+@*0 Test a Boolean Vector for all Zeroes.
+@<Function definitions@> =
+gboolean bv_is_empty(Bit_Vector addr)
+{
+    guint  size = BV_SIZE(addr);
+    gboolean r = TRUE;
+    if (size > 0) {
+        *(addr+size-1) &= BV_MASK(addr);
+        while (r && (size-- > 0)) r = ( *addr++ == 0 );
+    }
+    return(r);
+}
+@ @<Private function prototypes@> =
+gboolean bv_is_empty(Bit_Vector addr);
+
+@*0 Bitwise-negate a Boolean Vector.
+@<Function definitions@>=
+static inline void bv_not(Bit_Vector X, Bit_Vector Y)
+{
+    guint size = BV_SIZE(X);
+    guint mask = BV_MASK(X);
+    while (size-- > 0) *X++ = ~*Y++;
+    *(--X) &= mask;
+}
+@ @<Private function prototypes@> =
+static inline void bv_not(Bit_Vector X, Bit_Vector Y);
+
+@*0 Bitwise-and a Boolean Vector.
+@<Function definitions@>=
+static inline void bv_and(Bit_Vector X, Bit_Vector Y, Bit_Vector Z)
+{
+    guint size = BV_SIZE(X);
+    guint mask = BV_MASK(X);
+    while (size-- > 0) *X++ = *Y++ & *Z++;
+    *(--X) &= mask;
+}
+@ @<Private function prototypes@> =
+static inline void bv_and(Bit_Vector X, Bit_Vector Y, Bit_Vector Z);
+
+@*0 Bitwise-or a Boolean Vector.
+@<Function definitions@>=
+static inline void bv_or(Bit_Vector X, Bit_Vector Y, Bit_Vector Z)
+{
+    guint size = BV_SIZE(X);
+    guint mask = BV_MASK(X);
+    while (size-- > 0) *X++ = *Y++ | *Z++;
+    *(--X) &= mask;
+}
+@ @<Private function prototypes@> =
+static inline void bv_or(Bit_Vector X, Bit_Vector Y, Bit_Vector Z);
+
+@*0 Scan a Boolean Vector.
+@<Function definitions@>=
+gboolean bv_scan(Bit_Vector bv, gint start,
+                                    gint* min, gint* max)
+{
+    guint  size = BV_SIZE(bv);
+    guint  mask = BV_MASK(bv);
+    guint  offset;
+    guint  bitmask;
+    guint  value;
+    gboolean empty;
+
+    if (size == 0) return FALSE;
+    if (start >= BV_BITS(bv)) return FALSE;
+    *min = start;
+    *max = start;
+    offset = start / bv_wordbits;
+    *(bv+size-1) &= mask;
+    bv += offset;
+    size -= offset;
+    bitmask = 1 << (start & bv_modmask);
+    mask = ~ (bitmask | (bitmask - 1));
+    value = *bv++;
+    if ((value & bitmask) == 0)
+    {
+        value &= mask;
+        if (value == 0)
+        {
+            offset++;
+            empty = TRUE;
+            while (empty && (--size > 0))
+            {
+                if ((value = *bv++)) empty = FALSE; else offset++;
+            }
+            if (empty) return FALSE;
+        }
+        start = offset * bv_wordbits;
+        bitmask = bv_lsb;
+        mask = value;
+        while (!(mask & bv_lsb))
+        {
+            bitmask <<= 1;
+            mask >>= 1;
+            start++;
+        }
+        mask = ~ (bitmask | (bitmask - 1));
+        *min = start;
+        *max = start;
+    }
+    value = ~ value;
+    value &= mask;
+    if (value == 0)
+    {
+        offset++;
+        empty = TRUE;
+        while (empty && (--size > 0))
+        {
+            if ((value = ~ *bv++)) empty = FALSE; else offset++;
+        }
+        if (empty) value = bv_lsb;
+    }
+    start = offset * bv_wordbits;
+    while (! (value & bv_lsb))
+    {
+        value >>= 1;
+        start++;
+    }
+    *max = --start;
+    return TRUE;
+}
+@ @<Private function prototypes@> =
+gboolean BitVector_scan(Bit_Vector bv, gint start,
+  gint* min, gint* max);
+
+@*0 The RHS Closure of a Vector.
+Despite the fact that they are actually tied closely to their
+use in |libmarpa|, most of the logic of boolean vectors has
+a "pure math" appearance.
+This routine has a direct connection with the grammar.
+\par
+Several properties of symbols that need to be determined
+have the property that, if
+all the symbols on the RHS of any rule have that property,
+so does its LHS symbol.
+@ The RHS closure looks a lot like the transitive closure,
+but there are several major differences.
+The biggest difference is that
+the RHS closure deals with properties and takes a {\bf vector} to another
+vector;
+the transitive closure is for a relation and takes a transition {\bf matrix}
+to another transition matrix.
+@ There are two properties of the RHS closure to note.
+First, it is reflexive.
+Any symbol in a set is in the RHS closure of that set.
+@ Second, the RHS closure is vacuously true.
+For any RHS closure property,
+every symbol which is on the LHS of an empty rule has that property.
+This means the RHS closure operation can only be used for
+properties which can meaningfully be regarded as vacuously
+true.
+In |libmarpa|, two important symbol properties are
+RHS clousure properties:
+the property of being productive,
+and the property of being nullable.
+
+@*0 Produce the RHS Closure of a Vector.
+This routine takes a symbol vector and a grammar,
+and turns the original vector into the RHS closure of that vector.
+The orignal vector is destroyed.
+\par
+If I decide rules should have a unique right hand symbol list,
+this is one place to use it.
+Duplicate symbols on the RHS are visited uselessly.
+@<Function definitions@> =
+static void rhs_closure(struct marpa_g* g, Bit_Vector bv)
+{
+      gint min, max, start = 0;
+      FSTACK_DEFINE(stack, Marpa_Symbol_ID);
+      Marpa_Symbol_ID *top_of_stack = NULL;
+      FSTACK_INIT(stack, Marpa_Symbol_ID, symbol_count(g));
+	while ( bv_scan(bv, start, &min, &max) ) {
+    gint symbol_id;
+    for (symbol_id = min; symbol_id <= max; symbol_id++) {
+        *(FSTACK_PUSH(stack)) = symbol_id;
+    }
+    start = max+2;
+    }
+    while (top_of_stack = FSTACK_POP(stack)) {
+	gint rule_ix;
+	GArray* rules = symbol_id2p(g, *top_of_stack)->rhs;
+	for (rule_ix = 0; rule_ix < rules->len; rule_ix++) {
+	     Marpa_Rule_ID rule_id = g_array_index(rules, Marpa_Rule_ID, rule_ix);
+	     struct marpa_rule* rule = rule_id2p(g, rule_id);
+	     gint rule_length;
+	     gint rh_ix;
+	     Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
+	     if (bv_bit_test(bv, lhs_id)) goto NEXT_RULE;
+	     rule_length = rule->length;
+	     for (rh_ix = 0; rh_ix < rule_length; rh_ix++) {
+		 if (!bv_bit_test(bv, rhs_symbol_id(rule, rh_ix))) goto NEXT_RULE;
+	     }
+	     /* If we are here, the bits for the RHS symbols are all
+	      * set, but the one for the LHS symbol is not.
+	      */
+	      bv_bit_set(bv, lhs_id);
+	     *(FSTACK_PUSH(stack)) = lhs_id;
+	     NEXT_RULE: ;
+	}
+    }
+      FSTACK_DESTROY(stack);
+}
+@ @<Private function prototypes@> =
+static void rhs_closure(struct marpa_g* g, Bit_Vector bv);
+
+@** Fixed Size Stacks.
+|libmarpa| uses stacks and worklists extensively.
+Often a reasonable maximum size is known when they are
+set up, in which case they can be made very fast.
+\par
+The interface is somewhat hackish.
+This data structure is intended for use in localized contexts,
+and not for global data structures.
+In particular, care must be used in the placement of the |FSTACK_DEFINE|.
+@d FSTACK_DEFINE(name, type) struct { gint ix; type* base; } name;
+@d FSTACK_INIT(name, type, n) ((name.ix = 0), (name.base = g_new(type, n)))
+@d FSTACK_PUSH(name) (name.base+name.ix++)
+@d FSTACK_POP(name) (--name.ix < 0 ? NULL : name.base+name.ix)
+@d FSTACK_DESTROY(name) (g_free(name.base))
+
+@** Dynamic Stacks.
+|libmarpa| uses stacks and worklists extensively.
+This stack interface resizes itself dynamically.
+There are two disadvantages.
+
+\li There is more overhead ---
+overflow must be checked for with each push,
+and the resizings, while fast, do take time.
+
+\li The stack may be moved after any |DSTACK_PUSH|
+operation, making all pointers into it invalid.
+Data must be retrieved from the stack before the
+next |DSTACK_PUSH|.
+\par
+As with the fixed stacks,
+the interface is somewhat hackish.
+This data structure is intended for use in localized contexts,
+and not for global data structures.
+In particular, be careful where you put the |DSTACK_DEFINE|.
+It expands to a struct declaration and must go where such
+a declaration is legal and useful.
+
+At this point |DSTACK_INITIAL_SIZE| is ridiculously small,
+to test the logic.
+It should be raised, perhaps to 1024.
+Also, it may be good to allow a size parameter for |DSTACK_INIT|.
+
+@d DSTACK_INITIAL_SIZE 2
+@d DSTACK_DEFINE(this, type) struct dstack this;
+@d DSTACK_INIT(this, type)
+  ((this.ix = 0), (this.size = DSTACK_INITIAL_SIZE),
+  (this.base = g_new(type, DSTACK_INITIAL_SIZE)))
+@d DSTACK_PUSH(stack_name, type)
+    ((type *)(this.ix >= this.size
+    ?  (dstack_resize(&this, sizeof(type))+this.ix++ )
+    : (this.base+this.ix++)))
+@d DSTACK_POP(this, type) (--this.ix < 0 ? NULL : (type*)this.base+this.ix)
+@d DSTACK_DESTROY(this) (g_free(this.base))
+
+@ @<Private structures@> =
+struct dstack { gint ix; gint size; gpointer base; };
+@ @<Function definitions@> =
+static inline gpointer dstack_resize(struct dstack* this, gsize type_bytes) {
+    this->size *= 2;
+    this->base = g_realloc(this->base, this->size*type_bytes);
+    return this->base;
+}
+@ @<Private function prototypes@> =
+static inline gpointer dstack_resize(struct dstack* this, gsize type_size);
+
+@** Messages and Logging.
+@ Fallback and system Message Logging.
+The main messaging system for |libmarpa| relies on callbacks
+to upper layers.
+But there are many cases in which it is not appropriate
+to rely on the upper layers.
+These cases include
+serious internal problems,
+memory allocation failures,
+and debugging.
+
+\par As a fallback messaging and logging system,
+|libmarpa| uses |glib|'s Message Logging framework.
+When the messsage domain is
+under |libmarpa|'s control,
+Marpa sets the domain to |"Marpa"|.
+In many cases, such as memory allocation failures,
+the domain will be as set by |glib|.
 @ Set the Logging Domain
-
 @<Logging domain@> =
-
 #undef G_LOG_DOMAIN@/
 #define G_LOG_DOMAIN "Marpa"@/
+
+@*0 Message callbacks.
+The user can define a callback
+(with argument) which is invoked whenever |libmarpa|
+has a message for the upper layers.
+Note a lot of strings are used for convenience
+in these messages.
+These should be considered "cookies", 
+as is they were file name or variables names.
+They should not be regarded as part of the user
+interface, even if some default or fallback routines
+may sometimes expose them to the user.
+And they should
+not be subject to internationalization or localization.
+
+These message cookies are always null-terminated in
+the 7-bit ASCII character set.
+This is a lowest common denominator, and is not a choice
+binding on the upper layers,
+which may use one of the Unicode encoding or anything
+else.
+Cookies often are mnemonics in the English language,
+but this should not be regarded
+as a reason to subject them to translation ---
+at least not unless you are also translating the variable
+names and file names.
+
+The intent is to have all internationalization,
+localization and string encoding issues dealt with
+by the upper layers.
+@<Public typedefs@> =
+typedef const gchar* Marpa_Message_ID;
+@ Function pointer declarations are
+hard to type and impossible to read.
+This typedef localizes the damage.
+@<Callback typedefs@> =
+typedef void (Marpa_Message_Callback)(struct marpa_g *g, Marpa_Message_ID id);
+@ @<Pointer aligned grammar elements@> =
+    Marpa_Message_Callback* message_callback;
+    void *message_callback_arg;
+@ @<Function definitions@> =
+void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb)
+{ g->message_callback = cb; }
+void marpa_message_callback_arg_set(struct marpa_g *g, void *cb_arg)
+{ g->message_callback_arg = cb_arg; }
+void* marpa_message_callback_arg_peek(struct marpa_g *g)
+{ return g->message_callback_arg; }
+@ @<Public function prototypes@> =
+void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb);
+void marpa_message_callback_arg_set(struct marpa_g *g, void *cb_arg);
+void* marpa_message_callback_arg_peek(struct marpa_g *g);
+@ Do the message callback.
+@<Function definitions@> =
+static inline message(struct marpa_g *g, Marpa_Message_ID id)
+{ Marpa_Message_Callback* cb = g->message_callback;
+if (cb) { (*cb)(g, id); } }
+@ @<Private function prototypes@> =
+static inline message(struct marpa_g *g, Marpa_Message_ID id);
 
 @** Testing.
 
@@ -1457,9 +2738,9 @@ marpa_check_version (unsigned int required_major,
     return output_buffer;
   }
 
-@*1 Templates.
+@** Templates.
 
-@*2 Simple Lists.
+@*0 Simple Lists.
 
 @<Simple list public structure template@> =
 
@@ -1558,6 +2839,7 @@ So I add such a comment.
 #include "marpa.h"
 @h
 @<Logging domain@>@;
+@<Private typedefs@>@;
 @<Private global variables@>@;
 @<Private structures@>@;
 @<Private function prototypes@>@;

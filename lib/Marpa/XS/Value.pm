@@ -726,6 +726,13 @@ sub do_rank_all {
 
         my $ranking_action =
             $rule->[Marpa::XS::Internal::Rule::RANKING_ACTION];
+	my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
+	if ( not defined $ranking_action ) {
+	    my $semantic_equivalent_id =
+		$grammar_c->semantic_equivalent($rule_id);
+	    $ranking_action = $semantic_equivalent_id
+		->[Marpa::XS::Internal::Rule::RANKING_ACTION];
+	}
         my $ranking_closure;
         my $cycle_rule = $rule->[Marpa::XS::Internal::Rule::CYCLE];
 

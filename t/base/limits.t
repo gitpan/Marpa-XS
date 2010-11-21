@@ -18,7 +18,7 @@ use 5.010;
 use strict;
 use warnings;
 use English qw( -no_match_vars );
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Fatal qw(open close);
 
 use Marpa::XS::Test;
@@ -171,7 +171,7 @@ REPORT_RESULT: {
     }
     my $eval_error = $EVAL_ERROR;
     if ($eval_error =~ /
-^ Grammar \s has \s 2 \s problems[:] \s
+^ Grammar \s has \s 1 \s problems[:] \s
 ^ Nullable \s symbol \s ["]Seq["] \s is \s on \s rhs \s of \s counted \s rule \s
 ^ Counted \s nullables \s confuse \s Marpa[:][:]XS \s -- \s please \s rewrite \s the \s grammar
 /xms) {
@@ -220,6 +220,88 @@ REPORT_RESULT: {
         qq{Zero length sequence for symbol without null value: "Seq"\n},
         'Missing null value warning'
     );
+} ## end REPORT_RESULT:
+
+# A test for the diagnostics for duplicate rules
+$trace = q{};
+open $MEMORY, q{>}, \$trace;
+my $duplicate_rule_grammar = {
+    rules => [
+        {   lhs    => 'Top', rhs    => ['Dup']},
+        {   lhs    => 'Dup',
+            rhs    => ['Item'],
+            min    => 0,
+        },
+        {   lhs => 'Dup',
+            rhs => ['Item'],
+        },
+        {   lhs => 'Item', rhs => ['a'] },
+    ],
+    start         => 'Top',
+    trace_file_handle => $MEMORY,
+};
+
+$eval_ok = eval {
+    $value =
+        test_grammar( $duplicate_rule_grammar,
+        [ [ 'a', 'a' ] ] );
+    1;
+};
+close $MEMORY;
+REPORT_RESULT: {
+    if ( defined $eval_ok ) {
+        Test::More::diag("Duplicate rule test returned value: $value");
+        Test::More::fail('Did not catch duplicate rule problem');
+        last REPORT_RESULT;
+    }
+    my $eval_error = $EVAL_ERROR;
+    if ($eval_error =~ /
+^ Duplicate \s rule[:] \s Dup \s [-][>] \s Item \s
+/xms) {
+        Test::More::pass('Caught duplicate rule');
+        last REPORT_RESULT;
+    }
+    Test::More::diag("Eval error: $eval_error");
+    Test::More::fail('Duplicate rule problem report different from expected');
+} ## end REPORT_RESULT:
+
+# A test for the diagnostics of illegal LHS terminals
+$trace = q{};
+open $MEMORY, q{>}, \$trace;
+my $lhs_terminal_grammar = {
+    rules => [
+        {   lhs    => 'Top', rhs    => ['Bad']},
+        {   lhs    => 'Bad', rhs    => ['Good']},
+    ],
+    start         => 'Top',
+    terminals => ['Bad'],
+    lhs_terminals => 0,
+    trace_file_handle => $MEMORY,
+};
+
+$eval_ok = eval {
+    $value =
+        test_grammar( $lhs_terminal_grammar,
+        [ [ 'Bad', 'a' ] ] );
+    1;
+};
+close $MEMORY;
+REPORT_RESULT: {
+    $value //= "undef";
+    if ( defined $eval_ok ) {
+        Test::More::diag("Bad LHS terminal test returned value: $value");
+        Test::More::fail('Did not catch bad LHS terminal');
+        last REPORT_RESULT;
+    }
+    my $eval_error = $EVAL_ERROR;
+    if ($eval_error =~ /
+^lhs_terminals[ ]option[ ]is[ ]off,[ ]but[ ]Symbol[ ]Bad[ ]is[ ]both[ ]an[ ]LHS[ ]and[ ]a[ ]terminal[ ]
+/xms) {
+        Test::More::pass('Caught bad LHS terminal');
+        last REPORT_RESULT;
+    }
+    Test::More::diag("Eval error: $eval_error");
+    Test::More::fail('Bad LHS terminal report different from expected');
 } ## end REPORT_RESULT:
 
 1;    # In case used as "do" file
