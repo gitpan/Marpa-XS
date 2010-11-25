@@ -1755,20 +1755,16 @@ sub check_start {
     my $lh_rule_ids = $start->[Marpa::XS::Internal::Symbol::LH_RULE_IDS];
     my $terminal    = $start->[Marpa::XS::Internal::Symbol::TERMINAL];
 
-    if ( not scalar @{$lh_rule_ids} and not $terminal ) {
-        my $problem =
-            'Start symbol ' . $start_name . ' not on LHS of any rule';
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        $success = 0;
-    } ## end if ( not scalar @{$lh_rule_ids} and not $terminal )
-
     if ( not $start->[Marpa::XS::Internal::Symbol::PRODUCTIVE] ) {
-        my $problem = 'Unproductive start symbol: ' . $start_name;
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        $success = 0;
+        my $problem = qq{Unproductive start symbol: "$start_name"};
+	Marpa::XS::exception($problem);
     } ## end if ( not $start->[Marpa::XS::Internal::Symbol::PRODUCTIVE...])
+
+    if ( not scalar @{$lh_rule_ids} ) {
+        my $problem =
+            qq{Start symbol "$start_name" not on LHS of any rule};
+	Marpa::XS::exception($problem);
+    } ## end if ( not scalar @{$lh_rule_ids} and not $terminal )
 
     $grammar->[Marpa::XS::Internal::Grammar::START] = $start;
 
@@ -2976,11 +2972,14 @@ sub rewrite_as_CHAF {
                     # aliases for the rest of the rule.
                     # At this point we are guaranteed all the
                     # rest of the rhs symbols DO have a null alias.
-                    splice @{$last_nulling_rhs}, -1, 1,
-                        (
-                        map { $_->[Marpa::XS::Internal::Symbol::NULL_ALIAS] }
-                            @{$rhs}[ $subproduction_end_ix + 1 .. $#{$rhs} ]
-                        );
+                    splice @{$last_nulling_rhs}, -1, 1, (
+                        map {
+                                  $_->[Marpa::XS::Internal::Symbol::NULLING]
+                                ? $_
+                                : $_
+                                ->[Marpa::XS::Internal::Symbol::NULL_ALIAS]
+                            } @{$rhs}[ $subproduction_end_ix + 1 .. $#{$rhs} ]
+                    );
                 } ## end if ( $next_subproduction_lhs and ...)
                 else {
                     $last_nulling_rhs->[$last_nullable_subproduction_ix] =

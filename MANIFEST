@@ -116,6 +116,7 @@ t/Makefile
 t/base/ah.t
 t/base/ah2.t
 t/base/ah_numeric.t
+t/base/chaf.t
 t/base/code_diag.t
 t/base/counter.t
 t/base/curly.t
@@ -126,6 +127,7 @@ t/base/debug_seq.t
 t/base/duplicate_parse.t
 t/base/equation.t
 t/base/final_nonnullable.t
+t/base/gabend.t
 t/base/gj.t
 t/base/hu.t
 t/base/implementation.t
@@ -156,6 +158,7 @@ t/base/weaken.t
 t/pp/ah.t
 t/pp/ah2.t
 t/pp/ah_numeric.t
+t/pp/chaf.t
 t/pp/code_diag.t
 t/pp/counter.t
 t/pp/curly.t
@@ -166,6 +169,7 @@ t/pp/debug_seq.t
 t/pp/duplicate_parse.t
 t/pp/equation.t
 t/pp/final_nonnullable.t
+t/pp/gabend.t
 t/pp/gj.t
 t/pp/hu.t
 t/pp/implementation.t
@@ -198,6 +202,7 @@ t/stripped_xs.t
 t/xs/ah.t
 t/xs/ah2.t
 t/xs/ah_numeric.t
+t/xs/chaf.t
 t/xs/code_diag.t
 t/xs/counter.t
 t/xs/curly.t
@@ -208,6 +213,7 @@ t/xs/debug_seq.t
 t/xs/duplicate_parse.t
 t/xs/equation.t
 t/xs/final_nonnullable.t
+t/xs/gabend.t
 t/xs/gj.t
 t/xs/hu.t
 t/xs/implementation.t

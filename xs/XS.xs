@@ -65,6 +65,7 @@ xs_message_callback(Grammar *g, Marpa_Message_ID id)
     SV* cb = g->message_callback_arg;
     if (!cb) return;
     if (!SvOK(cb)) return;
+    {
     dSP;
     ENTER;
     SAVETMPS;
@@ -75,6 +76,7 @@ xs_message_callback(Grammar *g, Marpa_Message_ID id)
     call_sv(cb, G_DISCARD);
     FREETMPS;
     LEAVE;
+    }
 }
 
 static void
@@ -83,6 +85,7 @@ xs_rule_callback(Grammar *g, Marpa_Rule_ID id)
     SV* cb = g->rule_callback_arg;
     if (!cb) return;
     if (!SvOK(cb)) return;
+    {
     dSP;
     ENTER;
     SAVETMPS;
@@ -93,6 +96,7 @@ xs_rule_callback(Grammar *g, Marpa_Rule_ID id)
     call_sv(cb, G_DISCARD);
     FREETMPS;
     LEAVE;
+    }
 }
 
 static void
@@ -101,6 +105,7 @@ xs_symbol_callback(Grammar *g, Marpa_Symbol_ID id)
     SV* cb = g->symbol_callback_arg;
     if (!cb) return;
     if (!SvOK(cb)) return;
+    {
     dSP;
     ENTER;
     SAVETMPS;
@@ -111,6 +116,7 @@ xs_symbol_callback(Grammar *g, Marpa_Symbol_ID id)
     call_sv(cb, G_DISCARD);
     FREETMPS;
     LEAVE;
+    }
 }
 
 static inline SV* recce_wrap( Recognizer* recce, SV* g_sv)
@@ -237,10 +243,49 @@ OUTPUT:
     RETVAL
 
 void
+start_symbol_set( g, id )
+    Grammar *g;
+    Marpa_Symbol_ID id;
+PPCODE:
+    { gboolean result = marpa_start_symbol_set(g, id);
+    if (result) XSRETURN_YES;
+    }
+    XSRETURN_NO;
+
+void
+start_symbol( g )
+    Grammar *g;
+PPCODE:
+    { Marpa_Symbol_ID id = marpa_start_symbol( g );
+    if (id < 0) { XSRETURN_UNDEF; }
+    XPUSHs( sv_2mortal( newSViv(id) ) );
+    }
+
+void
 is_precomputed( g )
     Grammar *g;
 PPCODE:
     { gboolean boolean = marpa_is_precomputed( g );
+    if (boolean) XSRETURN_YES;
+    XSRETURN_NO;
+    }
+
+void
+is_academic_set( g, boolean )
+    Grammar *g;
+    int boolean;
+PPCODE:
+    { gboolean result = marpa_is_academic_set(
+	g, (boolean ? TRUE : FALSE));
+    if (result) XSRETURN_YES;
+    }
+    XSRETURN_NO;
+
+void
+is_academic( g )
+    Grammar *g;
+PPCODE:
+    { gboolean boolean = marpa_is_academic( g );
     if (boolean) XSRETURN_YES;
     XSRETURN_NO;
     }
@@ -396,8 +441,9 @@ symbol_is_nulling( g, symbol_id )
     Grammar *g;
     Marpa_Symbol_ID symbol_id;
 PPCODE:
-    { gboolean boolean = marpa_symbol_is_nulling_value( g, symbol_id );
-    if (boolean) XSRETURN_YES;
+    { gint result = marpa_symbol_is_nulling( g, symbol_id );
+    if (result == -1) { croak("Invalid symbol %d", symbol_id); }
+    if (result) XSRETURN_YES;
     XSRETURN_NO;
     }
 
@@ -450,8 +496,9 @@ symbol_is_start( g, symbol_id )
     Grammar *g;
     Marpa_Symbol_ID symbol_id;
 PPCODE:
-    { gboolean boolean = marpa_symbol_is_start_value( g, symbol_id );
-    if (boolean) XSRETURN_YES;
+    { gint result = marpa_symbol_is_start( g, symbol_id );
+    if (result == -1) { croak("Invalid symbol %d", symbol_id); }
+    if (result) XSRETURN_YES;
     XSRETURN_NO;
     }
 
@@ -634,8 +681,9 @@ rule_is_accessible( g, rule_id )
     Grammar *g;
     Marpa_Rule_ID rule_id;
 PPCODE:
-    { gboolean boolean = marpa_rule_is_accessible( g, rule_id );
-    if (boolean) XSRETURN_YES;
+    { gint result = marpa_rule_is_accessible( g, rule_id );
+    if (result == -1) { croak("Invalid rule %d", rule_id); }
+    if (result) XSRETURN_YES;
     XSRETURN_NO;
     }
 
@@ -644,8 +692,9 @@ rule_is_productive( g, rule_id )
     Grammar *g;
     Marpa_Rule_ID rule_id;
 PPCODE:
-    { gboolean boolean = marpa_rule_is_productive( g, rule_id );
-    if (boolean) XSRETURN_YES;
+    { gint result = marpa_rule_is_productive( g, rule_id );
+    if (result == -1) { croak("Invalid rule %d", rule_id); }
+    if (result) XSRETURN_YES;
     XSRETURN_NO;
     }
 

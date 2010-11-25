@@ -175,13 +175,9 @@ use Marpa::XS::Offset qw(
 
     PROBLEMS { fatal problems }
     START_STATES { ref to array of the start states }
-    ACADEMIC { true if this is a textbook grammar,
-    for checking the NFA and AHFA, and NOT
-    for actual Earley parsing }
 
     =LAST_RECOGNIZER_FIELD
 
-    START { ref to start symbol }
     START_NAME { name of original symbol }
     NFA { array of states }
     AHFA_BY_NAME { hash from AHFA name to AHFA reference }
@@ -193,6 +189,10 @@ use Marpa::XS::Offset qw(
     NEXT_SYMBOL_NAME {
         Should this be one of a hash of context values;
     }
+
+    =BEYOND_HERE_TO_BE_DELETED
+
+    NEW_START_SYMBOL
 
     =LAST_FIELD
 );
@@ -292,7 +292,10 @@ sub Marpa::XS::Internal::code_problems {
 
 sub Marpa::XS::uncaught_error {
      my ($error) = @_;
-     Carp::confess(
+     # This would be Carp::confess, but in the testing
+     # the stack trace includes the hoped for error
+     # message, which causes spurious success reports.
+     Carp::croak(
 	 "libmarpa reported an error which Marpa::XS did not catch\n",
 	 qq{  The libmarpa internal error code was "$error"},
     );
@@ -311,7 +314,6 @@ sub Marpa::XS::Grammar::new {
     # set the defaults and the default defaults
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE] = *STDERR;
 
-    $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC]        = 0;
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES]     = 0;
     $grammar->[Marpa::XS::Internal::Grammar::TRACING]         = 0;
     $grammar->[Marpa::XS::Internal::Grammar::STRIP]           = 1;
@@ -472,8 +474,8 @@ sub Marpa::XS::Grammar::set {
             Marpa::XS::exception(
                 'academic option not allowed after grammar is precomputed')
                 if $grammar_c->is_precomputed();
-            $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] = $value;
-        } ## end if ( defined( my $value = $args->{'academic'} ) )
+            $grammar_c->is_academic_set($value);
+        }
 
         if ( defined( my $value = $args->{'default_null_value'} ) ) {
             $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_NULL_VALUE] =
@@ -600,6 +602,7 @@ sub Marpa::XS::Grammar::precompute {
 
     return $grammar if $grammar_c->is_precomputed();
 
+    set_start_symbol($grammar);
     if ( not $grammar_c->precompute() ) {
         my $error = $grammar_c->error();
 
@@ -622,14 +625,47 @@ sub Marpa::XS::Grammar::precompute {
                 'Counted nullables confuse Marpa::XS -- please rewrite the grammar'
             );
         }
+	if ($error eq 'no start symbol') {
+	    Marpa::XS::exception('No start symbol');
+	}
+	if ($error eq 'start symbol not on LHS') {
+	    my $symbol_id = $grammar_c->context('symbol_id');
+	    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+	    my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+	    Marpa::XS::exception(qq{Start symbol "$name" not on LHS of any rule});
+	}
+	if ($error eq 'unproductive start symbol') {
+	    my $symbol_id = $grammar_c->context('symbol_id');
+	    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+	    my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+	    Marpa::XS::exception(qq{Unproductive start symbol: "$name"});
+	}
         Marpa::XS::uncaught_error($error);
     }
 
-    nulling($grammar);
-    check_start($grammar) or return $grammar;
-    accessible($grammar);
-    if ( $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] ) {
-        setup_academic_grammar($grammar);
+    # Here I update the Perl structures to reflect changes made
+    # in the C structures.  Eventually I will eliminate the Perl
+    # structurres, and this code with them.
+    #
+    # The intent is that this code will "roll forward" as I move
+    # more and more of what follows it into libmarpa.
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    for my $rule_id ( 0 .. $#{$rules} ) {
+        $rules->[$rule_id]->[Marpa::XS::Internal::Rule::USED] =
+            $grammar_c->rule_is_used($rule_id);
+    }
+
+    if ( $grammar_c->is_academic() ) {
+
+        # in an academic grammar, consider all rules useful
+        for my $rule ( @{$rules} ) {
+            $rule->[Marpa::XS::Internal::Rule::USED] = 1;
+        }
+        my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+        my $start_symbol_id = $grammar_c->start_symbol();
+        my $start_symbol    = $symbols->[$start_symbol_id];
+        $grammar->[Marpa::XS::Internal::Grammar::NEW_START_SYMBOL] =
+            $start_symbol;
     }
     else {
         rewrite_as_CHAF($grammar);
@@ -647,6 +683,9 @@ sub Marpa::XS::Grammar::precompute {
     };
     populate_semantic_equivalences($grammar);
 
+    # A bit hackish here: INACCESSIBLE_OK is not a HASH ref iff
+    # it is a Boolean TRUE indicating that all inaccessibles are OK.
+    # A Boolean FALSE will have been replaced with an empty hash.
     if ($grammar->[Marpa::XS::Internal::Grammar::WARNINGS]
         and ref(
             my $ok = $grammar->[Marpa::XS::Internal::Grammar::INACCESSIBLE_OK]
@@ -671,6 +710,9 @@ sub Marpa::XS::Grammar::precompute {
         } ## end for my $symbol ( @{ Marpa::XS::Grammar::inaccessible_symbols...})
     } ## end if ( $grammar->[Marpa::XS::Internal::Grammar::WARNINGS...])
     
+    # A bit hackish here: UNPRODUCTIVE_OK is not a HASH ref iff
+    # it is a Boolean TRUE indicating that all inaccessibles are OK.
+    # A Boolean FALSE will have been replaced with an empty hash.
     if ($grammar->[Marpa::XS::Internal::Grammar::WARNINGS]
         and ref(
             my $ok = $grammar->[Marpa::XS::Internal::Grammar::UNPRODUCTIVE_OK]
@@ -1661,135 +1703,23 @@ sub add_user_rule {
 
 } ## end sub add_user_rule
 
-sub check_start {
+sub set_start_symbol {
     my $grammar = shift;
-    my $success = 1;
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $start_name = $grammar->[Marpa::XS::Internal::Grammar::START_NAME];
-    Marpa::XS::exception('No start symbol specified')
-        if not defined $start_name;
-    if ( my $ref_type = ref $start_name ) {
-        Marpa::XS::exception(
-            "Start symbol name specified as a ref to $ref_type, it should be a string"
-        );
-    }
-
+    # Let libmarpa catch this error
+    return if not defined $start_name;
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
-    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
     my $start_id    = $symbol_hash->{$start_name};
-
     Marpa::XS::exception(qq{Start symbol "$start_name" not in grammar})
         if not defined $start_id;
 
-    my $start = $symbols->[$start_id];
-    Marpa::XS::exception(
-        qq{Internal error: Start symbol "$start_name" id not found})
-        if not $start;
-    my $start_symbol_id = $start->[Marpa::XS::Internal::Symbol::ID];
-
-    my $start_is_lhs_symbol =
-        scalar $grammar_c->symbol_lhs_rule_ids($start_symbol_id);
-
-    my $terminal = $grammar_c->symbol_is_terminal( $start_symbol_id );
-
-    if ( not $start_is_lhs_symbol and not $terminal ) {
-        my $problem =
-            'Start symbol ' . $start_name . ' not on LHS of any rule';
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        $success = 0;
+    if (!$grammar_c->start_symbol_set($start_id)) {
+        my $error = $grammar_c->error();
+        Marpa::XS::uncaught_error($error);
     }
-
-    if ( not $grammar_c->symbol_is_productive($start_symbol_id) ) {
-        my $problem = 'Unproductive start symbol: ' . $start_name;
-        push @{ $grammar->[Marpa::XS::Internal::Grammar::PROBLEMS] },
-            $problem;
-        $success = 0;
-    } ## end if ( not $grammar_c->is_productive($start_symbol_id))
-
-    $grammar->[Marpa::XS::Internal::Grammar::START] = $start;
-
-    return $success;
 } ## end sub check_start
-
-# return list of rules reachable from the start symbol;
-sub accessible {
-    my $grammar   = shift;
-    my $start     = $grammar->[Marpa::XS::Internal::Grammar::START];
-    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-
-    my $start_id = $start->[Marpa::XS::Internal::Symbol::ID];
-    $grammar_c->symbol_is_accessible_set( $start_id, 1 );
-
-    my $symbol_work_set = [$start];
-
-    SYMBOL_PASS: while ( my $work_symbol = shift @{$symbol_work_set} ) {
-        my $work_symbol_id = $work_symbol->[Marpa::XS::Internal::Symbol::ID];
-        for my $rule_id ( $grammar_c->symbol_lhs_rule_ids($work_symbol_id) ) {
-            my $work_rule  = $rules->[$rule_id];
-            my $rhs_symbol = $work_rule->[Marpa::XS::Internal::Rule::RHS];
-            RHS: for my $symbol ( @{$rhs_symbol} ) {
-                my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-                next RHS if $grammar_c->symbol_is_accessible($symbol_id);
-                $grammar_c->symbol_is_accessible_set( $symbol_id, 1 );
-                push @{$symbol_work_set}, $symbol;
-            } ## end for my $symbol ( @{$rhs_symbol} )
-        }    # RULE
-    }
-    return 1;
-} ## end sub accessible
-
-# Assumes that, at the point when nulling() is called,
-# no symbol already has NULLING set.  The loop control
-# logic relies on this.
-sub nulling {
-    my $grammar = shift;
-
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-
-    my @worklist =
-        map  { $_->[Marpa::XS::Internal::Rule::LHS] }
-        grep {
-	not scalar @{ $_->[Marpa::XS::Internal::Rule::RHS] }
-	}
-        @{$rules};
-
-    SYMBOL: while ( my $symbol = pop @worklist ) {
-
-        my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
-
-        # this one we've already done
-        next SYMBOL if $grammar_c->symbol_is_nulling($symbol_id);
-
-        # terminals are never nulling
-        next SYMBOL if $grammar_c->symbol_is_terminal($symbol_id);
-
-        for my $lhs_rule_id ( $grammar_c->symbol_lhs_rule_ids($symbol_id) ) {
-            for my $rh_symbol (
-                @{ $rules->[$lhs_rule_id]->[Marpa::XS::Internal::Rule::RHS] }
-                )
-            {
-                next SYMBOL
-                    if not $grammar_c->symbol_is_nulling(
-                    $rh_symbol->[Marpa::XS::Internal::Symbol::ID] );
-            } ## end for my $rh_symbol ( @{ $rules->[$lhs_rule_id]->[...]})
-        } ## end for my $lhs_rule_id ( $grammar_c->symbol_lhs_rule_ids...)
-
-        $grammar_c->symbol_is_nulling_set( $symbol_id, 1 );
-
-        for my $rhs_rule_id ( $grammar_c->symbol_rhs_rule_ids($symbol_id) ) {
-            push @worklist,
-                $rules->[$rhs_rule_id]->[Marpa::XS::Internal::Rule::LHS];
-        }
-
-    } ## end while ( my $symbol = pop @worklist )
-
-    return 1;
-
-} ## end sub nulling
 
 # This assumes the CHAF rewrite has been done,
 # so that every symbol is either nulling or
@@ -1949,15 +1879,14 @@ sub detect_infinite {
 
 sub create_NFA {
     my $grammar = shift;
-    my ( $rules, $symbols, $start_symbol, $academic ) = @{$grammar}[
+    my ( $rules, $symbols ) = @{$grammar}[
         Marpa::XS::Internal::Grammar::RULES,
         Marpa::XS::Internal::Grammar::SYMBOLS,
-        Marpa::XS::Internal::Grammar::START,
-        Marpa::XS::Internal::Grammar::ACADEMIC
     ];
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
 
-    my $start_symbol_id = $start_symbol->[Marpa::XS::Internal::Symbol::ID];
+    my $start_symbol = $grammar->[ Marpa::XS::Internal::Grammar::NEW_START_SYMBOL];
+    my $start_symbol_id = $start_symbol->[ Marpa::XS::Internal::Symbol::ID];
     my @start_rule_ids  = $grammar_c->symbol_lhs_rule_ids($start_symbol_id);
     my $start_alias_id  = $grammar_c->symbol_null_alias($start_symbol_id);
     if ( defined $start_alias_id ) {
@@ -1994,7 +1923,7 @@ sub create_NFA {
             Marpa::XS::Internal::Rule::ID, Marpa::XS::Internal::Rule::RHS,
             Marpa::XS::Internal::Rule::USED
         ];
-        next RULE if not $academic and not $useful;
+	next RULE if not $useful;
         for my $position ( 0 .. scalar @{$rhs} ) {
             my $new_state = [];
             @{$new_state}[
@@ -2403,18 +2332,6 @@ sub mark_leo_states {
     return;
 } ## end sub mark_leo_states
 
-sub setup_academic_grammar {
-    my $grammar = shift;
-    my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-
-    # in an academic grammar, consider all rules useful
-    for my $rule ( @{$rules} ) {
-        $rule->[Marpa::XS::Internal::Rule::USED] = 1;
-    }
-
-    return;
-} ## end sub setup_academic_grammar
-
 # given a nullable symbol, create a nulling alias and make the first symbol non-nullable
 sub alias_symbol {
 
@@ -2449,8 +2366,8 @@ sub rewrite_as_CHAF {
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $rules            = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     my $symbols          = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $old_start_symbol = $grammar->[Marpa::XS::Internal::Grammar::START];
-    my $old_start_symbol_id = $old_start_symbol->[Marpa::XS::Internal::Symbol::ID];
+    my $old_start_symbol_id = $grammar_c->start_symbol();
+    my $old_start_symbol = $symbols->[$old_start_symbol_id];
 
     # add null aliases to symbols which need them
     my $symbol_count = @{$symbols};
@@ -2486,25 +2403,7 @@ sub rewrite_as_CHAF {
 	next RULE if not $rule->[Marpa::XS::Internal::Rule::USED];
         $rule->[Marpa::XS::Internal::Rule::USED] = 0;
 
-        # unreachable and unproductive rules are useless
-        next RULE if not $grammar_c->rule_is_productive( $rule_id );
-        next RULE if not $grammar_c->rule_is_accessible( $rule_id );
-
         my $rhs = $rule->[Marpa::XS::Internal::Rule::RHS];
-
-        # A nulling rule -- one with only nulling symbols on
-        # the rhs is useless.
-        # By this definition, it is vacuously true
-        # that empty rules are nulling.
-        next RULE
-            if (
-            not defined List::Util::first {
-                not $grammar_c->symbol_is_nulling(
-                    $_->[Marpa::XS::Internal::Symbol::ID] );
-            } ## end List::Util::first
-            @{$rhs}
-            );
-
         my $lhs      = $rule->[Marpa::XS::Internal::Rule::LHS];
 
         # start by assuming it's a nullable rule, then
@@ -2682,11 +2581,14 @@ sub rewrite_as_CHAF {
                     # aliases for the rest of the rule.
                     # At this point we are guaranteed all the
                     # rest of the rhs symbols DO have a null alias.
-                    splice @{$last_nulling_rhs}, -1, 1,
-                        (
-                        map { $_->null_alias($grammar) }
-                            @{$rhs}[ $subproduction_end_ix + 1 .. $#{$rhs} ]
-                        );
+                    splice @{$last_nulling_rhs}, -1, 1, (
+                        map {
+                            $grammar_c->symbol_is_nulling(
+                                $_->[Marpa::XS::Internal::Symbol::ID] )
+                                ? $_
+                                : $_->null_alias($grammar)
+                            } @{$rhs}[ $subproduction_end_ix + 1 .. $#{$rhs} ]
+                    );
                 } ## end if ( $next_subproduction_lhs and ...)
                 else {
                     $last_nulling_rhs->[$last_nullable_subproduction_ix] =
@@ -2890,7 +2792,7 @@ sub rewrite_as_CHAF {
 
     } ## end if ($nulling_old_start)
 
-    $grammar->[Marpa::XS::Internal::Grammar::START] = $new_start_symbol;
+     $grammar->[ Marpa::XS::Internal::Grammar::NEW_START_SYMBOL] = $new_start_symbol;
     return;
 } ## end sub rewrite_as_CHAF
 

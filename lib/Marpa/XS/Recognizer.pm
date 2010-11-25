@@ -201,7 +201,7 @@ sub Marpa::XS::Recognizer::new {
         );
     } ## end if ($problems)
 
-    if ( $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] ) {
+    if ( $grammar_c->is_academic() ) {
         Marpa::XS::exception( "Attempt to parse grammar marked academic\n",
             'Marpa::XS cannot proceed' );
     }
