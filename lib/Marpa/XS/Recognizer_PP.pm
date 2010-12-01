@@ -211,7 +211,7 @@ sub Marpa::XS::Recognizer::new {
 
     $recce->set(@arg_hashes);
 
-    if (    $grammar->[Marpa::XS::Internal::Grammar::IS_INFINITE]
+    if (    $grammar->[Marpa::XS::Internal::Grammar::HAS_CYCLE]
         and $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] ne
         'none'
         and not $grammar->[Marpa::XS::Internal::Grammar::CYCLE_RANKING_ACTION]
@@ -223,7 +223,7 @@ sub Marpa::XS::Recognizer::new {
             "    Either rewrite the grammar to eliminate cycles\n",
             "    or define a 'cycle ranking action'\n"
         );
-    } ## end if ( $grammar->[Marpa::XS::Internal::Grammar::IS_INFINITE...])
+    }
 
     my $trace_terminals =
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_TERMINALS] // 0;

@@ -488,9 +488,9 @@ keep |libmarpa| MT-safe.
 @ @<Initialize grammar elements@> =
 g->id = g_atomic_int_exchange_and_add(&next_grammar_id, 1);
 @ @<Function definitions@> =
-gint marpa_grammar_id_value(struct marpa_g* g) { return g->id; }
+gint marpa_grammar_id(struct marpa_g* g) { return g->id; }
 @ @<Public function prototypes@> =
-gint marpa_grammar_id_value(struct marpa_g* g);
+gint marpa_grammar_id(struct marpa_g* g);
 
 @*0 The Grammar's Symbol List.
 This lists the symbols for the grammar,
@@ -612,10 +612,10 @@ struct marpa_g *g, Marpa_Rule_ID rule_id);
 g->start_symbol = -1;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_start_symbol(struct marpa_g* g)
+Marpa_Symbol_ID marpa_start_symbol(struct marpa_g* g)
 { return g->start_symbol; }
 @ @<Public function prototypes@> =
-gboolean marpa_start_symbol(struct marpa_g* g);
+Marpa_Symbol_ID marpa_start_symbol(struct marpa_g* g);
 @ Returns |TRUE| on success,
 |FALSE| on failure.
 @<Function definitions@> =
@@ -682,6 +682,17 @@ gboolean marpa_is_precomputed(struct marpa_g* g)
 { return g->is_precomputed; }
 @ @<Public function prototypes@> =
 gboolean marpa_is_precomputed(struct marpa_g* g);
+
+@*0 Grammar Boolean: Has Loop.
+@<Bit aligned grammar elements@> = unsigned int has_loop:1;
+@ @<Initialize grammar elements@> =
+g->has_loop = FALSE;
+@ The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gboolean marpa_has_loop(struct marpa_g* g)
+{ return g->has_loop; }
+@ @<Public function prototypes@> =
+gboolean marpa_has_loop(struct marpa_g* g);
 
 @*0 Grammar Boolean: LHS Terminal OK.
 Traditionally, a BNF grammar did {\bf not} allow a symbol
@@ -864,10 +875,10 @@ These cookies are constants residing in static memory
 (which may be read-only depending on implementation).
 They cannot and should not be de-allocated.
 @ @<Function definitions@> =
-Marpa_Error_ID marpa_error_value(struct marpa_g* g)
+Marpa_Error_ID marpa_error(struct marpa_g* g)
 { return g->error ? : "unknown error"; }
 @ @<Public function prototypes@> =
-Marpa_Error_ID marpa_error_value(struct marpa_g* g);
+Marpa_Error_ID marpa_error(struct marpa_g* g);
 
 @** Recognizer Objects.
 
@@ -950,16 +961,12 @@ symbol->lhs = g_array_new(FALSE, FALSE, sizeof(Marpa_Rule_ID));
 @ The trace accessor returns the GArray.
 It remains "owned" by the Grammar,
 and must not be freed or modified.
-Right now this function uses a pointer
-to the symbol function.
-If that becomes private,
-the prototype of this function
-must be changed.
 @<Function definitions@> = 
-GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->lhs; }
+GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
+{ @<Return |NULL| if |symbol_id| is invalid@>@;
+return symbol_id2p(g, symbol_id)->lhs; }
 @ @<Public function prototypes@> =
-GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID id);
+GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 @ @<Function definitions@> = static inline
 void symbol_lhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id)
 { g_array_append_val(symbol->lhs, rule_id); }
@@ -967,8 +974,6 @@ void marpa_symbol_lhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rul
 { symbol_lhs_add(symbol_id2p(g, symbol_id), rule_id); }
 @ @<Private function prototypes@> = static inline
 void symbol_lhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id);
-@ @<Public function prototypes@> =
-void marpa_symbol_lhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id);
 
 @*0 Symbol RHS Rules Element.
 This tracks the rules for which this symbol is the RHS.
@@ -982,25 +987,17 @@ symbol->rhs = g_array_new(FALSE, FALSE, sizeof(Marpa_Rule_ID));
 @ The trace accessor returns the GArray.
 It remains "owned" by the Grammar,
 and must not be freed or modified.
-Right now this function uses a pointer
-to the symbol function.
-If that becomes private,
-the prototype of this function
-must be changed.
 @<Function definitions@> = 
-GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->rhs; }
+GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
+{ @<Return |NULL| if |symbol_id| is invalid@>@;
+return symbol_id2p(g, symbol_id)->rhs; }
 @ @<Public function prototypes@> =
-GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID id);
+GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 @ @<Function definitions@> = static inline
 void symbol_rhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id)
 { g_array_append_val(symbol->rhs, rule_id); }
-void marpa_symbol_rhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id)
-{ symbol_rhs_add(symbol_id2p(g, symbol_id), rule_id); }
 @ @<Private function prototypes@> = static inline
 void symbol_rhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id);
-@ @<Public function prototypes@> =
-void marpa_symbol_rhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id);
 
 @ Symbol Is Accessible Boolean
 @<Bit aligned symbol elements@> = unsigned int is_accessible:1;
@@ -1015,10 +1012,10 @@ must be changed.
 \par
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_symbol_is_accessible_value(struct marpa_g* g, Marpa_Symbol_ID id)
+gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_accessible; }
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_accessible_value(struct marpa_g* g, Marpa_Symbol_ID id);
+gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_accessible_set(
@@ -1041,10 +1038,10 @@ must be changed.
 \par
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id)
+gboolean marpa_symbol_is_counted(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_counted; }
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_counted_value(struct marpa_g* g, Marpa_Symbol_ID id);
+gboolean marpa_symbol_is_counted(struct marpa_g* g, Marpa_Symbol_ID id);
 
 @ Symbol Is Nullable Boolean
 @<Bit aligned symbol elements@> = unsigned int is_nullable:1;
@@ -1059,10 +1056,10 @@ must be changed.
 \par
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_symbol_is_nullable_value(struct marpa_g* g, Marpa_Symbol_ID id)
+gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_nullable; }
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_nullable_value(struct marpa_g* g, Marpa_Symbol_ID id);
+gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_nullable_set(
@@ -1110,10 +1107,10 @@ must be changed.
 \par
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_symbol_is_terminal_value(struct marpa_g* g, Marpa_Symbol_ID id)
+gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_terminal; }
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_terminal_value(struct marpa_g* g, Marpa_Symbol_ID id);
+gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_terminal_set(
@@ -1136,10 +1133,10 @@ must be changed.
 \par
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_symbol_is_productive_value(struct marpa_g* g, Marpa_Symbol_ID id)
+gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id)
 { return symbol_id2p(g, id)->is_productive; }
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_productive_value(struct marpa_g* g, Marpa_Symbol_ID id);
+gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_productive_set(
@@ -1152,32 +1149,20 @@ void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gbool
 @<Bit aligned symbol elements@> = unsigned int is_start:1;
 @ @<Initialize symbol elements@> = symbol->is_start = FALSE;
 @ Accessor: The trace accessor returns the Boolean value.
-Right now this function uses a pointer
-to the symbol function.
-If that becomes private,
-the prototype of this function
-must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 static inline
-gboolean symbol_is_start(struct marpa_symbol* symbol)
+gint symbol_is_start(struct marpa_symbol* symbol)
 { return symbol->is_start; }
-gboolean marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID symbol_id) {
+gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID symbol_id) {
    @<Return -1 if |symbol_id| is invalid@>@;
    return symbol_is_start(symbol_id2p(g, symbol_id));
 }
 @ @<Private function prototypes@> =
 static inline
-gboolean symbol_is_start_value(struct marpa_symbol* symbol);
+gint symbol_is_start(struct marpa_symbol* symbol);
 @ @<Public function prototypes@> =
-gboolean marpa_symbol_is_start_value( struct marpa_g*g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_start_set(struct marpa_g* g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_start = value; }
-@ @<Public function prototypes@> =
-void marpa_symbol_is_start_set(
-struct marpa_g* g, Marpa_Symbol_ID id, gboolean value);
+gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID id);
 
 @ Symbol Aliasing:
 This is the logic for aliasing symbols.
@@ -1197,48 +1182,53 @@ symbol->is_nulling_alias = FALSE;
 symbol->alias = NULL;
 
 @ Proper Alias Trace Accessor:
-If this symbol has no proper alias, returns |NULL|.
-Otherwise it returns the proper alias.
-This implies that if
-the argument was the proper alias, it is returned.
-For now, this is also the internal accessor.
+If this symbol is a nulling symbol
+with a proper alias, returns the proper alias.
+Otherwise, returns |NULL|.
 @<Function definitions@> =
 static inline
-struct marpa_symbol* symbol_proper_alias_value(struct marpa_symbol* symbol)
-{ return symbol->is_proper_alias? symbol :
-symbol->is_nulling_alias ? symbol->alias : NULL; }
-Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
+struct marpa_symbol* symbol_proper_alias(struct marpa_symbol* symbol)
+{ return symbol->is_nulling_alias ? symbol->alias : NULL; }
+Marpa_Symbol_ID marpa_symbol_proper_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 {
-struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
-struct marpa_symbol* proper_alias = symbol_proper_alias_value(symbol);
+struct marpa_symbol* symbol;
+struct marpa_symbol* proper_alias;
+@<Return -1 if |symbol_id| is invalid@>@;
+symbol = symbol_id2p(g, symbol_id);
+proper_alias = symbol_proper_alias(symbol);
 return proper_alias == NULL ? -1 : proper_alias->id;
 }
 @ @<Private function prototypes@> =
-static inline struct marpa_symbol* symbol_proper_alias_value(struct marpa_symbol* symbol);
+static inline struct marpa_symbol* symbol_proper_alias(struct marpa_symbol* symbol);
 @ @<Public function prototypes@> =
-Marpa_Symbol_ID marpa_symbol_proper_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
+Marpa_Symbol_ID marpa_symbol_proper_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 
 @ Nulling Alias Trace Accessor:
-If this symbol has no nulling alias, returns |NULL|.
-Otherwise it returns the nulling alias.
-This implies that if
-the argument was the nulling alias, it is returned.
-For now, this is also the internal accessor.
+If this symbol is a proper (non-nullable) symbol
+with a nulling alias, returns the nulling alias.
+Otherwise, returns |NULL|.
 @<Function definitions@> =
 static inline
-struct marpa_symbol* symbol_null_alias_value(struct marpa_symbol* symbol)
-{ return symbol->is_proper_alias? symbol->alias :
-symbol->is_nulling_alias ? symbol : NULL; }
-Marpa_Symbol_ID marpa_symbol_null_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
+struct marpa_symbol* symbol_null_alias(struct marpa_symbol* symbol)
+{ return symbol->is_proper_alias ? symbol->alias : NULL; }
+Marpa_Symbol_ID marpa_symbol_null_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 {
-struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
-struct marpa_symbol* alias = symbol_null_alias_value(symbol);
-return alias == NULL ? -1 : alias->id;
+struct marpa_symbol* symbol;
+struct marpa_symbol* alias;
+@<Return -1 if |symbol_id| is invalid@>@;
+symbol = symbol_id2p(g, symbol_id);
+alias = symbol_null_alias(symbol);
+if (alias == NULL) {
+    context_int_add(g, "symbol_id", symbol_id);
+    g->error = "no alias";
+    return -1;
+}
+return alias->id;
 }
 @ @<Private function prototypes@> =
-static inline struct marpa_symbol* symbol_null_alias_value(struct marpa_symbol* symbol);
+static inline struct marpa_symbol* symbol_null_alias(struct marpa_symbol* symbol);
 @ @<Public function prototypes@> =
-Marpa_Symbol_ID marpa_symbol_null_alias_value(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
+Marpa_Symbol_ID marpa_symbol_null_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 
 @ Given a proper nullable symbol as its argument,
 converts the argument into two "aliases".
@@ -1315,9 +1305,18 @@ static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id);
 @*0 Error Handling.
 @<Return -1 if |symbol_id| is invalid@> =
 if (!symbol_is_valid(g, symbol_id)) {
+    context_clear(g);
     context_int_add(g, "symbol_id", symbol_id);
     g->error = "invalid symbol id";
     return -1;
+}
+
+@ @<Return |NULL| if |symbol_id| is invalid@> =
+if (!symbol_is_valid(g, symbol_id)) {
+    context_clear(g);
+    context_int_add(g, "symbol_id", symbol_id);
+    g->error = "invalid symbol id";
+    return NULL;
 }
 
 @** Rule Objects.
@@ -1357,24 +1356,6 @@ Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
     marpa_g_rule_add(g, rule->id, rule);
     @<Add this rule to the symbol rule lists@>
    return rule;
-}
-@ @<Function definitions@> =
-Marpa_Rule_ID marpa_rule_start_shim(struct marpa_g *g,
-Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
-{
-    struct marpa_rule* rule = rule_start(g, lhs, rhs, length);
-    if (!rule) { return -1; }
-    return  rule->id;
-}
-@ "Complete" rule.  Do the callback to the upper layers
-telling them about the new rule.
-The term "complete" comes from the idea that this completes
-the initialization process.
-This function may go away once development is finished.
-@<Function definitions@> =
-void marpa_rule_complete_shim(struct marpa_g *g, Marpa_Rule_ID id)
-{
-    rule_callback(g, id);
 }
 @ @<Function definitions@> =
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
@@ -1605,9 +1586,6 @@ static inline
 struct marpa_rule* rule_start(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
 @ @<Public function prototypes@> =
-Marpa_Rule_ID marpa_rule_start_shim(struct marpa_g *g,
-Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
-void marpa_rule_complete_shim(struct marpa_g *g, Marpa_Rule_ID id);
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
 
@@ -1754,10 +1732,11 @@ static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule) {
 @ @<Private function prototypes@> =
 static inline Marpa_Symbol_ID rule_lhs_get(struct marpa_rule *rule);
 @ @<Function definitions@> =
-Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
+Marpa_Symbol_ID marpa_rule_lhs(struct marpa_g *g, Marpa_Rule_ID rule_id) {
+    @<Return -1 if |rule_id| is invalid@>@;
     return rule_lhs_get(rule_id2p(g, rule_id)); }
 @ @<Public function prototypes@> =
-Marpa_Symbol_ID marpa_rule_lhs_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
+Marpa_Symbol_ID marpa_rule_lhs(struct marpa_g *g, Marpa_Rule_ID rule_id);
 @ @<Function definitions@> =
 static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule) {
     return rule->symbols+1; }
@@ -1765,6 +1744,7 @@ static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule) {
 static inline Marpa_Symbol_ID* rule_rhs_get(struct marpa_rule *rule);
 @ @<Function definitions@> =
 Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id) {
+    @<Return |NULL| if |rule_id| is invalid@>@;
     return rule_rhs_get(rule_id2p(g, rule_id)); }
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID* marpa_rule_rhs_peek(struct marpa_g *g, Marpa_Rule_ID rule_id);
@@ -1774,10 +1754,11 @@ static inline gsize rule_length_get(struct marpa_rule *rule) {
 @ @<Private function prototypes@> =
 static inline gsize rule_length_get(struct marpa_rule *rule);
 @ @<Function definitions@> =
-gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id) {
+gsize marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id) {
+    @<Return -1 if |rule_id| is invalid@>@;
     return rule_length_get(rule_id2p(g, rule_id)); }
 @ @<Public function prototypes@> =
-gsize marpa_rule_length_value(struct marpa_g *g, Marpa_Rule_ID rule_id);
+gsize marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id);
 
 @ @<Function definitions@> =
 static inline Marpa_Symbol_ID
@@ -1850,7 +1831,7 @@ Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
  return symbol_id2p(g, lhs_id)->is_accessible; }
 gint marpa_rule_is_accessible(struct marpa_g* g, Marpa_Rule_ID rule_id)
 { struct marpa_rule* rule;
-@<Return -1 if |rule_id| is invalide@>@;
+@<Return -1 if |rule_id| is invalid@>@;
 rule = rule_id2p(g, rule_id);
 return rule_is_accessible(g, rule);
 }
@@ -1872,7 +1853,7 @@ for (rh_ix = 0; rh_ix < rule->length; rh_ix++) {
 return TRUE; }
 gint marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID rule_id)
 { struct marpa_rule* rule;
-@<Return -1 if |rule_id| is invalide@>@;
+@<Return -1 if |rule_id| is invalid@>@;
 rule = rule_id2p(g, rule_id);
 return rule_is_productive(g, rule);
 }
@@ -1880,6 +1861,43 @@ return rule_is_productive(g, rule);
 static inline gint rule_is_productive(struct marpa_g* g, struct marpa_rule* rule);
 @ @<Public function prototypes@> =
 gint marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Loop Rule.
+@ A rule is a loop rule if it non-trivially
+produces the string of length one
+which consists only of its LHS symbol.
+"Non-trivially" means the zero-step derivation does not count -- the
+derivation must have at least one step.
+@<Bit aligned rule elements@> = unsigned int is_loop:1;
+@ @<Initialize rule elements@> =
+rule->is_loop = FALSE;
+@ This is the external accessor.
+The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gint marpa_rule_is_loop(struct marpa_g* g, Marpa_Rule_ID rule_id)
+{ @<Return -1 if |rule_id| is invalid@>@;
+return rule_id2p(g, rule_id)->is_loop; }
+@ @<Public function prototypes@> =
+gint marpa_rule_is_loop(struct marpa_g* g, Marpa_Rule_ID rule_id);
+
+@*0 Virtual Loop Rule.
+@ When dealing with rules which result from the CHAF rewrite,
+it is convenient to recognize the "loop rule" property as belonging
+to only one of the pieces.
+The "virtual loop rule" property exists for this purpose.
+All virtual loop rules are loop rules,
+but not vice versa.
+@<Bit aligned rule elements@> = unsigned int is_virtual_loop:1;
+@ @<Initialize rule elements@> =
+rule->is_virtual_loop = FALSE;
+@ This is the external accessor.
+The internal accessor would be trivial, so there is none.
+@<Function definitions@> =
+gint marpa_rule_is_virtual_loop(struct marpa_g* g, Marpa_Rule_ID rule_id)
+{ @<Return -1 if |rule_id| is invalid@>@;
+return rule_id2p(g, rule_id)->is_virtual_loop; }
+@ @<Public function prototypes@> =
+gint marpa_rule_is_virtual_loop(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
 @*0 Nulling Rules.
 @ A rule is nulling if every symbol on its RHS is nulling.
@@ -1903,10 +1921,11 @@ rule->is_used = TRUE;
 @ This is the external accessor.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_rule_is_used_value(struct marpa_g* g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->is_used; }
+gint marpa_rule_is_used(struct marpa_g* g, Marpa_Rule_ID rule_id)
+{ @<Return -1 if |rule_id| is invalid@>@;
+return rule_id2p(g, rule_id)->is_used; }
 @ @<Public function prototypes@> =
-gboolean marpa_rule_is_used_value(struct marpa_g* g, Marpa_Rule_ID id);
+gint marpa_rule_is_used(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
 @*0 Rule Boolean: Virtual LHS.
 This is for Marpa's "internal semantics".
@@ -1929,10 +1948,10 @@ semantics specified for the original grammar.
 rule->is_virtual_lhs = FALSE;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_rule_is_virtual_lhs_value(struct marpa_g* g, Marpa_Rule_ID id)
+gboolean marpa_rule_is_virtual_lhs(struct marpa_g* g, Marpa_Rule_ID id)
 { return rule_id2p(g, id)->is_virtual_lhs; }
 @ @<Public function prototypes@> =
-gboolean marpa_rule_is_virtual_lhs_value(struct marpa_g* g, Marpa_Rule_ID id);
+gboolean marpa_rule_is_virtual_lhs(struct marpa_g* g, Marpa_Rule_ID id);
 
 @*0 Rule Boolean: Virtual RHS.
 @<Bit aligned rule elements@> = unsigned int is_virtual_rhs:1;
@@ -1940,10 +1959,24 @@ gboolean marpa_rule_is_virtual_lhs_value(struct marpa_g* g, Marpa_Rule_ID id);
 rule->is_virtual_rhs = FALSE;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-gboolean marpa_rule_is_virtual_rhs_value(struct marpa_g* g, Marpa_Rule_ID id)
+gboolean marpa_rule_is_virtual_rhs(struct marpa_g* g, Marpa_Rule_ID id)
 { return rule_id2p(g, id)->is_virtual_rhs; }
 @ @<Public function prototypes@> =
-gboolean marpa_rule_is_virtual_rhs_value(struct marpa_g* g, Marpa_Rule_ID id);
+gboolean marpa_rule_is_virtual_rhs(struct marpa_g* g, Marpa_Rule_ID id);
+
+@*0 Virtual Start Position.
+For a virtual rule,
+this is the RHS position in the original rule
+where this one starts.
+@<Int aligned rule elements@> = gint virtual_start;
+@ @<Initialize rule elements@> = rule->virtual_start = -1;
+
+@*0 Virtual End Position.
+For a virtual rule,
+this is the RHS position in the original rule
+at which this one ends.
+@<Int aligned rule elements@> = gint virtual_end;
+@ @<Initialize rule elements@> = rule->virtual_end = -1;
 
 @*0 Rule Callbacks.
 The user can define a callback
@@ -2016,18 +2049,25 @@ If this rule is the semantic equivalent of another rule,
 this external accessor returns the "original rule".
 Otherwise it returns -1.
 @<Function definitions@> =
-Marpa_Rule_ID marpa_rule_semantic_equivalent_value(struct marpa_g* g, Marpa_Rule_ID id)
+Marpa_Rule_ID marpa_rule_semantic_equivalent(struct marpa_g* g, Marpa_Rule_ID id)
 {
 struct marpa_rule* rewrite_rule = rule_id2p(g, id);
 return rewrite_rule->is_semantic_equivalent ? rewrite_rule->original : -1; }
 @ @<Public function prototypes@> =
-Marpa_Rule_ID marpa_rule_semantic_equivalent_value(struct marpa_g* g, Marpa_Rule_ID id);
+Marpa_Rule_ID marpa_rule_semantic_equivalent(struct marpa_g* g, Marpa_Rule_ID id);
 
-@ @<Return -1 if |rule_id| is invalide@> =
+@ @<Return -1 if |rule_id| is invalid@> =
 if (!rule_is_valid(g, rule_id)) {
     context_int_add(g, "rule_id", rule_id);
     g->error = "invalid rule id";
     return -1;
+}
+
+@ @<Return |NULL| if |rule_id| is invalid@> =
+if (!rule_is_valid(g, rule_id)) {
+    context_int_add(g, "rule_id", rule_id);
+    g->error = "invalid rule id";
+    return NULL;
 }
 
 @** Precomputing the Grammar.
@@ -2045,11 +2085,22 @@ which is external.
 struct marpa_g* marpa_precompute(struct marpa_g* g)
 {
      if (!census(g)) return NULL;
-     if (!CHAF_rewrite(g)) return NULL;
+     if (!g->is_academic) {
+	 if (!CHAF_rewrite(g)) return NULL;
+	 if (!g_augment(g)) return NULL;
+	loop_detect(g);
+    } else {
+       @<Mark all rules used@>@;
+    }
      return g;
 }
 @ @<Public function prototypes@> =
 struct marpa_g* marpa_precompute(struct marpa_g* g);
+
+@ @<Mark all rules used@> =
+Marpa_Rule_ID rule_id;
+for (rule_id = 0; rule_id < g->rules->len; rule_id++)
+{ rule_id2p(g, rule_id)->is_used = 1; }
 
 @** The Grammar Census.
 
@@ -2356,18 +2407,54 @@ for ( start = 0; bv_scan(productive_v, start, &min, &max); start = max+2 ) {
 } }
 bv_free(reaches_terminal_v); }
 
-@** Rewriting the Grammar.
+@** The CHAF Rewrite.
 
-Marpa rewrites its grammars in two ways:
-\li Nullable symbols have been a difficulty for Earley implementations
+Nullable symbols have been a difficulty for Earley implementations
 since day zero.
 Aycock and Horspool came up with a solution to this problem,
 part of which involved rewriting the grammar to eliminate
 all proper nullables.
-Marpa's CHAF rewrite is built on the work on Aycock and
+Marpa's CHAF rewrite is built on the work of Aycock and
 Horspool.
-\li Many approaches to parsing first augment the grammar with
-a new start symbol and start rule.  Marpa is no exception.
+
+Marpa's CHAF rewrite is one of its two rewrites of the BNF.
+The other
+adds a new start symbol to the grammar.
+
+@ The rewrite strategy for Marpa is new to it.
+It is an elaboration on the one developed by Aycock and Horspool.
+The basic idea behind Aycock and Horspool's NNF was to elimnate
+proper nullables by replacing the rules with variants which
+used only nulling and non-nulling symbols.
+These had to be created for every possible combination
+of nulling and non-nulling symbols.
+This meant that the number of NNF rules was
+potentially exponential
+in the length of rule of the original grammar.
+
+@ Marpa's CHAF (Chomsky-Horspool-Aycock Form) eliminates
+the problem of exponential explosion by first breaking rules
+up into pieces, each piece containing no more than two proper nullables.
+The number of rewritten rules in CHAF in linear in the length of
+the original rule.
+
+@ The CHAF rewrite affects only rules with proper nullables.
+In this context, the proper nullables are called "factors".
+Each piece of the original rule is rewritten into up to four
+"factored pieces".
+When there are two proper nullables, the potential CHAF rules
+are
+\li The PP rule:  Both factors are replaced with non-nulling symbols.
+\li The PN rule:  The first factor is replaced with a non-nulling symbol,
+and the second factor is replaced with a nulling symbol.
+\li The NP rule: The first factor is replaced with a nulling symbol,
+and the second factor is replaced with a non-nulling symbol.
+\li The NN rule: Both factors are replaced with nulling symbols.
+
+@ Sometimes the CHAF piece will have only one factor.  A one-factor
+piece is rewritten into at most two factored pieces:
+\li The P rule:  The factor is replaced with a non-nulling symbol.
+\li The N rule:  The factor is replaced with a nulling symbol.
 
 @ In |CHAF_rewrite|, a |rule_count| is taken before the loop over
 the grammar's rules, even though rules are added in the loop.
@@ -2376,20 +2463,23 @@ The CHAF rewrite is not recursive -- the new rules it creates
 are not themselves subject to CHAF rewrite.
 And rule ID's increase by one each time,
 so that all the new
-rules will have ID's after |rule_count|.
+rules will have ID's equal to or greater than |no_of_rules|.
 @ @<Function definitions@> =
 static inline struct marpa_g* CHAF_rewrite(struct marpa_g* g)
 {
     @<CHAF rewrite declarations@>@;
     @<CHAF rewrite allocations@>@;
+     @<Alias proper nullables@>@;
     no_of_rules = rule_count(g);
     for (rule_id = 0; rule_id < no_of_rules; rule_id++) {
          struct marpa_rule* rule = rule_id2p(g, rule_id);
+	 gint rule_length = rule->length;
+	 gint nullable_suffix_ix = 0;
 	 @<Mark and skip unused rules@>@;
-	 @<Calculate rule statistics and alias proper nullables@>@;
+	 @<Calculate CHAF rule statistics@>@;
 	 /* If there is no proper nullable in this rule, we are done */
-	 if (rule_data[0].next_proper_nullable == -1) goto NEXT_RULE;
-	 /* TO BE CONTINUED ... */
+	 if (factor_count <= 0) goto NEXT_RULE;
+	 @<Factor the rule into CHAF rules@>@;
 	 NEXT_RULE: ;
     }
     @<CHAF rewrite deallocations@>@;
@@ -2399,15 +2489,7 @@ static inline struct marpa_g* CHAF_rewrite(struct marpa_g* g)
 static inline struct marpa_g* CHAF_rewrite(struct marpa_g* g);
 @ @<CHAF rewrite declarations@> =
 Marpa_Rule_ID rule_id;
-struct rule_data {
-     gint next_proper_nullable;
-     Marpa_Symbol_ID proper_last_factor;
-     Marpa_Symbol_ID nulling_last_factor;
-} *rule_data;
 gint no_of_rules;
-@ @<CHAF rewrite allocations@> =
-rule_data = g_new(struct rule_data, g->max_rule_length);
-@ @<CHAF rewrite deallocations@> = g_free(rule_data);
 
 @ @<Mark and skip unused rules@> =
 if (!rule->is_used) { goto NEXT_RULE; }
@@ -2415,7 +2497,573 @@ if (rule_is_nulling(g, rule)) { rule->is_used = 0; goto NEXT_RULE; }
 if (!rule_is_accessible(g, rule)) { rule->is_used = 0; goto NEXT_RULE; }
 if (!rule_is_productive(g, rule)) { rule->is_used = 0; goto NEXT_RULE; }
 
-@ @<Calculate rule statistics and alias proper nullables@> = {;}
+@ For every accessible and productive proper nullable which
+is not already aliased, alias it.
+@<Alias proper nullables@> =
+{ gint no_of_symbols = symbol_count(g);
+Marpa_Symbol_ID symbol_id;
+for (symbol_id = 0; symbol_id < no_of_symbols; symbol_id++) {
+     struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+     struct marpa_symbol* alias;
+     if (!symbol->is_nullable) continue;
+     if (symbol->is_nulling) continue;
+     if (!symbol->is_accessible) continue;
+     if (!symbol->is_productive) continue;
+     if (symbol_null_alias(symbol)) continue;
+    alias = symbol_alias_create(g, symbol);
+    symbol_callback(g, alias->id);
+} }
+
+@*0 Compute Statistics Needed to Rewrite the Rule.
+The term
+"factor" is used to mean an instance of a proper nullable
+symbol on the RHS of a rule.
+This comes from the idea that replacing the proper nullables
+with proper symbols and nulling symbols "factors" pieces
+of the rule being rewritten (the original rule)
+into multiple CHAF rules.
+@<Calculate CHAF rule statistics@> =
+{ gint rhs_ix;
+factor_count = 0;
+for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
+     Marpa_Symbol_ID symbol_id = rhs_symbol_id(rule, rhs_ix);
+     struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+     if (symbol->is_nulling) continue; /* Do nothing for nulling symbols */
+     if (symbol_null_alias(symbol)) {
+     /* If a proper nullable, record its position */
+	 factor_positions[factor_count++] = rhs_ix;
+	 continue;
+    }@#
+     nullable_suffix_ix = rhs_ix+1;
+/* If not a nullable symbol, move forward the index
+ of the nullable suffix location */
+} }
+@ @<CHAF rewrite declarations@> =
+gint factor_count;
+gint* factor_positions;
+@ @<CHAF rewrite allocations@> =
+factor_positions = g_new(gint, g->max_rule_length);
+@ @<CHAF rewrite deallocations@> =
+g_free(factor_positions);
+
+@*0 Divide the Rule into Pieces.
+@<Factor the rule into CHAF rules@> =
+rule->is_used = 0; /* Mark the original rule unused */
+{ gint unprocessed_factor_count; /* The number of proper nullables for which CHAF rules have
+yet to be written */
+gint factor_position_ix = 0; /* Current index into the list of factors */
+Marpa_Symbol_ID current_lhs_id = lhs_symbol_id(rule);
+gint piece_end, piece_start = 0; /* The positions, in the original rule, where
+the new (virtual) rule starts and ends */
+for (unprocessed_factor_count = factor_count - factor_position_ix;
+unprocessed_factor_count >= 3;
+unprocessed_factor_count = factor_count - factor_position_ix) {
+    @<Add non-final CHAF rules@>@;
+}
+if (unprocessed_factor_count == 2) {
+	@<Add final CHAF rules for two factors@>@;
+} else {
+	@<Add final CHAF rules for one factor@>@;
+} }
+
+@ @<Create a CHAF virtual symbol@> = {
+    struct marpa_symbol* chaf_virtual_symbol = symbol_new(g);
+    chaf_virtual_symbol->is_accessible = 1;
+    chaf_virtual_symbol->is_productive = 1;
+    chaf_virtual_symbol_id = chaf_virtual_symbol->id;
+    context_clear(g);
+    context_int_add(g, "rule_id", rule_id);
+    context_int_add(g, "lhs_id", lhs_symbol_id(rule));
+    context_int_add(g, "virtual_end", piece_end);
+    symbol_callback(g, chaf_virtual_symbol_id);
+}
+
+@*0 Temporary buffers for the CHAF right hand sides.
+Two temporary buffers are used in factoring out CHAF rules.
+|piece_rhs| is for the normal case, where only the symbols
+of the current piece are on the RHS.
+In certain cases, where the remainder of the rule is nulling,
+further factoring is unnecessary and the CHAF rewrite simply
+finishes out the rule with nulling symbols.
+In such cases, the RHS is built in the
+|remaining_rhs| buffer.
+@<CHAF rewrite declarations@> =
+Marpa_Symbol_ID* piece_rhs;
+Marpa_Symbol_ID* remaining_rhs;
+@ @<CHAF rewrite allocations@> =
+piece_rhs = g_new(Marpa_Symbol_ID, g->max_rule_length);
+remaining_rhs = g_new(Marpa_Symbol_ID, g->max_rule_length);
+@ @<CHAF rewrite deallocations@> =
+g_free(piece_rhs);
+g_free(remaining_rhs);
+
+@*0 Factor A Non-Final Piece.
+@ As long as we have more than 3 unprocessed factors, we are working on a non-final
+rule.
+@<Add non-final CHAF rules@> =
+    Marpa_Symbol_ID chaf_virtual_symbol_id;
+    gint first_factor_position = factor_positions[factor_position_ix];
+    gint first_factor_piece_position = first_factor_position - piece_start;
+    gint second_factor_position = factor_positions[factor_position_ix+1];
+    if (second_factor_position >= nullable_suffix_ix) {
+	piece_end = second_factor_position-1;
+        /* The last factor is in the nullable suffix, so the virtual RHS must be nullable */
+	@<Create a CHAF virtual symbol@>@;
+	@<Add CHAF rules for nullable continuation@>@;
+	factor_position_ix++;
+    } else {
+	gint second_factor_piece_position = second_factor_position - piece_start;
+	piece_end = second_factor_position;
+	@<Create a CHAF virtual symbol@>@;
+	@<Add CHAF rules for proper continuation@>@;
+	factor_position_ix += 2;
+    }
+    current_lhs_id = chaf_virtual_symbol_id;
+    piece_start = piece_end+1;
+
+@*0 Add CHAF Rules for Nullable Continuations.
+For a piece that has a nullable continuation,
+the virtual RHS counts
+as one of the two allowed proper nullables.
+That means the piece must
+end before the second proper nullable (or factor).
+@<Add CHAF rules for nullable continuation@> =
+{
+    gint remaining_rhs_length, piece_rhs_length;
+    @<Add PP CHAF rule for nullable continuation@>;
+    @<Add PN CHAF rule for nullable continuation@>;
+    @<Add NP CHAF rule for nullable continuation@>;
+    @<Add NN CHAF rule for nullable continuation@>;
+}
+
+@ Note that since the first part of |remaining_rhs| is exactly the same
+as the first part of |piece_rhs| so we copy it here in preparation
+for the PN rule.
+@<Add PP CHAF rule for nullable continuation@> =
+{
+gint real_symbol_count = piece_end - piece_start + 1;
+for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
+   remaining_rhs[piece_rhs_length] =
+   piece_rhs[piece_rhs_length] = rhs_symbol_id(rule, piece_start+piece_rhs_length);
+}
+piece_rhs[piece_rhs_length++] = chaf_virtual_symbol_id;
+}
+{ struct marpa_rule* chaf_rule;
+    gint real_symbol_count = piece_rhs_length - 1;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@ @<Add PN CHAF rule for nullable continuation@> =
+{ gint piece_rhs_ix;
+gint chaf_rule_length = rule->length - piece_start;
+for (remaining_rhs_length=piece_rhs_length-1 ;
+	remaining_rhs_length < chaf_rule_length;
+	remaining_rhs_length++) {
+    Marpa_Symbol_ID original_id = rhs_symbol_id(rule, piece_start+remaining_rhs_length);
+    struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, original_id));
+    remaining_rhs[remaining_rhs_length] = alias ? alias->id : original_id;
+} }
+{ struct marpa_rule* chaf_rule;
+    gint real_symbol_count = remaining_rhs_length;
+    chaf_rule = rule_start(g, current_lhs_id, remaining_rhs, remaining_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@ Note, while we have the nulling alias for the first factor,
+|remaining_rhs| is altered to be ready for the NN rule.
+@<Add NP CHAF rule for nullable continuation@> = {
+    Marpa_Symbol_ID proper_id = rhs_symbol_id(rule, first_factor_position);
+    struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, proper_id));
+    gint first_factor_piece_position = first_factor_position - piece_start;
+    remaining_rhs[first_factor_piece_position] =
+	piece_rhs[first_factor_piece_position] =
+	alias->id;
+}
+{ struct marpa_rule* chaf_rule;
+ gint real_symbol_count = piece_rhs_length-1;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@ If this piece is nullable (|piece_start| at or
+after |nullable_suffix_ix|), we don't add an NN choice,
+because nulling both factors makes the entire piece nulling,
+and nulling rules cannot be fed directly to
+the Marpa parse engine.
+Note that |remaining_rhs| was altered above.
+@<Add NN CHAF rule for nullable continuation@> =
+if (piece_start < nullable_suffix_ix) {
+ struct marpa_rule* chaf_rule;
+ gint real_symbol_count = remaining_rhs_length;
+    chaf_rule = rule_start(g, current_lhs_id, remaining_rhs, remaining_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@*0 Add CHAF Rules for Proper Continuations.
+@ Open block and declarations.
+@<Add CHAF rules for proper continuation@> = {
+    gint piece_rhs_length;
+struct marpa_rule* chaf_rule;
+gint real_symbol_count;
+Marpa_Symbol_ID first_factor_proper_id, second_factor_proper_id,
+	first_factor_alias_id, second_factor_alias_id;
+real_symbol_count = piece_end - piece_start + 1;
+
+@ The PP Rule.
+@<Add CHAF rules for proper continuation@> = 
+    for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
+	piece_rhs[piece_rhs_length] = rhs_symbol_id(rule, piece_start+piece_rhs_length);
+    }
+    piece_rhs[piece_rhs_length++] = chaf_virtual_symbol_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The PN Rule.
+@<Add CHAF rules for proper continuation@> = 
+    second_factor_proper_id = rhs_symbol_id(rule, second_factor_position);
+    piece_rhs[second_factor_piece_position]
+	= second_factor_alias_id = alias_by_id(g, second_factor_proper_id);
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The NP Rule.
+@<Add CHAF rules for proper continuation@> = 
+    first_factor_proper_id = rhs_symbol_id(rule, first_factor_position);
+    piece_rhs[first_factor_piece_position]
+	= first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
+    piece_rhs[second_factor_piece_position] = second_factor_proper_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The NN Rule.
+@<Add CHAF rules for proper continuation@> = 
+    piece_rhs[second_factor_piece_position] = second_factor_alias_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ Close the block
+@<Add CHAF rules for proper continuation@> = }
+
+@*0 Add Final CHAF Rules for Two Factors.
+Open block, declarations and setup.
+@<Add final CHAF rules for two factors@> = {
+gint first_factor_position = factor_positions[factor_position_ix];
+gint first_factor_piece_position = first_factor_position - piece_start;
+gint second_factor_position = factor_positions[factor_position_ix+1];
+gint second_factor_piece_position = second_factor_position - piece_start;
+gint real_symbol_count;
+gint piece_rhs_length;
+struct marpa_rule* chaf_rule;
+Marpa_Symbol_ID first_factor_proper_id, second_factor_proper_id,
+	first_factor_alias_id, second_factor_alias_id;
+piece_end = rule->length-1;
+real_symbol_count = piece_end - piece_start + 1;
+
+@ The PP Rule.
+@<Add final CHAF rules for two factors@> = 
+    for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
+	piece_rhs[piece_rhs_length] = rhs_symbol_id(rule, piece_start+piece_rhs_length);
+    }
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The PN Rule.
+@<Add final CHAF rules for two factors@> =
+    second_factor_proper_id = rhs_symbol_id(rule, second_factor_position);
+    piece_rhs[second_factor_piece_position]
+	= second_factor_alias_id = alias_by_id(g, second_factor_proper_id);
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The NP Rule.
+@<Add final CHAF rules for two factors@> =
+    first_factor_proper_id = rhs_symbol_id(rule, first_factor_position);
+    piece_rhs[first_factor_piece_position]
+	= first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
+    piece_rhs[second_factor_piece_position] = second_factor_proper_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The NN Rule.  This is added only if it would not turn this into
+a nulling rule.
+@<Add final CHAF rules for two factors@> =
+if (piece_start < nullable_suffix_ix) {
+    piece_rhs[second_factor_piece_position] = second_factor_alias_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@ Close the block
+@<Add final CHAF rules for two factors@> = }
+
+@*0 Add Final CHAF Rules for One Factor.
+@<Add final CHAF rules for one factor@> = {
+gint piece_rhs_length;
+struct marpa_rule* chaf_rule;
+Marpa_Symbol_ID first_factor_proper_id, first_factor_alias_id;
+gint real_symbol_count;
+gint first_factor_position = factor_positions[factor_position_ix];
+gint first_factor_piece_position = factor_positions[factor_position_ix] - piece_start;
+piece_end = rule->length-1;
+real_symbol_count = piece_end - piece_start + 1;
+
+@ The P Rule.
+@<Add final CHAF rules for one factor@> = 
+    for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
+	piece_rhs[piece_rhs_length] = rhs_symbol_id(rule, piece_start+piece_rhs_length);
+    }
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+
+@ The N Rule.  This is added only if it would not turn this into
+a nulling rule.
+@<Add final CHAF rules for one factor@> =
+if (piece_start < nullable_suffix_ix) {
+    first_factor_proper_id = rhs_symbol_id(rule, first_factor_position);
+    first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
+    piece_rhs[first_factor_piece_position] = first_factor_alias_id;
+    chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
+    @<Set CHAF rule flags and call back@>@;
+}
+
+@ Close the block
+@<Add final CHAF rules for one factor@> = }
+
+@ Some of the code for adding CHAF rules is common to
+them all.
+This include the setting of many of the elements of the 
+rule structure, and performing the call back.
+@<Set CHAF rule flags and call back@> =
+chaf_rule->is_used = 1;
+chaf_rule->original = rule_id;
+chaf_rule->is_virtual_lhs = piece_start > 0;
+chaf_rule->is_semantic_equivalent = !chaf_rule->is_virtual_lhs;
+chaf_rule->is_virtual_rhs = chaf_rule->length > real_symbol_count;
+chaf_rule->virtual_start = piece_start;
+chaf_rule->virtual_end = piece_start + real_symbol_count - 1;
+chaf_rule->real_symbol_count = real_symbol_count;
+    rule_callback(g, chaf_rule->id);
+
+@ This utility routine translates a proper symbol id to a nulling symbol ID.
+It is assumed that the caller has ensured that
+|proper_id| is valid and that an alias actually exists.
+@<Function definitions@> =
+static inline
+Marpa_Symbol_ID alias_by_id(struct marpa_g* g, Marpa_Symbol_ID proper_id) {
+     struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, proper_id));
+     return alias->id;
+}
+@ @<Private function prototypes@> =
+static inline
+Marpa_Symbol_ID alias_by_id(struct marpa_g* g, Marpa_Symbol_ID proper_id);
+
+@** Adding a New Start Symbol.
+This is such a common rewrite that it has a special name
+in the literature --- it is called "augmenting the grammar".
+
+@ @<Function definitions@> =
+static inline
+struct marpa_g* g_augment(struct marpa_g* g) {
+    Marpa_Symbol_ID proper_new_start_id = -1;
+    struct marpa_symbol* proper_old_start = NULL;
+    struct marpa_symbol* nulling_old_start = NULL;
+    struct marpa_symbol* proper_new_start = NULL;
+    struct marpa_symbol* old_start = symbol_id2p(g, g->start_symbol);
+    @<Find and classify the old start symbols@>@;
+    if (proper_old_start) { @<Set up a new proper start rule@> }
+    if (nulling_old_start) { @<Set up a new nulling start rule@> }
+    return g;
+}
+@ @<Private function prototypes@> =
+static inline struct marpa_g* g_augment(struct marpa_g* g);
+
+@ @<Find and classify the old start symbols@> =
+if (old_start->is_nulling) {
+   old_start->is_accessible = 0;
+    nulling_old_start = old_start;
+} else {
+    proper_old_start = old_start;
+    nulling_old_start = symbol_null_alias(old_start);
+}
+old_start->is_start = 0;
+
+@ @<Set up a new proper start rule@> = {
+struct marpa_rule* new_start_rule;
+proper_old_start->is_start = 0;
+proper_new_start = symbol_new(g);
+proper_new_start_id = proper_new_start->id;
+g->start_symbol = proper_new_start_id;
+proper_new_start->is_accessible = TRUE;
+proper_new_start->is_productive = TRUE;
+proper_new_start->is_start = TRUE;
+context_clear(g);
+context_int_add(g, "old_start_id", old_start->id);
+symbol_callback(g, proper_new_start_id);
+new_start_rule = rule_start(g, proper_new_start_id, &old_start->id, 1);
+new_start_rule->is_virtual_lhs = 1;
+new_start_rule->real_symbol_count = 1;
+new_start_rule->is_used = TRUE;
+    rule_callback(g, new_start_rule->id);
+}
+
+@ Set up the new nulling start rule, if the old start symbol was
+nulling or had a null alias.  A new nulling start symbol
+must be created.  It is an alias of the new proper start symbol,
+if there is one.  Otherwise it is a new, nulling, symbol.
+@<Set up a new nulling start rule@> = {
+Marpa_Symbol_ID nulling_new_start_id;
+struct marpa_rule* new_start_rule;
+struct marpa_symbol* nulling_new_start;
+if (proper_new_start) { /* There are two start symbols */
+    nulling_new_start = symbol_alias_create(g, proper_new_start);
+    nulling_new_start_id = nulling_new_start->id;
+} else { /* The only start symbol is a nulling symbol */
+    nulling_new_start = symbol_new(g);
+    nulling_new_start_id = nulling_new_start->id;
+    g->start_symbol = nulling_new_start_id;
+    nulling_new_start->is_nulling = TRUE;
+    nulling_new_start->is_nullable = TRUE;
+    nulling_new_start->is_productive = TRUE;
+    nulling_new_start->is_accessible = TRUE;
+}
+nulling_new_start->is_start = TRUE;
+context_clear(g);
+context_int_add(g, "old_start_id", old_start->id);
+symbol_callback(g, nulling_new_start_id);
+new_start_rule = rule_start(g, nulling_new_start_id, 0, 0);
+new_start_rule->is_virtual_lhs = 1;
+new_start_rule->real_symbol_count = 1;
+new_start_rule->is_used = TRUE;
+    rule_callback(g, new_start_rule->id);
+}
+
+@** Loops.
+Loops are rules which non-trivially derive their own LHS.
+More precisely, a rule is a loop if and only if it
+non-trivially derives a string which contains its LHS symbol
+and is of length 1.
+In my experience,
+and according to Grune and Jacobs 2008 (pp. 48-49),
+loops are never of practical use.
+
+@ Marpa allows loops, for two reasons.
+Because Marpa handles all context-free grammars,
+it is very easy to know beforehand whether Marpa can
+handle a particular grammar.
+If you can write a grammar in BNF, then Marpa can handle it ---
+it's that simple.
+To make this claim, Marpa must be able to handle grammars
+with loops.
+
+Second, a user's user drafts of a grammar might contain cycles.
+A parser generator which did not handle them would force
+the user's first order of business to be removing them.
+
+@ The grammar precomputations and the recognition
+phase have been set up so that
+loops are a complete non-issue --- they are dealt with like
+any other situation, without additional overhead.
+However, loops do impose overhead and require special
+handling in the evaluation phase.
+It is unlikely that a user will want to leave one in
+a production grammar.
+
+@ Marpa detects all loops during its grammar
+precomputation.
+|libmarpa| assumes that parsing will go through as usual,
+with the loops.
+But it enables the upper layers to make other choices
+by passing a message for every symbol involved in a
+loop,
+as well as a final message with the count of looping symbols.
+
+@<Function definitions@> =
+static inline
+void loop_detect(struct marpa_g* g)
+{ gint rule_id, no_of_rules = rule_count(g);
+gint loop_rule_count = 0;
+Bit_Matrix unit_transition_matrix
+    = matrix_create( no_of_rules , no_of_rules);
+@<Mark direct unit transitions in |unit_transition_matrix|@>@;
+transitive_closure(unit_transition_matrix);
+@<Mark loop rules@>@;
+if (loop_rule_count) g->has_loop = TRUE;
+@<Report loop rule count@>@;
+matrix_free(unit_transition_matrix);
+}
+@ @<Private function prototypes@> =
+static inline
+void loop_detect(struct marpa_g* g);
+
+@ Note that direct transitions are marked in advance,
+but not trivial ones.
+That is, bit |(x,x)| is not set |TRUE| in advance.
+In other words, for this purpose,
+unit transitions are not in general reflexive.
+@<Mark direct unit transitions in |unit_transition_matrix|@> =
+for (rule_id = 0; rule_id < no_of_rules; rule_id++) {
+     struct marpa_rule* rule = rule_id2p(g, rule_id);
+     Marpa_Symbol_ID proper_id;
+     Marpa_Symbol_ID lhs_id;
+     gint rhs_ix, rule_length;
+     if (!rule->is_used) continue;
+     rule_length = rule->length;
+     proper_id = -1;
+     for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
+	 Marpa_Symbol_ID symbol_id = rhs_symbol_id(rule, rhs_ix);
+	 struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+	 if (symbol->is_nullable) continue; /* After the CHAF rewrite, nullable $\E$ nulling */
+	 if (proper_id >= 0) goto NEXT_RULE; /* More
+	     than one proper symbol -- not a unit rule */
+	 proper_id = symbol_id;
+    }
+    @#
+    if (proper_id < 0) continue; /* A
+	nulling start rule is allowed, so there may be no proper symbol */
+     { struct marpa_symbol* rhs_symbol = symbol_id2p(g, proper_id);
+     GArray* lhs_rules = rhs_symbol->lhs;
+     gint ix, no_of_lhs_rules = lhs_rules->len;
+     for (ix = 0; ix < no_of_lhs_rules; ix++) {
+	 /* Direct loops ($A \RA A$) only need the $(rule_id, rule_id)$ bit set,
+	    but it is not clear that it is a win to special case them. */
+	 matrix_bit_set(unit_transition_matrix, rule_id,
+	     g_array_index(lhs_rules, Marpa_Rule_ID, ix));
+     } }
+     NEXT_RULE: ;
+}
+
+@ Virtual loop rule are loop rules from the virtual point of view.
+When CHAF rules, which are rewritten into multiple pieces,
+it is inconvenient to see each piece as a loop rule.
+Therefore only certain of CHAF pieces that are loop rules
+are regarded as virtual loop rules.
+All non-CHAF rules are virtual loop rules including,
+at this point, sequence rules.
+@<Mark loop rules@> = { Marpa_Rule_ID rule_id;
+for (rule_id = 0; rule_id < no_of_rules; rule_id++) {
+    struct marpa_rule* rule;
+    if (!matrix_bit_test(unit_transition_matrix, rule_id, rule_id)) continue;
+    loop_rule_count++;
+    rule = rule_id2p(g, rule_id);
+    rule->is_loop = TRUE;
+    rule->is_virtual_loop = rule->virtual_start < 0 || !rule->is_virtual_rhs;
+    context_clear(g);
+    context_int_add(g, "rule_id", rule_id);
+    message(g, "loop rule");
+} }
+
+@ The higher layers can differ greatly in their treatment
+of loop rules.  It is perfectly reasonable for a higher layer to treat a loop
+rule as a fatal error.
+It is also reasonable for a higher layer to always silently allow them.
+There are lots of possibilities in between these two extremes.
+To assist the upper layers, the reporting is very thorough ---
+there is not just a message for each loop rule, but also a final tally.
+@<Report loop rule count@> =
+context_clear(g);
+context_int_add(g, "loop_rule_count", loop_rule_count);
+message(g, "loop rule tally");
 
 @** Earley Item Objects.
 Here are some thought about potential optimizations:

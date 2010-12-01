@@ -31,7 +31,7 @@ my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
-my $marpa_xs_version      = '0.001_013';
+my $marpa_xs_version      = '0.001_014';
 my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %version = (
@@ -235,6 +235,7 @@ $subclass_code .= <<'SUBCLASS';
 
     sub ACTION_code {
         my $self = shift;
+	say STDERR "Writing version files";
         $self->write_file($version_pm, qw(lib Marpa XS Version.pm) );
         $self->write_file($perl_version_pm, qw(lib Marpa XS Perl Version.pm) );
         $self->do_libmarpa();
@@ -330,7 +331,7 @@ my $build = $class->new(
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
         no_index => {
-            directory => [qw( inc t author.t )],
+            directory => [qw( inc t html devlib author.t )],
             namespace => [
                 'Marpa::XS::Recognizer', 'Marpa::XS::Grammar',
                 @no_index_namespace_inclusive

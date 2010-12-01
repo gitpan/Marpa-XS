@@ -70,8 +70,8 @@ $grammar->precompute();
 close $MEMORY;
 
 Marpa::XS::Test::is( $trace, <<'EOS', 'cycle detection' );
-Cycle found involving rule: 3: b -> a
 Cycle found involving rule: 1: a -> b
+Cycle found involving rule: 3: b -> a
 EOS
 
 my $recce = Marpa::XS::Recognizer->new(

@@ -106,10 +106,10 @@ sB(BB(Bt(t)))
 sB(Bt(t))
 EOS
     <<'EOS',
-Cycle found involving rule: 5: B -> B
-Cycle found involving rule: 4: B -> A
-Cycle found involving rule: 1: A -> B
 Cycle found involving rule: 0: A -> A
+Cycle found involving rule: 1: A -> B
+Cycle found involving rule: 4: B -> A
+Cycle found involving rule: 5: B -> B
 EOS
 ];
 

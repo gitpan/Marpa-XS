@@ -21,6 +21,8 @@ no_index:
   directory:
     - inc
     - t
+    - html
+    - devlib
     - author.t
   namespace:
     - Marpa::XS::Recognizer
@@ -39,7 +41,7 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.001_013
+    version: 0.001_014
 recommends:
   PPI: 1.206
   Test::Weaken: 3.004000
@@ -53,4 +55,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.001_013
+version: 0.001_014

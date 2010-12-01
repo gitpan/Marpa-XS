@@ -54,17 +54,17 @@ sub restore_stdout {
 
 sub L {
     shift;
-    return 'L(' . ( join q{;}, @_ ) . ')';
+    return 'L(' . ( join q{;}, map { $_ // '[ERROR!]' } @_ ) . ')';
 }
 
 sub R {
     shift;
-    return 'R(' . ( join q{;}, @_ ) . ')';
+    return 'R(' . ( join q{;}, map { $_ // '[ERROR!]' } @_ ) . ')';
 }
 
 sub S {
     shift;
-    return 'S(' . ( join q{;}, @_ ) . ')';
+    return 'S(' . ( join q{;}, map { $_ // '[ERROR!]' } @_ ) . ')';
 }
 
 my $grammar = Marpa::XS::Grammar->new(

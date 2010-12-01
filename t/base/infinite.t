@@ -131,8 +131,8 @@ my $cycle2_test = [
     [ [ 'a', '1' ] ],
     '1',
     <<'EOS'
-Cycle found involving rule: 1: a -> s
 Cycle found involving rule: 0: s -> a
+Cycle found involving rule: 1: a -> s
 EOS
 ];
 
@@ -154,12 +154,12 @@ my $cycle8_test = [
     \@cycle8_tokens,
     '1 2 3 4 5 6',
     <<'EOS'
-Cycle found involving rule: 3: c -> w d x
-Cycle found involving rule: 2: b -> v c
-Cycle found involving rule: 1: a -> b t u
-Cycle found involving rule: 5: e -> s
-Cycle found involving rule: 4: d -> e
 Cycle found involving rule: 0: s -> a
+Cycle found involving rule: 4: d -> e
+Cycle found involving rule: 5: e -> s
+Cycle found involving rule: 1: a -> b t u
+Cycle found involving rule: 2: b -> v c
+Cycle found involving rule: 3: c -> w d x
 EOS
 ];
 

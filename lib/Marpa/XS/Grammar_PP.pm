@@ -203,7 +203,6 @@ use Marpa::XS::Offset qw(
     DEFAULT_NULL_VALUE { default value for nulled symbols }
     ACTION_OBJECT
     INFINITE_ACTION
-    IS_INFINITE
 
     =LAST_EVALUATOR_FIELD
 
@@ -2205,7 +2204,7 @@ sub detect_infinite {
     my $infinite_rules = infinite_rules($grammar);
 
     # produce a list of the rules which cycle
-    RULE: for my $rule ( @{$infinite_rules} ) {
+    RULE: for my $rule ( reverse @{$infinite_rules} ) {
 
         my $warning_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
             // $rule;
@@ -2221,7 +2220,6 @@ sub detect_infinite {
     if ( scalar @{$infinite_rules} ) {
         Marpa::XS::exception('Cycle in grammar, fatal error')
             if $infinite_is_fatal;
-        $grammar->[Marpa::XS::Internal::Grammar::IS_INFINITE] = 1;
     }
 
     return 1;

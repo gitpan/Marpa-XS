@@ -727,13 +727,6 @@ sub do_rank_all {
         my $ranking_action =
             $rule->[Marpa::XS::Internal::Rule::RANKING_ACTION];
 	my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-	if ( not defined $ranking_action ) {
-	    my $semantic_equivalent_id =
-		$grammar_c->semantic_equivalent($rule_id);
-	    $ranking_action = $semantic_equivalent_id
-		->[Marpa::XS::Internal::Rule::RANKING_ACTION];
-	}
-        my $ranking_closure;
         my $cycle_rule = $rule->[Marpa::XS::Internal::Rule::CYCLE];
 
         Marpa::XS::exception(
@@ -744,6 +737,7 @@ sub do_rank_all {
             qq{   Or eliminate its ranking action.\n}
         ) if $ranking_action and $cycle_rule;
 
+        my $ranking_closure;
         if ($ranking_action) {
             $ranking_closure =
                 Marpa::XS::Internal::Recognizer::resolve_semantics( $recce,
@@ -1486,8 +1480,7 @@ sub Marpa::XS::Recognizer::value {
 
     my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $grammar_has_cycle =
-        $grammar->[Marpa::XS::Internal::Grammar::HAS_CYCLE];
+    my $grammar_has_cycle = $grammar_c->has_loop();
 
     my $current_parse_set = $parse_set_arg
         // $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME];

@@ -211,6 +211,8 @@ my %files_by_type = (
     ,                               # Mostly from Andy Lester, leave alone
     'libmarpa/dev/copyright_page_license.w' => \&copyright_page,
     'Makefile.PL'                           => \&trivial,
+    'html_pp_test.sh' => \&trivial,
+    'html_xs_test.sh' => \&trivial,
     'libmarpa/main/README'                  => \&trivial,
     'libmarpa/dev/README'                   => \&trivial,
     'libmarpa/main/src/standalone.c'        => \&trivial,
@@ -240,6 +242,8 @@ sub file_type {
         if scalar @dirs >= 2
             and $dirs[0] eq 'libmarpa'
             and $dirs[1] eq 'orig';
+    return sub {;}
+        if scalar @dirs >= 1 and $dirs[0] eq 'html' ;
     return \&trivial if $filepart eq '.gitignore';
     return \&check_GNU_copyright
         if $GNU_file{$filename};
