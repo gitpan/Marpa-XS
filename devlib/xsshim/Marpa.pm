@@ -19,12 +19,12 @@ use warnings;
 use strict;
 
 package Marpa;
-
 # Faked version to fool Marpa::HTML
 $Marpa::VERSION = 0.100000;
 
+BEGIN { $Marpa::XS::FORCE_XS = 1; }
+
 use Marpa::XS;
-$Marpa::XS::FORCE_XS = 1;
 
 sub compatible { return 1; }
 sub Marpa::Grammar::new {

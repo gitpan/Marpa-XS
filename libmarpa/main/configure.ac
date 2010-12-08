@@ -107,7 +107,8 @@ AC_ARG_ENABLE(debug,
                              [turn on debugging @<:@default=marpa_debug_default@:>@]),,
               enable_debug=marpa_debug_default)
 
-AC_PROG_LIBTOOL
+LT_INIT([pic-only])
+AC_DISABLE_SHARED
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX

@@ -199,11 +199,11 @@ EOS
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'EOS', 'Aycock/Horspool AHFA' );
 Start States: S0; S1
-S0: 33,35
+S0:
 S['] -> . S
 S['][] -> .
  <S> => S2; leo(S['])
-S1: predict; 1,3,6,12,14,17,22,24,27,31
+S1: predict
 A -> . a
 S -> . A S[R0:1]
 S -> . A A[] A[] A[]
@@ -218,9 +218,9 @@ S[R0:2] -> A[] . A
  <S[R0:1]> => S5; leo(S)
  <S[R0:2]> => S6; leo(S[R0:1])
  <a> => S7
-S2: leo-c; 34
+S2: leo-c
 S['] -> S .
-S3: 4,10,15,20,25,29,32
+S3:
 S -> A . S[R0:1]
 S -> A A[] A[] A[] .
 S[R0:1] -> A . S[R0:2]
@@ -231,7 +231,7 @@ S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
  <S[R0:1]> => S9; leo(S)
  <S[R0:2]> => S10; leo(S[R0:1])
-S4: predict; 1,14,17,22,24,27,31
+S4: predict
 A -> . a
 S[R0:1] -> . A S[R0:2]
 S[R0:1] -> . A A[] A[]
@@ -242,19 +242,19 @@ S[R0:2] -> A[] . A
  <A> => S11; S12
  <S[R0:2]> => S6; leo(S[R0:1])
  <a> => S7
-S5: leo-c; 13
+S5: leo-c
 S -> A[] S[R0:1] .
-S6: leo-c; 23
+S6: leo-c
 S[R0:1] -> A[] S[R0:2] .
-S7: 2
+S7:
 A -> a .
-S8: leo-c; 26
+S8: leo-c
 S[R0:2] -> A A .
-S9: leo-c; 5
+S9: leo-c
 S -> A S[R0:1] .
-S10: leo-c; 16
+S10: leo-c
 S[R0:1] -> A S[R0:2] .
-S11: 15,20,25,29,32
+S11:
 S[R0:1] -> A . S[R0:2]
 S[R0:1] -> A A[] A[] .
 S[R0:2] -> A . A
@@ -262,19 +262,19 @@ S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
  <S[R0:2]> => S10; leo(S[R0:1])
-S12: predict; 1,24,27,31
+S12: predict
 A -> . a
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
  <A> => S13; S14
  <a> => S7
-S13: 25,29,32
+S13:
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
-S14: predict; 1
+S14: predict
 A -> . a
  <a> => S7
 EOS

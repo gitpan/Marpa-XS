@@ -134,10 +134,10 @@ my $show_AHFA_output = $grammar->show_AHFA();
 Marpa::XS::Test::is( $show_AHFA_output,
     <<'END_AHFA', 'Implementation Example AHFA' );
 Start States: S0; S1
-S0: 15
+S0:
 Expression['] -> . Expression
  <Expression> => S2; leo(Expression['])
-S1: predict; 1,3,5,7,11
+S1: predict
 Expression -> . Term
 Term -> . Factor
 Factor -> . Number
@@ -146,30 +146,30 @@ Factor -> . Factor Multiply Factor
  <Factor> => S3
  <Number> => S4
  <Term> => S5
-S2: leo-c; 16
+S2: leo-c
 Expression['] -> Expression .
-S3: 4,12
+S3:
 Term -> Factor .
 Factor -> Factor . Multiply Factor
  <Multiply> => S6; S7
-S4: 6
+S4:
 Factor -> Number .
-S5: 2,8
+S5:
 Expression -> Term .
 Term -> Term . Add Term
  <Add> => S8; S9
-S6: 13
+S6:
 Factor -> Factor Multiply . Factor
  <Factor> => S10; leo(Factor)
-S7: predict; 5,11
+S7: predict
 Factor -> . Number
 Factor -> . Factor Multiply Factor
  <Factor> => S11
  <Number> => S4
-S8: 9
+S8:
 Term -> Term Add . Term
  <Term> => S12; leo(Term)
-S9: predict; 3,5,7,11
+S9: predict
 Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
@@ -177,14 +177,14 @@ Factor -> . Factor Multiply Factor
  <Factor> => S3
  <Number> => S4
  <Term> => S13
-S10: leo-c; 14
+S10: leo-c
 Factor -> Factor Multiply Factor .
-S11: 12
+S11:
 Factor -> Factor . Multiply Factor
  <Multiply> => S6; S7
-S12: leo-c; 10
+S12: leo-c
 Term -> Term Add Term .
-S13: 8
+S13:
 Term -> Term . Add Term
  <Add> => S8; S9
 END_AHFA

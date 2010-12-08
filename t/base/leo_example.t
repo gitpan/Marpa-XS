@@ -164,10 +164,10 @@ my $show_AHFA_output = $grammar->show_AHFA();
 
 Marpa::XS::Test::is( $show_AHFA_output, <<'END_AHFA', 'Leo Example AHFA' );
 Start States: S0; S1
-S0: 23
+S0:
 Statement['] -> . Statement
  <Statement> => S2; leo(Statement['])
-S1: predict; 1,3,7,11,15,19,21
+S1: predict
 Statement -> . Expression
 Expression -> . Lvalue AssignOp Expression
 Expression -> . Lvalue AddAssignOp Expression
@@ -178,11 +178,11 @@ Lvalue -> . Variable
  <Expression> => S3; leo(Statement)
  <Lvalue> => S4
  <Variable> => S5
-S2: leo-c; 24
+S2: leo-c
 Statement['] -> Statement .
-S3: leo-c; 2
+S3: leo-c
 Statement -> Expression .
-S4: 4,8,12,16
+S4:
 Expression -> Lvalue . AssignOp Expression
 Expression -> Lvalue . AddAssignOp Expression
 Expression -> Lvalue . MinusAssignOp Expression
@@ -191,13 +191,13 @@ Expression -> Lvalue . MultiplyAssignOp Expression
  <AssignOp> => S7; S8
  <MinusAssignOp> => S7; S9
  <MultiplyAssignOp> => S10; S7
-S5: 20,22
+S5:
 Expression -> Variable .
 Lvalue -> Variable .
-S6: 9
+S6:
 Expression -> Lvalue AddAssignOp . Expression
  <Expression> => S11; leo(Expression)
-S7: predict; 3,7,11,15,19,21
+S7: predict
 Expression -> . Lvalue AssignOp Expression
 Expression -> . Lvalue AddAssignOp Expression
 Expression -> . Lvalue MinusAssignOp Expression
@@ -206,22 +206,22 @@ Expression -> . Variable
 Lvalue -> . Variable
  <Lvalue> => S4
  <Variable> => S5
-S8: 5
+S8:
 Expression -> Lvalue AssignOp . Expression
  <Expression> => S12; leo(Expression)
-S9: 13
+S9:
 Expression -> Lvalue MinusAssignOp . Expression
  <Expression> => S13; leo(Expression)
-S10: 17
+S10:
 Expression -> Lvalue MultiplyAssignOp . Expression
  <Expression> => S14; leo(Expression)
-S11: leo-c; 10
+S11: leo-c
 Expression -> Lvalue AddAssignOp Expression .
-S12: leo-c; 6
+S12: leo-c
 Expression -> Lvalue AssignOp Expression .
-S13: leo-c; 14
+S13: leo-c
 Expression -> Lvalue MinusAssignOp Expression .
-S14: leo-c; 18
+S14: leo-c
 Expression -> Lvalue MultiplyAssignOp Expression .
 END_AHFA
 

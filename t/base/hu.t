@@ -117,10 +117,10 @@ EOS
 
 Marpa::XS::Test::is( $g->show_AHFA, <<'EOS', 'Hopcroft/Ullman AHFA' );
 Start States: S0; S1
-S0: 1
+S0:
 S' -> . S c
  <S> => S2
-S1: predict; 4,7,9,13
+S1: predict
 S -> . S A
 S -> . A
 A -> . a S b
@@ -128,33 +128,33 @@ A -> . a b
  <A> => S3; leo(S)
  <S> => S4; S5
  <a> => S1; S6
-S2: 2
+S2:
 S' -> S . c
  <c> => S7
-S3: leo-c; 8
+S3: leo-c
 S -> A .
-S4: 5
+S4:
 S -> S . A
  <A> => S8; leo(S)
-S5: predict; 9,13
+S5: predict
 A -> . a S b
 A -> . a b
  <a> => S1; S6
-S6: 10,14
+S6:
 A -> a . S b
 A -> a . b
  <S> => S9
  <b> => S10
-S7: 3
+S7:
 S' -> S c .
-S8: leo-c; 6
+S8: leo-c
 S -> S A .
-S9: 11
+S9:
 A -> a S . b
  <b> => S11
-S10: 15
+S10:
 A -> a b .
-S11: 12
+S11:
 A -> a S b .
 EOS
 

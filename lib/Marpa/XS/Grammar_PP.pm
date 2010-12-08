@@ -1211,16 +1211,13 @@ sub Marpa::XS::show_AHFA_state {
     my $text     = q{};
     my $stripped = $#{$state} < Marpa::XS::Internal::AHFA::LAST_FIELD;
 
-    $text .= Marpa::XS::brief_AHFA_state($state) . ': ';
+    $text .= Marpa::XS::brief_AHFA_state($state) . ':';
 
-    if ( $state->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] ) {
-        $text .= 'leo-c; ';
-    }
-    if ( $state->[Marpa::XS::Internal::AHFA::RESET_ORIGIN] ) {
-        $text .= 'predict; ';
-    }
-
-    $text .= $state->[Marpa::XS::Internal::AHFA::NAME] . "\n";
+    my @tags = ();
+    $state->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] and push @tags, 'leo-c';
+    $state->[Marpa::XS::Internal::AHFA::RESET_ORIGIN] and push @tags, 'predict';
+    scalar @tags and $text .= q{ } . join '; ', @tags;
+    $text .= "\n";
 
     if ( exists $state->[Marpa::XS::Internal::AHFA::NFA_STATES] ) {
         my $NFA_states = $state->[Marpa::XS::Internal::AHFA::NFA_STATES];

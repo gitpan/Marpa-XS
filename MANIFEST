@@ -142,11 +142,12 @@ libmarpa/main/m4/ltsugar.m4
 libmarpa/main/m4/ltversion.m4
 libmarpa/main/m4/lt~obsolete.m4
 libmarpa/main/missing
-libmarpa/main/src/Makefile
 libmarpa/main/src/Makefile.am
 libmarpa/main/src/Makefile.in
 libmarpa/main/src/marpa.c
 libmarpa/main/src/marpa.h
+libmarpa/main/src/marpa_obs.c
+libmarpa/main/src/marpa_obs.h
 libmarpa/main/src/standalone.c
 libmarpa/orig/gnu/obstack.c
 libmarpa/orig/gnu/obstack.h
@@ -165,7 +166,6 @@ pod/Support.pod
 pod/Tracing.pod
 ppport.h
 t/00-load.t
-t/01-xs.t
 t/02-load_pp.t
 t/Makefile
 t/base/ah.t

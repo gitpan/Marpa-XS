@@ -18,7 +18,7 @@ use 5.010;
 use warnings;
 use strict;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 
 use Carp;
 use Data::Dumper;
@@ -42,6 +42,9 @@ Test::More::ok( ( not defined $Marpa::XS::VERSION ),
     'XS version not defined' );
 Test::More::ok( ( not defined $Marpa::XS::STRING_VERSION ),
     'XS string version not defined' );
+
+Test::More::ok( ( not defined &Marpa::XS::version ),
+    'Marpa::XS::version not defined' );
 
 Test::More::ok( ( not defined $Marpa::XS::Internal::{check_version}{CODE} ),
     'Pure Perl mode' );

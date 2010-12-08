@@ -88,21 +88,21 @@ END_OF_STRING
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );
 Start States: S0; S1
-S0: 13,15
+S0:
 S['] -> . S
 S['][] -> .
  <S> => S2; leo(S['])
-S1: predict; 1,4
+S1: predict
 S -> . a A
 S -> . a A[]
  <a> => S3; S4
-S2: leo-c; 14
+S2: leo-c
 S['] -> S .
-S3: 2,6
+S3:
 S -> a . A
 S -> a A[] .
  <A> => S5; leo(S)
-S4: predict; 1,4,7,9,11
+S4: predict
 S -> . a A
 S -> . a A[]
 A -> . B
@@ -112,13 +112,13 @@ C -> . S
  <C> => S7; leo(B)
  <S> => S8; leo(C)
  <a> => S3; S4
-S5: leo-c; 3
+S5: leo-c
 S -> a A .
-S6: leo-c; 8
+S6: leo-c
 A -> B .
-S7: leo-c; 10
+S7: leo-c
 B -> C .
-S8: leo-c; 12
+S8: leo-c
 C -> S .
 END_OF_STRING
 

@@ -77,10 +77,10 @@ END_OF_STRING
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_OF_STRING', 'final nonnulling AHFA' );
 Start States: S0; S1
-S0: 27
+S0:
 S['] -> . S
  <S> => S2; leo(S['])
-S1: predict; 1,3,5,9,14,19,21,25
+S1: predict
 p -> . a
 n -> . a
 S -> . p p S[R0:2]
@@ -93,16 +93,16 @@ S[R0:2] -> p[] . n
  <a> => S4
  <n> => S5; leo(S[R0:2])
  <p> => S6; S7
-S2: leo-c; 28
+S2: leo-c
 S['] -> S .
-S3: leo-c; 20
+S3: leo-c
 S -> p[] p[] S[R0:2] .
-S4: 2,4
+S4:
 p -> a .
 n -> a .
-S5: leo-c; 26
+S5: leo-c
 S[R0:2] -> p[] n .
-S6: 6,11,15,22
+S6:
 S -> p . p S[R0:2]
 S -> p p[] . S[R0:2]
 S -> p[] p . S[R0:2]
@@ -110,7 +110,7 @@ S[R0:2] -> p . n
  <S[R0:2]> => S8
  <n> => S9; leo(S[R0:2])
  <p> => S10; S7
-S7: predict; 1,3,21,25
+S7: predict
 p -> . a
 n -> . a
 S[R0:2] -> . p n
@@ -118,23 +118,23 @@ S[R0:2] -> p[] . n
  <a> => S4
  <n> => S5; leo(S[R0:2])
  <p> => S11; S12
-S8: 12,16
+S8:
 S -> p p[] S[R0:2] .
 S -> p[] p S[R0:2] .
-S9: leo-c; 23
+S9: leo-c
 S[R0:2] -> p n .
-S10: 7
+S10:
 S -> p p . S[R0:2]
  <S[R0:2]> => S13; leo(S)
-S11: 22
+S11:
 S[R0:2] -> p . n
  <n> => S9; leo(S[R0:2])
-S12: predict; 3
+S12: predict
 n -> . a
  <a> => S14
-S13: leo-c; 8
+S13: leo-c
 S -> p p S[R0:2] .
-S14: 4
+S14:
 n -> a .
 END_OF_STRING
 

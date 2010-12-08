@@ -175,25 +175,25 @@ print $grammar->show_AHFA()
 Marpa::XS::Test::is( ${$actual_ref},
     <<'END_AHFA', 'Ambiguous Equation AHFA' );
 Start States: S0; S1
-S0: 7
+S0:
 E['] -> . E
  <E> => S2; leo(E['])
-S1: predict; 1,5
+S1: predict
 E -> . E Op E
 E -> . Number
  <E> => S3
  <Number> => S4
-S2: leo-c; 8
+S2: leo-c
 E['] -> E .
-S3: 2
+S3:
 E -> E . Op E
  <Op> => S1; S5
-S4: 6
+S4:
 E -> Number .
-S5: 3
+S5:
 E -> E Op . E
  <E> => S6; leo(E)
-S6: leo-c; 4
+S6: leo-c
 E -> E Op E .
 END_AHFA
 

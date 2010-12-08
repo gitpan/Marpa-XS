@@ -127,10 +127,10 @@ END_RULES
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_AHFA', 'Minuses Equation AHFA' );
 Start States: S0; S1
-S0: 16
+S0:
 E['] -> . E
  <E> => S2; leo(E['])
-S1: predict; 1,5,8,11,14
+S1: predict
 E -> . E Minus E
 E -> . E MinusMinus
 E -> . MinusMinus E
@@ -140,31 +140,31 @@ E -> . Number
  <Minus> => S1; S4
  <MinusMinus> => S1; S5
  <Number> => S6
-S2: leo-c; 17
+S2: leo-c
 E['] -> E .
-S3: 2,6
+S3:
 E -> E . Minus E
 E -> E . MinusMinus
  <Minus> => S1; S7
  <MinusMinus> => S8
-S4: 12
+S4:
 E -> Minus . E
  <E> => S9; leo(E)
-S5: 9
+S5:
 E -> MinusMinus . E
  <E> => S10; leo(E)
-S6: 15
+S6:
 E -> Number .
-S7: 3
+S7:
 E -> E Minus . E
  <E> => S11; leo(E)
-S8: 7
+S8:
 E -> E MinusMinus .
-S9: leo-c; 13
+S9: leo-c
 E -> Minus E .
-S10: leo-c; 10
+S10: leo-c
 E -> MinusMinus E .
-S11: leo-c; 4
+S11: leo-c
 E -> E Minus E .
 END_AHFA
 

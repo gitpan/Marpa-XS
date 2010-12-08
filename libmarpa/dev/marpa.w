@@ -384,14 +384,7 @@ in memory allocation will be logged
 in the domain that |g_malloc|
 is using, not in the domain being used by Marpa.
 
-@ |marpa.h| Include files
-
-All the include files that users of Marpa
-will need.
-
 @<Body of public header file@> =
-#include <glib.h>
-#include <stdio.h>
 @ Constants
 @ Version Constants @<Private global variables@> =
 const unsigned int marpa_major_version = MARPA_MAJOR_VERSION;
@@ -414,9 +407,6 @@ prefix variable declarations so that they
 will be exported properly for Windows dlls.
 @f GLIB_VAR const
 @<Body of public header file@> =
-#ifndef __MARPA_H__
-#define __MARPA_H__ @#
-#include "glib.h" @#
 GLIB_VAR const guint marpa_major_version;@/
 GLIB_VAR const guint marpa_minor_version;@/
 GLIB_VAR const guint marpa_micro_version;@/
@@ -439,7 +429,6 @@ struct marpa_g;@/
 #if MARPA_CAN_INLINE || defined MARPA_STANDALONE
 @<Public inline function definitions@>@/
 #endif
-@# #endif /* |MARPA_H| */
 
 @ Marpa Global Setup
 
@@ -449,25 +438,25 @@ If I can't, I will need to deal with the issue
 of thread safety.
 
 @** Grammar Objects.
-@<Public structures@> = struct marpa_g {
-@<Pointer aligned grammar elements@>@/
+@<Private structures@> = struct marpa_g {
+@<Widely aligned grammar elements@>@/
 @<Int aligned grammar elements@>@/
 @<Bit aligned grammar elements@>@/
 };
 
 @ @<Function definitions@> =
-void marpa_g_init( struct marpa_g *g)
-{ if (g == (void *)NULL) {
-        g_error("E_NULL_R Cannot initialize null grammar");
-    }
+struct marpa_g* marpa_g_new( void)
+{ struct marpa_g* g = g_slice_new(struct marpa_g);
     @<Initialize grammar elements@>@;
-   return; }
+   return g; }
 @ @<Public function prototypes@> =
-void marpa_g_init( struct marpa_g *g);
+struct marpa_g* marpa_g_new(void);
 
 @ @<Function definitions@> =
 void marpa_g_destroy(struct marpa_g *g)
-{ @<Destroy grammar elements@>@; }
+{ @<Destroy grammar elements@>@;
+g_slice_free(struct marpa_g, g);
+}
 @ @<Public function prototypes@> =
 void marpa_g_destroy(struct marpa_g *g);
 
@@ -493,9 +482,13 @@ gint marpa_grammar_id(struct marpa_g* g) { return g->id; }
 gint marpa_grammar_id(struct marpa_g* g);
 
 @*0 The Grammar's Symbol List.
+\rightskip 0pt plus 3em
 This lists the symbols for the grammar,
-with their |Marpa_Symbol_ID| as the index.
-@<Pointer aligned grammar elements@> = GArray* symbols;
+with their
+|Marpa_Symbol_ID| as the index.
+
+\rightskip 0pt
+@<Widely aligned grammar elements@> = GArray* symbols;
 @ @<Initialize grammar elements@> =
 g->symbols = g_array_new(FALSE, FALSE, sizeof(struct marpa_symbol *));
 @ @<Destroy grammar elements@> = g_array_free(g->symbols, TRUE);
@@ -551,7 +544,7 @@ struct marpa_g *g, Marpa_Symbol_ID symbol_id);
 @*0 The Grammar's Rule List.
 This lists the rules for the grammar,
 with their |Marpa_Rule_ID| as the index.
-@<Pointer aligned grammar elements@> = GArray* rules;
+@<Widely aligned grammar elements@> = GArray* rules;
 @ @<Initialize grammar elements@> =
 g->rules = g_array_new(FALSE, FALSE, sizeof(struct marpa_rule *));
 @ @<Destroy grammar elements@> = g_array_free(g->rules, TRUE);
@@ -772,7 +765,7 @@ provide callbacks with "context" ---
 data about
 |libmarpa|'s state which is not conveniently
 available in other forms.
-@<Pointer aligned grammar elements@> = GHashTable* context;
+@<Widely aligned grammar elements@> = GHashTable* context;
 @ @<Initialize grammar elements@> =
 g->context = g_hash_table_new_full( g_str_hash, g_str_equal, NULL, g_free );
 @ @<Destroy grammar elements@> = g_hash_table_destroy(g->context);
@@ -853,6 +846,14 @@ union marpa_context_value* marpa_context_value_look(struct marpa_g* g, const gch
 @ @<Public function prototypes@> =
 union marpa_context_value* marpa_context_value_look(struct marpa_g* g, const gchar* key);
 
+@*0 The Grammar's Obstack.
+Create an obstack with the lifetime of the grammar.
+This is a very efficient way of allocating memory which won't be
+resized and which will have the same lifetime as the grammar.
+@<Widely aligned grammar elements@> = struct obstack obs;
+@ @<Initialize grammar elements@> = obstack_init(&g->obs);
+@ @<Destroy grammar elements@> = obstack_free(&g->obs, NULL);
+
 @*0 The Grammar's Error ID.
 This is an error flag for the grammar.
 Error status is not necessarily cleared
@@ -865,7 +866,7 @@ Checking it at other times may reveal "stale" error
 messages.
 @<Public typedefs@> =
 typedef const gchar* Marpa_Error_ID;
-@ @<Pointer aligned grammar elements@> = Marpa_Error_ID error;
+@ @<Widely aligned grammar elements@> = Marpa_Error_ID error;
 @ @<Initialize grammar elements@> =
 g->error = 0;
 @ There is no destructor.
@@ -911,7 +912,7 @@ void marpa_r_destroy(struct marpa_r *recce);
 typedef gint Marpa_Symbol_ID;
 @ @<Private structures@> =
 struct marpa_symbol {
-    @<Pointer aligned symbol elements@>@/
+    @<Widely aligned symbol elements@>@/
     @<Int aligned symbol elements@>@/
     @<Bit aligned symbol elements@>@/
 };
@@ -954,7 +955,7 @@ This tracks the rules for which this symbol is the LHS.
 It is an optimization --- the same information could be found
 by scanning the rules every time this information is needed.
 The implementation is a |GArray|.
-@<Pointer aligned symbol elements@> = GArray* lhs;
+@<Widely aligned symbol elements@> = GArray* lhs;
 @ @<Initialize symbol elements@> =
 symbol->lhs = g_array_new(FALSE, FALSE, sizeof(Marpa_Rule_ID));
 @ @<Free symbol elements@> = g_array_free(symbol->lhs, TRUE);
@@ -963,7 +964,8 @@ It remains "owned" by the Grammar,
 and must not be freed or modified.
 @<Function definitions@> = 
 GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
-{ @<Return |NULL| if |symbol_id| is invalid@>@;
+{ @<Return |NULL| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
 return symbol_id2p(g, symbol_id)->lhs; }
 @ @<Public function prototypes@> =
 GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
@@ -980,7 +982,7 @@ This tracks the rules for which this symbol is the RHS.
 It is an optimization --- the same information could be found
 by scanning the rules every time this information is needed.
 The implementation is a |GArray|.
-@<Pointer aligned symbol elements@> = GArray* rhs;
+@<Widely aligned symbol elements@> = GArray* rhs;
 @ @<Initialize symbol elements@> =
 symbol->rhs = g_array_new(FALSE, FALSE, sizeof(Marpa_Rule_ID));
 @ @<Free symbol elements@> = g_array_free(symbol->rhs, TRUE);
@@ -989,7 +991,8 @@ It remains "owned" by the Grammar,
 and must not be freed or modified.
 @<Function definitions@> = 
 GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
-{ @<Return |NULL| if |symbol_id| is invalid@>@;
+{ @<Return |NULL| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
 return symbol_id2p(g, symbol_id)->rhs; }
 @ @<Public function prototypes@> =
 GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
@@ -1082,7 +1085,8 @@ must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
-{ @<Return -1 if |symbol_id| is invalid@>@;
+{ @<Return |-1| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
 return symbol_id2p(g, symbol_id)->is_nulling; }
 @ @<Public function prototypes@> =
 gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID id);
@@ -1154,8 +1158,9 @@ The internal accessor would be trivial, so there is none.
 static inline
 gint symbol_is_start(struct marpa_symbol* symbol)
 { return symbol->is_start; }
-gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID symbol_id) {
-   @<Return -1 if |symbol_id| is invalid@>@;
+gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID symbol_id) 
+{ @<Return |-1| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
    return symbol_is_start(symbol_id2p(g, symbol_id));
 }
 @ @<Private function prototypes@> =
@@ -1174,7 +1179,7 @@ symbols: a non-nullable (or "proper") alias and a nulling alias.
 @<Bit aligned symbol elements@> =
 unsigned int is_proper_alias:1;
 unsigned int is_nulling_alias:1;
-@ @<Pointer aligned symbol elements@> =
+@ @<Widely aligned symbol elements@> =
 struct marpa_symbol* alias;
 @ @<Initialize symbol elements@> =
 symbol->is_proper_alias = FALSE;
@@ -1193,7 +1198,8 @@ Marpa_Symbol_ID marpa_symbol_proper_alias(struct marpa_g* g, Marpa_Symbol_ID sym
 {
 struct marpa_symbol* symbol;
 struct marpa_symbol* proper_alias;
-@<Return -1 if |symbol_id| is invalid@>@;
+@<Return |-1| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
 symbol = symbol_id2p(g, symbol_id);
 proper_alias = symbol_proper_alias(symbol);
 return proper_alias == NULL ? -1 : proper_alias->id;
@@ -1215,7 +1221,8 @@ Marpa_Symbol_ID marpa_symbol_null_alias(struct marpa_g* g, Marpa_Symbol_ID symbo
 {
 struct marpa_symbol* symbol;
 struct marpa_symbol* alias;
-@<Return -1 if |symbol_id| is invalid@>@;
+@<Return |-1| on failure@>@;
+@<Fail if |symbol_id| is invalid@>@;
 symbol = symbol_id2p(g, symbol_id);
 alias = symbol_null_alias(symbol);
 if (alias == NULL) {
@@ -1280,7 +1287,7 @@ hard to type and impossible to read.
 This typedef localizes the damage.
 @<Callback typedefs@> =
 typedef void (Marpa_Symbol_Callback)(struct marpa_g *g, Marpa_Symbol_ID id);
-@ @<Pointer aligned grammar elements@> =
+@ @<Widely aligned grammar elements@> =
     Marpa_Symbol_Callback* symbol_callback;
     void *symbol_callback_arg;
 @ @<Function definitions@> =
@@ -1288,12 +1295,12 @@ void marpa_symbol_callback_set(struct marpa_g *g, Marpa_Symbol_Callback*cb)
 { g->symbol_callback = cb; }
 void marpa_symbol_callback_arg_set(struct marpa_g *g, void *cb_arg)
 { g->symbol_callback_arg = cb_arg; }
-void* marpa_symbol_callback_arg_peek(struct marpa_g *g)
+void* marpa_symbol_callback_arg(struct marpa_g *g)
 { return g->symbol_callback_arg; }
 @ @<Public function prototypes@> =
 void marpa_symbol_callback_set(struct marpa_g *g, Marpa_Symbol_Callback*cb);
 void marpa_symbol_callback_arg_set(struct marpa_g *g, void *cb_arg);
-void* marpa_symbol_callback_arg_peek(struct marpa_g *g);
+void* marpa_symbol_callback_arg(struct marpa_g *g);
 @ Do the symbol callback.
 @<Function definitions@> =
 static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id)
@@ -1302,30 +1309,12 @@ if (cb) { (*cb)(g, id); } }
 @ @<Private function prototypes@> =
 static inline symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id);
 
-@*0 Error Handling.
-@<Return -1 if |symbol_id| is invalid@> =
-if (!symbol_is_valid(g, symbol_id)) {
-    context_clear(g);
-    context_int_add(g, "symbol_id", symbol_id);
-    g->error = "invalid symbol id";
-    return -1;
-}
-
-@ @<Return |NULL| if |symbol_id| is invalid@> =
-if (!symbol_is_valid(g, symbol_id)) {
-    context_clear(g);
-    context_int_add(g, "symbol_id", symbol_id);
-    g->error = "invalid symbol id";
-    return NULL;
-}
-
 @** Rule Objects.
 @<Public typedefs@> =
 typedef gint Marpa_Rule_ID;
 @ @<Private structures@> =
 struct marpa_rule {
     @<Widely aligned rule elements@>@/
-    /* Pointer aligned rule elements */@/
     @<Int aligned rule elements@>@/
     @<Bit aligned rule elements@>@/
     @<Final rule elements@>@/
@@ -1357,6 +1346,11 @@ Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
     @<Add this rule to the symbol rule lists@>
    return rule;
 }
+@ @<Private function prototypes@> =
+static inline
+struct marpa_rule* rule_start(struct marpa_g *g,
+Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length);
+
 @ @<Function definitions@> =
 Marpa_Rule_ID marpa_rule_new(struct marpa_g *g,
 Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, gint length)
@@ -1987,7 +1981,7 @@ hard to type and impossible to read.
 This typedef localizes the damage.
 @<Callback typedefs@> =
 typedef void (Marpa_Rule_Callback)(struct marpa_g *g, Marpa_Rule_ID id);
-@ @<Pointer aligned grammar elements@> =
+@ @<Widely aligned grammar elements@> =
     Marpa_Rule_Callback* rule_callback;
     void *rule_callback_arg;
 @ @<Function definitions@> =
@@ -2001,10 +1995,10 @@ void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg)
 @ @<Public function prototypes@> =
 void marpa_rule_callback_arg_set(struct marpa_g *g, void *cb_arg);
 @ @<Function definitions@> =
-void* marpa_rule_callback_arg_peek(struct marpa_g *g)
+void* marpa_rule_callback_arg(struct marpa_g *g)
 { return g->rule_callback_arg; }
 @ @<Public function prototypes@> =
-void* marpa_rule_callback_arg_peek(struct marpa_g *g);
+void* marpa_rule_callback_arg(struct marpa_g *g);
 @ Do the rule callback.
 @<Function definitions@> =
 static inline rule_callback(struct marpa_g *g, Marpa_Rule_ID id)
@@ -2092,6 +2086,7 @@ struct marpa_g* marpa_precompute(struct marpa_g* g)
     } else {
        @<Mark all rules used@>@;
     }
+    create_AHFA_items(g);
      return g;
 }
 @ @<Public function prototypes@> =
@@ -2138,9 +2133,9 @@ a lot of useless diagnostics.
 static inline struct marpa_g* census(struct marpa_g* g)
 {
     @<Declare census variables@>@;
-    @<Fail for empty grammar@>@;
-    @<Fail if already precomputed@>@;
-    @<Fail if bad start symbol@>@;
+    @<Return |NULL| if  empty grammar@>@;
+    @<Return |NULL| if already precomputed@>@;
+    @<Return |NULL| if bad start symbol@>@;
     @<Census LHS symbols@>@;
     @<Census terminals@>@;
     if (have_marked_terminals) {
@@ -2164,26 +2159,26 @@ static inline struct marpa_g* census(struct marpa_g* g)
     g->is_precomputed = TRUE;
     return g;
 }
-@ @<Public function prototypes@> =
+@ @<Private function prototypes@> =
 static inline struct marpa_g* census(struct marpa_g* g);
 @ @<Declare census variables@> =
 gint pre_rewrite_rule_count = g->rules->len;
 gint pre_rewrite_symbol_count = g->symbols->len;
 
-@ @<Fail for empty grammar@> =
+@ @<Return |NULL| if empty grammar@> =
 if (g->rules->len <= 0) { g->error = "no rules"; return NULL; }
 @ The upper layers have a lot of latitude with this one.
 There's no harm done, so the upper layers can simply ignore this one.
 On the other hand, the upper layer may see this as a sign of a major
 logic error, and treat it as a fatal error.
 Anything in between these two extremes is also possible.
-@<Fail if already precomputed@> =
+@<Return |NULL| if already precomputed@> =
 if (g->is_precomputed) { g->error = "precomputed"; return NULL; }
 @ Loop over the rules, producing bit vector of LHS symbols, and of
 symbols which are the LHS of empty rules.
 While at it, set a flag to indicate if there are empty rules.
 
-@ @<Fail if bad start symbol@> =
+@ @<Return |NULL| if bad start symbol@> =
 if (original_start_symbol_id < 0) {
     g->error = "no start symbol";
     return NULL;
@@ -3065,6 +3060,401 @@ context_clear(g);
 context_int_add(g, "loop_rule_count", loop_rule_count);
 message(g, "loop rule tally");
 
+@** The Aycock-Horspool Finite Automata.
+
+@*0 Some Statistics on AHFA states.
+For Perl's grammar, the kernel states range in size from 1 to 20 items,
+but the numbers are heavily skewed toward the low
+end.  Here are the item counts that appear, with the percent of the total
+kernel AHFA states with that item count in parentheses.
+in parentheses:
+1   (67.05\%);
+2   (25.67\%);
+3   (2.87\%);
+4   (2.68\%);
+5   (0.19\%);
+6   (0.38\%);
+7   (0.19\%);
+8   (0.57\%);
+9   (0.19\%); and
+20   (0.19\%).
+As can be seen, well over 90\% of the total kernel states have
+just one or two items.
+For the HTML grammars I used, the totals are even more lopsided:
+80.96\% of all kernel states have only 1 item.
+All the others (19.04\%) have 2 items.
+
+The number of non-kernel states tends to be much more
+evently distributed.
+It also tends to be much larger, and
+the average for practical grammars may be $O(s)$,
+where $s$ is the size of the grammar.
+This is the same as the theoretical worst case.
+
+Here are the number of items for non-kernel states for the Perl grammar.
+The number of states with that item count in is parentheses:
+1 item (3),
+2 items (5),
+3 items (4),
+4 items (3),
+5 items (1),
+6 items (2),
+7 items (2),
+64 items (1),
+71 items (1),
+77 items (1),
+79 items (1),
+81 items (1),
+83 items (1),
+85 items (1),
+88 items (1),
+90 items (1),
+98 items (1),
+100 items (1),
+102 items (1),
+104 items (1),
+106 items (1),
+108 items (1),
+111 items (1),
+116 items (1),
+127 items (1),
+129 items (1),
+132 items (1),
+135 items (1),
+136 items (1),
+137 items (1),
+141 items (1),
+142 items (4),
+143 items (2),
+144 items (1),
+149 items (1),
+151 items (1),
+156 items (1),
+157 items (1),
+220 items (1),
+224 items (1),
+225 items (1).
+And here is the same data for some grammar of HTML:
+1 item (95),
+2 items (95),
+4 items (95),
+11 items (181),
+14 items (181),
+15 items (294),
+16 items (112),
+18 items (349),
+19 items (120),
+20 items (190),
+21 items (63),
+22 items (22),
+24 items (8),
+25 items (16),
+26 items (16),
+28 items (2),
+29 items (16).
+
+
+@** AHFA Items.
+AHFA states, conceptually, are sets of AHFA items.
+AHFA items are named by analogy with the LR(0) items are the elements of
+the sets which correspond to LR(0) states.
+(As a reminder, an LR(0) item correponds one-to-one with a pair,
+where the two elements of the pair are a rule and a position in that rule.)
+@<Public typedefs@> =
+typedef gint Marpa_AHFA_Item_ID;
+@ @<Private structures@> =
+struct AHFA_item {
+    Marpa_Symbol_ID postdot; /* The symbol after the dot, -1
+       for a completion */
+    Marpa_AHFA_Item_ID sort_key;
+    struct marpa_rule* rule;
+    gint position; /* position in the RHS, -1 for a completion */
+};
+@ A pointer to two lists of AHFA items.
+The one list contains the AHFA items themselves, in
+AHFA item ID order.
+The other is indexed by rule ID, and contains a pointer to
+the first AHFA item for that rule.
+@<Int aligned grammar elements@> =
+   gint no_of_items;
+@ @<Widely aligned grammar elements@> =
+   struct AHFA_item* AHFA_items;
+   struct AHFA_item** AHFA_items_by_rule;
+@ The space is allocated during precomputation.
+Because the grammar may be destroyed before precomputation,
+I test that |g->AHFA_items| is non-zero.
+@<Destroy grammar elements@> = if (g->AHFA_items) {
+g_free(g->AHFA_items_by_rule);
+g_free(g->AHFA_items);
+};
+
+@ @<Function definitions@> =
+static inline struct AHFA_item* 
+item_id2p(struct marpa_g* g, Marpa_AHFA_Item_ID item_id) {
+    return g->AHFA_items+item_id;
+}
+@ @<Private function prototypes@> =
+static inline struct AHFA_item*
+item_id2p(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+
+@*0 AHFA Item External Accessors.
+@<Function definitions@> =
+gint marpa_AHFA_item_count(struct marpa_g* g) {
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    return g->no_of_items;
+}
+@ @<Public function prototypes@> =
+gint marpa_AHFA_item_count(struct marpa_g* g);
+@ @<Function definitions@> =
+Marpa_Rule_ID marpa_AHFA_item_rule(struct marpa_g* g,
+	Marpa_AHFA_Item_ID item_id) {
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |item_id| is invalid@>@/
+    return item_id2p(g, item_id)->rule->id;
+}
+@ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_AHFA_item_rule(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+@ |-1| is the value for completions, so |-2| is the failure indicator.
+@<Function definitions@> =
+gint marpa_AHFA_item_position(struct marpa_g* g,
+	Marpa_AHFA_Item_ID item_id) {
+    @<Return |-2| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |item_id| is invalid@>@/
+    return item_id2p(g, item_id)->rule->id;
+}
+@ @<Public function prototypes@> =
+gint marpa_AHFA_item_position(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+@ |-1| is the value for completions, so |-2| is the failure indicator.
+@<Function definitions@> =
+Marpa_Rule_ID marpa_AHFA_item_postdot(struct marpa_g* g,
+	Marpa_AHFA_Item_ID item_id) {
+    @<Return |-2| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |item_id| is invalid@>@/
+    return item_id2p(g, item_id)->postdot;
+}
+@ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_AHFA_item_postdot(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+@ @<Function definitions@> =
+Marpa_Rule_ID marpa_AHFA_item_sort_key(struct marpa_g* g,
+	Marpa_AHFA_Item_ID item_id) {
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |item_id| is invalid@>@/
+    return item_id2p(g, item_id)->sort_key;
+}
+@ @<Public function prototypes@> =
+Marpa_Rule_ID marpa_AHFA_item_sort_key(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+
+@ Check that symbol is in valid range.
+@<Function definitions@> =
+static inline gboolean item_is_valid(
+const struct marpa_g *g, Marpa_AHFA_Item_ID item_id) {
+return item_id < g->no_of_items && item_id >= 0;
+}
+@ @<Private function prototypes@> =
+static inline gboolean item_is_valid(
+const struct marpa_g *g, Marpa_AHFA_Item_ID item_id);
+
+@ I do not use a |DSTACK| because I can initially size the
+item stack to |g->size|, which is a reasonable allocation,
+but quaranteed to be greater than
+or equal to the final numbers of items.
+That means that I can avoid the overhead of checking the array
+size when adding each new AHFA item.
+@<Function definitions@> =
+static inline
+void create_AHFA_items(struct marpa_g* g) {
+    gint rule_id;
+    gint no_of_items;
+    gint no_of_rules = rule_count(g);
+    struct AHFA_item* base_item = g_new(struct AHFA_item, g->size);
+    struct AHFA_item* current_item = base_item;
+    for (rule_id = 0; rule_id < no_of_rules; rule_id++) {
+	@<Create the AHFA items for a rule@>@;
+	NEXT_RULE: ;
+    }
+    no_of_items = g->no_of_items = current_item - base_item;
+    g->AHFA_items = g_renew(struct AHFA_item, base_item, no_of_items);
+    @<Set up the items-by-rule list@>@;
+    @<Set up the AHFA item ids@>@;
+}
+@ @<Private function prototypes@> =
+static inline void create_AHFA_items(struct marpa_g* g);
+
+@ @<Create the AHFA items for a rule@> =
+struct AHFA_item *items_for_rule;
+gint rhs_ix;
+struct marpa_rule* rule = rule_id2p(g, rule_id);
+if (!rule->is_used) goto NEXT_RULE;
+for (rhs_ix = 0; rhs_ix < rule->length; rhs_ix++) {
+     @<Create an AHFA item for a precompletion@>@;
+     current_item++;
+     NEXT_RH_SYMBOL: ;
+}
+@<Create an AHFA item for a completion@>@;
+current_item++;
+
+@ @<Create an AHFA item for a precompletion@> =
+Marpa_Symbol_ID rh_symbol_id = rhs_symbol_id(rule, rhs_ix);
+struct marpa_symbol* symbol = symbol_id2p(g, rh_symbol_id);
+if (symbol->is_nullable) goto NEXT_RH_SYMBOL;
+current_item->sort_key = current_item - base_item;
+current_item->postdot = rh_symbol_id;
+current_item->rule = rule;
+current_item->position = rhs_ix;
+
+@ @<Create an AHFA item for a completion@> =
+current_item->sort_key = current_item - base_item;
+current_item->postdot = current_item->position = -1;
+current_item->rule = rule;
+
+@ This is done after creating the AHFA items, because in
+theory the |g_renew| might have moved them.
+This is not likely since the |g_renew| shortened the array,
+but if you are hoping for portability,
+you want to follow the rules.
+@<Set up the items-by-rule list@> = {
+struct AHFA_item** items_by_rule = g_new0(struct AHFA_item *, no_of_rules); /* Must be
+zeroed because not all entries will be populated */
+struct AHFA_item* items = g->AHFA_items;
+Marpa_Rule_ID found_rule_id = -1; /* The highest ID of a rule whose AHFA items
+    have been found */
+Marpa_AHFA_Item_ID item_id;
+for (item_id = 0; item_id < no_of_items; item_id++) {
+     struct AHFA_item* item = items+item_id;
+     Marpa_Rule_ID rule_id = item->rule->id;
+     if (rule_id <= found_rule_id) continue;
+     items_by_rule[rule_id] = item;
+     found_rule_id = rule_id;
+}
+g->AHFA_items_by_rule = items_by_rule; }
+
+@ The AHFA items were created with a temporary ID which sort them
+by rule, then by position within that rule.  We need one that sort the AHFA items
+by (from major to minor) postdot symbol, then rule, then position.
+@ @<Function definitions@> =
+static gint cmp_by_AHFA_item_id (gconstpointer a,
+	gconstpointer b, gpointer user_data) {
+    return ((struct AHFA_item*)a)->postdot - ((struct AHFA_item*)b)->postdot
+    || ((struct AHFA_item*)a)->sort_key - ((struct AHFA_item*)b)->sort_key ;
+}
+@ @<Private function prototypes@> =
+static gint cmp_by_AHFA_item_id (gconstpointer a,
+	gconstpointer b, gpointer user_data);
+@ @<Set up the AHFA item ids@> = { gint item_id;
+struct AHFA_item** sort_array = g_new(struct AHFA_item*, no_of_items);
+struct AHFA_item* items = g->AHFA_items;
+for (item_id = 0; item_id < no_of_items; item_id++) {
+    /* Create an array of pointers to the old items,
+      in order to sort them
+      */
+    sort_array[item_id] = items+item_id; 
+}
+g_qsort_with_data(sort_array,
+    no_of_items, sizeof(struct AHFA_item*), cmp_by_AHFA_item_id, (gpointer)NULL);
+for (item_id = 0; item_id < no_of_items; item_id++) {
+    sort_array[item_id]->sort_key = item_id;
+}
+g_free(sort_array); }
+
+@** AHFA States.
+@ {\bf Estimating the number of AHFA States}: Based on the numbers given previously
+for Perl and HTML,
+I estimate that the $2s$ is a high-ball estimate of the number of AHFA states for
+grammars of practical interest,
+where $s$ is the size of the grammar.
+I come up with this as follows.
+
+Let the size of an AHFA state be the number of AHFA items it contains.
+\li It is impossible for the number of AHFA items to greater than
+the size of the grammar.
+\li It is impossible for the number of kernel states of size 1
+to be greater than the number of AHFA states.
+\li The number of kernel states of size 2 or greater
+will typically be half the number of kernel states of size 1,
+or less.
+\li The number of non-kernel states will typically be
+considerably less than half the number of kernel states.
+
+Those three kinds exhaust the possibilities for AHFA states,
+so that the number typically should be less than $s/2 + s/2 + s$,
+or $2s$.
+
+@<Private structures@> =
+struct AHFA_state {
+    struct AHFA_item* items;
+    gint item_count;
+    unsigned int is_reset:1;
+};
+@ @<Widely aligned grammar elements@> = struct AHFA_state* AHFA;
+@ @<Int aligned grammar elements@> = gint AHFA_len;
+@ @<Destroy grammar elements@> = if (g->AHFA) { STOLEN_DQUEUE_DATA_FREE(g->AHFA); }
+
+@ @<Function definitions@> =
+static inline
+void create_AHFA_states(struct marpa_g* g) {
+   DQUEUE_DEFINE(states);
+   const gint initial_no_of_states = 2*g->size;
+   struct AHFA_state state;
+   struct AHFA_state* p_state;
+   DQUEUE_INIT(states, struct AHFA_state, initial_no_of_states);@/
+   p_state = DQUEUE_ADD(states, struct AHFA_state);@/
+   @<Construct initial AHFA state@>@/
+   while (p_state = DQUEUE_NEXT(states, struct AHFA_state)) {
+       @<Process an AHFA state from the working stack@>@;@/
+   }
+   g->AHFA = DQUEUE_BASE(states, struct AHFA_state);
+   g->AHFA_len = DQUEUE_END(states);
+}
+@ @<Private function prototypes@> =
+static inline void create_AHFA_states(struct marpa_g* g);
+
+@ @<Construct initial AHFA state@> = {;}
+
+@ @<Process an AHFA state from the working stack@> = {
+gint no_of_items = state.item_count;
+gint current_item=0;
+struct AHFA_item *items = state.items;
+Marpa_Symbol_ID work_symbol = items[0].postdot; /*
+    Every AHFA has at least one item */
+if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
+    All items in this state are completions */
+    while (1) { /* Loop over all items for this state */
+	gint first_item_for_working_symbol = current_item;
+	for (current_item++; current_item < no_of_items; current_item++) {
+	    if (items[current_item].postdot == work_symbol) break;
+	}
+	switch (current_item - first_item_for_working_symbol) {
+	    case 1: @<Start a 1-item AHFA kernel state@>@/
+	    case 2: @<Start a 2-item AHFA kernel state@>@/
+	    default: @<Start an AHFA kernel state with 2+ items@>@/
+	}
+	/* $v_k$ will not be empty here */@/
+	/* If $v_k$ is not new, next symbol */@/
+	/* Add $v_k$ */@/
+	@<Compute non-kernel state@>@/
+	/* If $v_NK$ is not empty and is new, add it */@/
+	if (current_item >= no_of_items) break;
+	work_symbol = items[current_item].postdot;
+	if (work_symbol == -1) break;
+    }@#
+NEXT_AHFA_STATE: ;
+}
+
+@ @<Start a 1-item AHFA kernel state@> = {;}
+@ @<Start a 2-item AHFA kernel state@> = {;}
+@ @<Start an AHFA kernel state with 2+ items@> = {;}
+
+@ This can be done with a pass over the items in $v_k$.
+For each post-dot symbol in that state, or the transitive closure of the
+epsilon transitions into a rule vector.
+The items in $v_NK$ will be the initial items of those rules.
+@<Compute non-kernel state@> = ;
+
 @** Earley Item Objects.
 Here are some thought about potential optimizations:
 Principles to observe:
@@ -3189,7 +3579,7 @@ static inline Bit_Vector bv_shadow(Bit_Vector bv);
 Given a boolean vector, creates a new vector which is
 an exact duplicate.
 This call allocates a new vector, which must be |g_free|'d.
-@<Function definitions@> =
+@<Function definitions@> = static inline
 Bit_Vector bv_clone(Bit_Vector bv)
 {
     guint  bits;
@@ -3205,6 +3595,7 @@ Bit_Vector bv_clone(Bit_Vector bv)
     return(twin);
 }
 @ @<Private function prototypes@> =
+static inline
 Bit_Vector bv_clone(Bit_Vector bv);
 
 @*0 Free a Boolean Vector.
@@ -3263,6 +3654,7 @@ static inline gboolean bv_bit_test(Bit_Vector vector, gint bit);
 @*0 Set a Boolean Vector to all Ones.
 @*0 Test a Boolean Vector for all Zeroes.
 @<Function definitions@> =
+static inline
 gboolean bv_is_empty(Bit_Vector addr)
 {
     guint  size = BV_SIZE(addr);
@@ -3274,6 +3666,7 @@ gboolean bv_is_empty(Bit_Vector addr)
     return(r);
 }
 @ @<Private function prototypes@> =
+static inline
 gboolean bv_is_empty(Bit_Vector addr);
 
 @*0 Bitwise-negate a Boolean Vector.
@@ -3314,6 +3707,7 @@ static inline void bv_or(Bit_Vector X, Bit_Vector Y, Bit_Vector Z);
 
 @*0 Scan a Boolean Vector.
 @<Function definitions@>=
+static inline
 gboolean bv_scan(Bit_Vector bv, gint start,
                                     gint* min, gint* max)
 {
@@ -3383,8 +3777,9 @@ gboolean bv_scan(Bit_Vector bv, gint start,
     return TRUE;
 }
 @ @<Private function prototypes@> =
-gboolean BitVector_scan(Bit_Vector bv, gint start,
-  gint* min, gint* max);
+static inline
+gboolean bv_scan(
+    Bit_Vector bv, gint start, gint* min, gint* max);
 
 @*0 The RHS Closure of a Vector.
 Despite the fact that they are actually tied closely to their
@@ -3591,10 +3986,10 @@ static void transitive_closure(Bit_Matrix matrix)
 {
       gint size = matrix_columns(matrix);
       struct transition { gint from, to; };
-      DSTACK_DEFINE(stack, struct transition);
+      DSTACK_DEFINE(stack);
       struct transition* top_of_stack = NULL;
       gint row;
-      DSTACK_INIT(stack, struct transition);
+      DSTACK_INIT(stack, struct transition, 1024);
       for (row = 0; row < size; row++) {
           gint min, max, start;
 	  Bit_Vector row_vector = matrix_row(matrix, row);
@@ -3634,6 +4029,72 @@ static void transitive_closure(Bit_Matrix matrix)
 @ @<Private function prototypes@> =
 static void transitive_closure(Bit_Matrix matrix);
 
+@** Pointer Arrays.
+Pointer arrays can exist on their own,
+or as part of a dynamic pointer array.
+When considered on their own,
+they are fixed in size.
+@<ADT structures@> =
+struct p_array { gint len; void **data; };
+@ @<Function definitions@> =
+static inline void p_array_destroy(struct p_array* pa) {
+    void *data = pa->data;
+    if (data) g_free(data);
+}
+@ @<Private function prototypes@> =
+static inline void p_array_destroy(struct p_array* pa);
+
+@** Dynamic Pointer Arrays.
+In this variation of dynamic arrays, only pointers are allowed
+and sizes are expected to be large.
+Adding to the array may cause it to move,
+invalidating all addresses taken from it.
+Once the array is "frozen",
+addresses within it are stable
+and addresses of items within it may be expected to
+stay valid.
+@<ADT structures@> =
+struct dp_array { struct p_array pa; gint size; };
+@ @<Function definitions@> =
+static inline void dp_array_init(struct dp_array* dpa, gint size) {
+dpa->pa.len = 0; dpa->size = size; dpa->pa.data = g_new(void *, size); }
+@ @<Private function prototypes@> =
+static inline void dp_array_init(struct dp_array* dpa, gint size);
+@ @<Function definitions@> =
+static inline void dp_array_destroy(struct dp_array* dpa) {
+    p_array_destroy(&(dpa->pa));
+}
+@ @<Private function prototypes@> =
+static inline void dp_array_destroy(struct dp_array* dpa);
+@ @<Function definitions@> =
+static inline void dp_array_resize(struct dp_array *dpa, gint new_size) {
+   dpa->pa.data = g_renew(void*, dpa->pa.data, new_size);
+   dpa->size = new_size;
+}
+@ @<Private function prototypes@> =
+static inline void dp_array_resize(struct dp_array *dpa, gint new_size);
+@ @<Function definitions@> =
+static inline void dp_array_append(struct dp_array *dpa, void *p) {
+     if (dpa->pa.len >= dpa->size) dp_array_resize(dpa, dpa->size*2);
+     dpa->pa.data[dpa->pa.len++] = p;
+}
+@ @<Private function prototypes@> =
+static inline void dp_array_append(struct dp_array *dpa, void *p);
+@ Copies a dynamic pointer array to a pointer array, giving it a final
+resizing.
+@<Function definitions@> =
+static inline void dp_array_freeze(struct dp_array *dpa, struct p_array* pa) {
+    gint len = pa->len = dpa->pa.len;
+    if (G_UNLIKELY(len >= dpa->size)) {
+       pa->data = dpa->pa.data;
+       return;
+    }
+   pa->data = g_renew(void*, dpa->pa.data, len);
+}
+@ @<Private function prototypes@> =
+static inline void dp_array_freeze(struct dp_array *dpa, struct p_array* pa);
+
+
 @** Fixed Size Stacks.
 |libmarpa| uses stacks and worklists extensively.
 Often a reasonable maximum size is known when they are
@@ -3671,21 +4132,22 @@ In particular, be careful where you put the |DSTACK_DEFINE|.
 It expands to a struct declaration and must go where such
 a declaration is legal and useful.
 
-At this point |DSTACK_INITIAL_SIZE| is ridiculously small,
-to test the logic.
-It should be raised, perhaps to 1024.
-Also, it may be good to allow a size parameter for |DSTACK_INIT|.
-
-@d DSTACK_INITIAL_SIZE 2
-@d DSTACK_DEFINE(this, type) struct dstack this;
-@d DSTACK_INIT(this, type)
-  ((this.ix = 0), (this.size = DSTACK_INITIAL_SIZE),
-  (this.base = g_new(type, DSTACK_INITIAL_SIZE)))
+@d DSTACK_DEFINE(this) struct dstack this;
+@d DSTACK_INIT(this, type, initial_size)
+  ((this.ix = 0),
+  (this.base = g_new(type, (this.size = (initial_size)))))
 @d DSTACK_PUSH(this, type)
     ((this.ix >= this.size ? dstack_resize(&this, sizeof(type)) : 0),
      ((type *)this.base+this.ix++))
 @d DSTACK_POP(this, type) (--this.ix, this.ix < 0 ? NULL : (type*)this.base+this.ix)
-@d DSTACK_DESTROY(this) (g_free(this.base))
+@d DSTACK_BASE(this, type) ((type *)this.base)
+@d DSTACK_LENGTH(this) (this.ix)
+
+@ |DSTACK|'s often have their data "stolen", by other containers.
+These |STOLEN_DSTACK_DATA_FREE| macro allows the "thief" container to abstract
+slightly from the knowledge of how to deallocate the data it now "owns".
+@d STOLEN_DSTACK_DATA_FREE(data) g_free(data)
+@d DSTACK_DESTROY(this) STOLEN_DSTACK_DATA_FREE(this.base)
 
 @ @<Private structures@> =
 struct dstack { gint ix; gint size; gpointer base; };
@@ -3698,8 +4160,151 @@ static inline gpointer dstack_resize(struct dstack* this, gsize type_bytes) {
 @ @<Private function prototypes@> =
 static inline gpointer dstack_resize(struct dstack* this, gsize type_size);
 
+@** Dynamic Queues.
+This is simply a dynamic stack extended with a second
+index.
+These is no destructor at this point, because so far all uses
+of this let another container "steal" the data from this one.
+When one exists, it will simply call the dynamic stack destructor.
+Instead I define a destructor for the "thief" container to use
+when it needs to free the data.
+
+@d DQUEUE_DEFINE(this) struct dqueue this;
+@d DQUEUE_INIT(this, type, initial_size)
+    ((this.current=0), DSTACK_INIT(this.s, type, initial_size))
+@d DQUEUE_ADD(this, type) DSTACK_PUSH(this.s, type)
+@d DQUEUE_NEXT(this, type)
+    (this.current >= DSTACK_LENGTH(this.s) ? NULL : (DSTACK_BASE(this.s, type))+this.current++)
+@d DQUEUE_BASE(this, type) DSTACK_BASE(this.s, type)
+@d DQUEUE_END(this) DSTACK_LENGTH(this.s)
+@d STOLEN_DQUEUE_DATA_FREE(data) STOLEN_DSTACK_DATA_FREE(data)
+
+@<Private structures@> =
+struct dqueue { gint current; struct dstack s; };
+
+@** Memory Allocation.
+|libmarpa| uses |g_malloc|, either directly or indirectly.
+Indirect use of |g_malloc| comes via obstacks and |g_slice|,
+both of which are more efficient, but limit the ability to resize
+and/or control the lifetime of the memory.
+It should be noted that system libraries used by |libmarpa| may
+also allocate memory, using their own methods.
+\par
+Obstacks are particularly useful for |libmarpa|.
+Much of the memory allocated in |libmarpa| is
+\li In individual allocations less than 4K, often considerable less.
+\li Once created, are kept for the entire life of the either the grammar or the recognizer.
+\li Once created, is never resized.
+For these, obstacks are perfect.
+|libmarpa|'s grammar has an obstacks.
+Small allocations needed for the lifetime of the grammar
+are allocated on these as the grammar object is built.
+All these allocations are are conveniently and quickly deallocated when
+the grammar's obstack is destroyed along with its parent grammar.
+@d obstack_chunk_alloc g_malloc
+@d obstack_chunk_free g_free
+
+@*0 Why the obstacks are renamed.
+Regretfully, I realized I simply could not simply include the
+GNU obstacks, because of three obstacles.
+First, the error handling is not thread-safe.  In fact,
+since it relies on a global error handler, it is not even
+safe for use by multiple libraries within one thread.
+The obstack "error handling" consisted of exactly one
+"out of memory" message, which Marpa will never use because
+it uses |g_malloc|.
+Removing the error handling was far easier than leaving it
+in.
+
+Second, the unneeded features of obstacks were causing
+complications.
+The GNU obtacks had a complex set of |ifdef|'s intended
+to allow the same code to be part of GNU libc,
+or not part of it, and the portability aspect of these
+was daunting.
+That lone error message was dragging in
+GNU's internationalization.
+(|libmarpa| avoids internationalization by leaving all
+messaging and naming to the higher layers.)
+It was much easier to rip out these features, than to
+deal with the issues, especially the portability
+issues, that they raised.
+
+Third, if I did choose to try to use GNU obstacks in its
+original form, |libmarpa| would have to deal with issues
+of interposing identical function names in the linking process.
+I aim at portability, even to systems that I have no
+direct access to.
+This is, of course, a real challenge when
+it comes to debugging.
+It was not cheering to think of the prospect
+of multiple
+libraries with obstack functions being resolved by the linkers
+of widely different systems.
+If, for example, a function that I intended to be used was not the
+one linked, the bug would usually be a silent one.
+
+Porting to systems with no native obstack meant that I was
+already in the business of maintaining my own obstacks code,
+whether I liked it or not.
+So I decided to create a version which eliminated the unnecessary
+but problematic features,
+and to deal with namespace issues by having its own names
+for external functions.
+
+Renaming the GNU code because of modifications of minor
+technical complexity is a rather ugly solution.
+But for the above reasons, I feel forced into it.
+
+@** External Failure Reports.
+Most of
+|libmarpa|'s external functions return failure under
+one or more circumstances --- for
+example, they may have been called incorrectly.
+Many of the external routines share failure logic in
+common.
+I found it convenient to gather much of this logic here.
+|g| is assumed to be the value of the relevant grammar,
+when one is required.
+
+External routines will often differ in the exact value
+they return on failure.
+Routines returning a pointer may return a |NULL|.
+Routines returning a
+|Marpa_Symbol_ID| may return a |-1|.
+When -1 is a legitimate value, the routine may return a |-2|.
+For this reason, the logic in this section expects |failure_indication|
+to be set in the scope in which it is used.
+
+@ Routines returning pointers often use |NULL| as the failure indicator.
+@<Return |NULL| on failure@> = const gpointer failure_indicator = NULL;
+@ Routines returning integers often use |-1| as the failure indicator.
+@<Return |-1| on failure@> = const int failure_indicator = -1;
+@ Sometimes |-1| is a valid return value for an external accessor.
+@<Return |-2| on failure@> = const int failure_indicator = -2;
+
+@ @<Fail if not precomputed@> =
+if (!g->is_precomputed) {
+    context_clear(g);
+    g->error = "grammar not precomputed";
+    return failure_indicator;
+}
+@ @<Fail if |symbol_id| is invalid@> =
+if (!symbol_is_valid(g, symbol_id)) {
+    context_clear(g);
+    context_int_add(g, "symbol_id", symbol_id);
+    g->error = "invalid symbol id";
+    return failure_indicator;
+}
+@ @<Fail if |item_id| is invalid@> =
+if (!item_is_valid(g, item_id)) {
+    context_clear(g);
+    context_int_add(g, "item_id", item_id);
+    g->error = "invalid item id";
+    return failure_indicator;
+}
+
 @** Messages and Logging.
-@ Fallback and system Message Logging.
 The main messaging system for |libmarpa| relies on callbacks
 to upper layers.
 But there are many cases in which it is not appropriate
@@ -3757,7 +4362,7 @@ hard to type and impossible to read.
 This typedef localizes the damage.
 @<Callback typedefs@> =
 typedef void (Marpa_Message_Callback)(struct marpa_g *g, Marpa_Message_ID id);
-@ @<Pointer aligned grammar elements@> =
+@ @<Widely aligned grammar elements@> =
     Marpa_Message_Callback* message_callback;
     void *message_callback_arg;
 @ @<Function definitions@> =
@@ -3765,12 +4370,12 @@ void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb)
 { g->message_callback = cb; }
 void marpa_message_callback_arg_set(struct marpa_g *g, void *cb_arg)
 { g->message_callback_arg = cb_arg; }
-void* marpa_message_callback_arg_peek(struct marpa_g *g)
+void* marpa_message_callback_arg(struct marpa_g *g)
 { return g->message_callback_arg; }
 @ @<Public function prototypes@> =
 void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb);
 void marpa_message_callback_arg_set(struct marpa_g *g, void *cb_arg);
-void* marpa_message_callback_arg_peek(struct marpa_g *g);
+void* marpa_message_callback_arg(struct marpa_g *g);
 @ Do the message callback.
 @<Function definitions@> =
 static inline message(struct marpa_g *g, Marpa_Message_ID id)
@@ -3778,111 +4383,6 @@ static inline message(struct marpa_g *g, Marpa_Message_ID id)
 if (cb) { (*cb)(g, id); } }
 @ @<Private function prototypes@> =
 static inline message(struct marpa_g *g, Marpa_Message_ID id);
-
-@** Testing.
-
-@ A test routine.
-
-This was a version compatibility checker.
-I no longer use it as such, but keep it around as a simple
-test routine, one slightly less trivial than |marpa_version|.
-
-@<Function definitions@> =
-
-
-const char *
-marpa_check_version (unsigned int required_major,
-                    unsigned int required_minor,
-                    unsigned int required_micro)
-{
-  int marpa_effective_micro = 1000 * MARPA_MINOR_VERSION + MARPA_MICRO_VERSION;
-  int required_effective_micro = 1000 * required_minor + required_micro;
-    static char output_buffer[1000];
-
-  @<Return message if major version too old@>@/
-  @<Return message if major version too new@>@/
-  @<Return message if minor/micro version too new@>@/
-  @<Return message if minor/micro version too old@>@/
-
-  return "Perfect!";
-}
-
-@
-
-@<Public function prototypes@> = 
-const char *
-marpa_check_version (unsigned int required_major,
-                    unsigned int required_minor,
-                    unsigned int required_micro);
-
-@ Return message if major version too old.
-
-@<Return message if major version too old@> =
-
-  if (required_major > MARPA_MAJOR_VERSION) {
-    sprintf(output_buffer, "marpa major version too old: "
-    "require %d.%03d%03d, but have %d.%03d%03d", 
-        required_major,
-        required_minor,
-        required_micro,
-        MARPA_MAJOR_VERSION,
-        MARPA_MINOR_VERSION,
-        MARPA_MICRO_VERSION);
-    return output_buffer;
-  }
-
-@ Return message if major version too new
-
-@<Return message if major version too new@> =
-
-  if (required_major < MARPA_MAJOR_VERSION) {
-    sprintf(output_buffer,
-    "marpa major version too new: "
-    "require %d.%03d%03d, but have %d.%03d%03d", 
-        required_major,
-        required_minor,
-        required_micro,
-        MARPA_MAJOR_VERSION,
-        MARPA_MINOR_VERSION,
-        MARPA_MICRO_VERSION);
-    return output_buffer;
-  }
-
-
-@ Return message if minor/micro version too new.
-
-@<Return message if minor/micro version too new@> =
-
-  if (required_effective_micro < marpa_effective_micro) {
-    sprintf(output_buffer,
-        "marpa minor/micro version too new: "
-        "require %d.%03d%03d, but have %d.%03d%03d", 
-        required_major,
-        required_minor,
-        required_micro,
-        MARPA_MAJOR_VERSION,
-        MARPA_MINOR_VERSION,
-        MARPA_MICRO_VERSION);
-    return output_buffer;
-  }
-
-
-@ Return message if minor/micro version too old.
-
-@<Return message if minor/micro version too old@> =
-  if (required_effective_micro > marpa_effective_micro) {
-    sprintf(
-        output_buffer,
-        "marpa minor/micro version too old: "
-        "require %d.%03d%03d, but have %d.%03d%03d", 
-        required_major,
-        required_minor,
-        required_micro,
-        MARPA_MAJOR_VERSION,
-        MARPA_MINOR_VERSION,
-        MARPA_MICRO_VERSION);
-    return output_buffer;
-  }
 
 @** Templates.
 
@@ -3986,9 +4486,11 @@ So I add such a comment.
 #include "config.h"
 #include "marpa.h"
 @h
+#include "marpa_obs.h"
 @<Logging domain@>@;
 @<Private typedefs@>@;
 @<Private global variables@>@;
+@<ADT structures@>@;
 @<Private structures@>@;
 @<Private function prototypes@>@;
 @<Private inline functions@>@;
@@ -4021,7 +4523,12 @@ So I add such a comment.
 @= * It is not intended to be modified directly@>@/
 @= */@>@/
 
+#ifndef __MARPA_H__
+#define __MARPA_H__ @/
+#include <stdio.h>
+#include <glib.h>
 @<Body of public header file@>
+#endif __MARPA_H__
 
 @ Public inline function definitions
 None yet.

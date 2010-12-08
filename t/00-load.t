@@ -18,7 +18,7 @@ use 5.010;
 use warnings;
 use strict;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 
 use Carp;
 use Data::Dumper;
@@ -30,16 +30,7 @@ BEGIN {
 defined $INC{'Marpa/XS.pm'}
     or Test::More::BAIL_OUT('Could not load Marpa::XS');
 
-my @tests =
-    ( [ 42, 7, 11 ], [ 0, 0, 1 ], [ 0, 2, 0 ], [ 0, 1, 0 ], [ 0, 0, 0 ] );
-
-my @results = (
-    'marpa major version too old: require 42.007011, but have 0.001000',
-    'marpa minor/micro version too new: require 0.000001, but have 0.001000',
-    'marpa minor/micro version too old: require 0.002000, but have 0.001000',
-    'Perfect!',
-    'marpa minor/micro version too new: require 0.000000, but have 0.001000',
-);
+Test::More::ok( defined &Marpa::XS::version, 'Marpa::XS::version defined' );
 
 my @version = Marpa::XS::version();
 Test::More::is( $version[0], 0, 'XS major version' );

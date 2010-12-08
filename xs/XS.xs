@@ -62,7 +62,7 @@ static inline Grammar* grammar_sv2c (SV *g_sv)
 static void
 xs_message_callback(Grammar *g, Marpa_Message_ID id)
 {
-    SV* cb = g->message_callback_arg;
+    SV* cb = marpa_message_callback_arg(g);
     if (!cb) return;
     if (!SvOK(cb)) return;
     {
@@ -82,7 +82,7 @@ xs_message_callback(Grammar *g, Marpa_Message_ID id)
 static void
 xs_rule_callback(Grammar *g, Marpa_Rule_ID id)
 {
-    SV* cb = g->rule_callback_arg;
+    SV* cb = marpa_rule_callback_arg(g);
     if (!cb) return;
     if (!SvOK(cb)) return;
     {
@@ -102,7 +102,7 @@ xs_rule_callback(Grammar *g, Marpa_Rule_ID id)
 static void
 xs_symbol_callback(Grammar *g, Marpa_Symbol_ID id)
 {
-    SV* cb = g->symbol_callback_arg;
+    SV* cb = marpa_symbol_callback_arg(g);
     if (!cb) return;
     if (!SvOK(cb)) return;
     {
@@ -134,18 +134,12 @@ static inline SV* recce_wrap( Recognizer* recce, SV* g_sv)
     return rv;
 }
 
-MODULE = Marpa::XS        PACKAGE = Marpa::XS::Internal PREFIX=marpa_
+MODULE = Marpa::XS        PACKAGE = Marpa::XS
 
 PROTOTYPES: DISABLE
 
-const char *
-marpa_check_version (required_major, required_minor, required_micro)
-    unsigned int required_major
-    unsigned int required_minor
-    unsigned int required_micro
-
 void
-marpa_version()
+version()
 PPCODE:
 {
    int version[3];
@@ -165,8 +159,7 @@ PREINIT:
     Grammar *grammar;
     SV *sv;
 PPCODE:
-    Newxz( grammar, 1, Grammar );
-    marpa_g_init( grammar );
+    grammar = marpa_g_new();
     marpa_message_callback_set( grammar, &xs_message_callback );
     marpa_rule_callback_set( grammar, &xs_rule_callback );
     marpa_symbol_callback_set( grammar, &xs_symbol_callback );
@@ -179,19 +172,25 @@ DESTROY( grammar )
     Grammar *grammar;
 CODE:
     {
-       SV *sv = marpa_message_callback_arg_peek(grammar);
-       if (sv) { SvREFCNT_dec(sv); }
+       SV *sv = marpa_message_callback_arg(grammar);
+	marpa_message_callback_arg_set( grammar, NULL );
+       if (sv) {
+       SvREFCNT_dec(sv);
+       }
     }
     {
-       SV *sv = marpa_rule_callback_arg_peek(grammar);
-       if (sv) { SvREFCNT_dec(sv); }
+       SV *sv = marpa_rule_callback_arg(grammar);
+	marpa_rule_callback_arg_set( grammar, NULL );
+       if (sv) { 
+        SvREFCNT_dec(sv); }
     }
     {
-       SV *sv = marpa_symbol_callback_arg_peek(grammar);
-       if (sv) { SvREFCNT_dec(sv); }
+       SV *sv = marpa_symbol_callback_arg(grammar);
+	marpa_symbol_callback_arg_set( grammar, NULL );
+       if (sv) {
+       SvREFCNT_dec(sv); }
     }
     marpa_g_destroy( grammar );
-    Safefree( grammar );
 
  # Note the Perl callback closure
  # is, in the libmarpa context, the *ARGUMENT* of the callback,
@@ -204,8 +203,9 @@ message_callback_set( g, sv )
     SV *sv;
 PPCODE:
     {
-       SV *old_sv = marpa_message_callback_arg_peek(g);
-       if (old_sv) { SvREFCNT_dec(old_sv); }
+       SV *old_sv = marpa_message_callback_arg(g);
+       if (old_sv) {
+       SvREFCNT_dec(old_sv); }
     }
     marpa_message_callback_arg_set( g, sv );
     SvREFCNT_inc(sv);
@@ -216,8 +216,9 @@ rule_callback_set( g, sv )
     SV *sv;
 PPCODE:
     {
-       SV *old_sv = marpa_rule_callback_arg_peek(g);
-       if (old_sv) { SvREFCNT_dec(old_sv); }
+       SV *old_sv = marpa_rule_callback_arg(g);
+       if (old_sv) {
+       SvREFCNT_dec(old_sv); }
     }
     marpa_rule_callback_arg_set( g, sv );
     SvREFCNT_inc(sv);
@@ -228,8 +229,9 @@ symbol_callback_set( g, sv )
     SV *sv;
 PPCODE:
     {
-       SV *old_sv = marpa_symbol_callback_arg_peek(g);
-       if (old_sv) { SvREFCNT_dec(old_sv); }
+       SV *old_sv = marpa_symbol_callback_arg(g);
+       if (old_sv) {
+       SvREFCNT_dec(old_sv); }
     }
     marpa_symbol_callback_arg_set( g, sv );
     SvREFCNT_inc(sv);
@@ -747,6 +749,59 @@ rule_original( g, rule_id )
 CODE:
     RETVAL = marpa_rule_original(g, rule_id);
     if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
+int
+AHFA_item_count( g )
+    Grammar *g;
+CODE:
+    RETVAL = marpa_AHFA_item_count(g );
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
+Marpa_Rule_ID
+AHFA_item_rule( g, item_id )
+    Grammar *g;
+    Marpa_AHFA_Item_ID item_id;
+CODE:
+    RETVAL = marpa_AHFA_item_rule(g, item_id);
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
+ # -1 is a valid return value, so -2 indicates an error
+int
+AHFA_item_position( g, item_id )
+    Grammar *g;
+    Marpa_AHFA_Item_ID item_id;
+CODE:
+    RETVAL = marpa_AHFA_item_position(g, item_id);
+    if (RETVAL <= -2) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
+int
+AHFA_item_sort_key( g, item_id )
+    Grammar *g;
+    Marpa_AHFA_Item_ID item_id;
+CODE:
+    RETVAL = marpa_AHFA_item_sort_key(g, item_id);
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
+ # -1 is a valid return value, and -2 indicates an error
+ # but I do not differentiate here
+Marpa_Symbol_ID
+AHFA_item_postdot( g, item_id )
+    Grammar *g;
+    Marpa_AHFA_Item_ID item_id;
+CODE:
+    RETVAL = marpa_AHFA_item_postdot(g, item_id);
+    if (RETVAL == -1) { XSRETURN_UNDEF; }
+    if (RETVAL <= -2) { croak("Invalid item %d", item_id); }
 OUTPUT:
     RETVAL
 

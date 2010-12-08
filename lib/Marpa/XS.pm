@@ -47,20 +47,18 @@ if ( not $Marpa::XS::FORCE_PP ) {
     }
 } ## end if ( not $Marpa::XS::FORCE_PP )
 
-my $check_version_code;
-{
-    no strict 'refs';
-    no warnings 'once';
-    $check_version_code = *{'Marpa::XS::Internal::check_version'}{'CODE'};
-}
-
-if ( not defined $check_version_code ) {
+if ( not defined &Marpa::XS::version ) {
     undef $Marpa::XS::VERSION;
     undef $Marpa::XS::STRING_VERSION;
+    $Marpa::XS::USING_XS = 0;
+    $Marpa::XS::USING_PP = 1;
+} else {
+    $Marpa::XS::USING_XS = 1;
+    $Marpa::XS::USING_PP = 0;
 }
 
 # If can't load Marpa::XS, use the Pure Perl version
-if ( not defined $Marpa::XS::VERSION ) {
+if ( $Marpa::XS::USING_PP ) {
     Carp::croak('Attempt to use Pure Perl version when FORCE_XS is in effect')
         if $Marpa::XS::FORCE_XS;
     require Marpa::XS::Internal;
@@ -72,13 +70,12 @@ if ( not defined $Marpa::XS::VERSION ) {
     require Marpa::XS::Callback_PP;
 } ## end if ( not defined $Marpa::XS::VERSION )
 else {
-    no strict 'refs';
-    *{'Marpa::XS::check_version'} = $check_version_code;
-    *{'Marpa::XS::version'}       = *{'Marpa::XS::Internal::version'}{'CODE'};
-    use strict;
-    my $check_version_result = Marpa::XS::check_version( 0, 1, 0 ) // 'undef';
-    Carp::croak('Marpa::XS fails marpa_check_version')
-        if $check_version_result ne 'Perfect!';
+    Carp::croak('Attempt to use XS version when FORCE_PP is in effect')
+        if $Marpa::XS::FORCE_PP;
+    my $version_found = join q{.}, Marpa::XS::version();
+    my $version_wanted = '0.1.0';
+    Carp::croak('Marpa::XS ', "fails version check, wanted $version_wanted, found $version_found")
+        if $version_wanted ne $version_found;
 
     require Marpa::XS::Internal;
     require Marpa::XS::Internal::Carp_Not;

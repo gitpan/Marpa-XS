@@ -117,8 +117,8 @@ END_OF_STRING
 =cut
 
 my %original = (
-    'libmarpa/main/src/obstack.c'  => 'libmarpa/orig/gnu/obstack.c',
-    'libmarpa/main/src/obstack.h'  => 'libmarpa/orig/gnu/obstack.h',
+    'libmarpa/main/src/marpa_obs.c'  => [ 'libmarpa/orig/gnu/obstack.c', 1022 ],
+    'libmarpa/main/src/marpa_obs.h'  => [ 'libmarpa/orig/gnu/obstack.h', 1022 ],
 );
 
 my %GNU_file = map { ( $_, 1 ) } qw(
@@ -268,14 +268,25 @@ sub Marpa::XS::License::file_license_problems {
     CHECK_VS_ORIGINAL: {
         my $original = $original{$filename};
         last CHECK_VS_ORIGINAL if not defined $original;
-        if ( not -r $original ) {
+	my ($original_file, $length);
+	if (ref $original eq 'ARRAY') {
+	    ($original_file, $length) = @{$original};
+	} else {
+	   $original_file = $original;
+	}
+        if ( not -r $original_file ) {
             push @problems,
-                qq{Original of "$filename" is not readable: "$original"\n};
+                qq{Original of "$filename" is not readable: "$original_file"\n};
             last CHECK_VS_ORIGINAL;
         }
-        if ( not files_equal( $original, $filename ) ) {
+        if ( not defined $length and not files_equal( $original_file, $filename ) ) {
             push @problems,
-                "Difference between original ($original) and $filename\n";
+                "Difference between original ($original_file) and $filename\n";
+            last CHECK_VS_ORIGINAL;
+        }
+        if ( not tops_equal( $original_file, $filename, $length ) ) {
+            push @problems,
+                "Difference between top of original ($original_file) and $filename\n";
             last CHECK_VS_ORIGINAL;
         }
         return @problems;
@@ -321,6 +332,11 @@ sub slurp_top {
 sub files_equal {
     my ( $filename1, $filename2 ) = @_;
     return ${ slurp($filename1) } eq ${ slurp($filename2) };
+}
+
+sub tops_equal {
+    my ( $filename1, $filename2, $length ) = @_;
+    return ${ slurp_top($filename1, $length) } eq ${ slurp_top($filename2, $length) };
 }
 
 sub license_problems_in_license_file {

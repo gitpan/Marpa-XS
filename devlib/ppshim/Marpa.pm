@@ -23,8 +23,8 @@ package Marpa;
 # Faked version to fool Marpa::HTML
 $Marpa::VERSION = 0.100000;
 
+BEGIN { $Marpa::XS::FORCE_PP = 1; }
 use Marpa::XS;
-$Marpa::XS::FORCE_PP = 1;
 
 sub compatible { return 1; }
 sub Marpa::Grammar::new {

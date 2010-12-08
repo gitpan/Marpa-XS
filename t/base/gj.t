@@ -124,10 +124,10 @@ EOS
 
 Marpa::XS::Test::is( $g->show_AHFA, <<'EOS', 'Grune/Jacobs AHFA' );
 Start States: S0; S1
-S0: 1
+S0:
 S' -> . S $
  <S> => S2
-S1: predict; 4,6,10,12,14
+S1: predict
 S -> . E
 E -> . E - T
 E -> . T
@@ -137,13 +137,13 @@ T -> . ( E )
  <E> => S5
  <T> => S6; leo(E)
  <n> => S7
-S2: 2
+S2:
 S' -> S . $
  <$> => S8
-S3: 15
+S3:
 T -> ( . E )
  <E> => S9
-S4: predict; 6,10,12,14
+S4: predict
 E -> . E - T
 E -> . T
 T -> . n
@@ -152,33 +152,33 @@ T -> . ( E )
  <E> => S10
  <T> => S6; leo(E)
  <n> => S7
-S5: 5,7
+S5:
 S -> E .
 E -> E . - T
  <-> => S11; S12
-S6: leo-c; 11
+S6: leo-c
 E -> T .
-S7: 13
+S7:
 T -> n .
-S8: 3
+S8:
 S' -> S $ .
-S9: 16
+S9:
 T -> ( E . )
  <)> => S13
-S10: 7
+S10:
 E -> E . - T
  <-> => S11; S12
-S11: 8
+S11:
 E -> E - . T
  <T> => S14; leo(E)
-S12: predict; 12,14
+S12: predict
 T -> . n
 T -> . ( E )
  <(> => S3; S4
  <n> => S7
-S13: 17
+S13:
 T -> ( E ) .
-S14: leo-c; 9
+S14: leo-c
 E -> E - T .
 EOS
 
