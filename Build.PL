@@ -96,8 +96,7 @@ my $build = Marpa::XS::Build_Me->new(
     extra_linker_flags =>
         "$glib_2_0_linker_flags libmarpa/main/build/src/.libs/libmarpa.a",
     PL_files   => {},
-    # The XS file compilation is hard coded, above
-    # xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
+    xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
@@ -125,5 +124,4 @@ my $build = Marpa::XS::Build_Me->new(
     test_files         => [ map { glob $_ } qw(t/*.t t/xs/*.t t/pp/*.t) ],
 );
 
-$build->add_build_element('libmarpa');
 $build->create_build_script;

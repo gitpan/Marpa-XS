@@ -153,58 +153,13 @@ sub ACTION_dist {
     $self->SUPER::ACTION_dist;
 } ## end sub ACTION_dist
 
-sub do_xs {
-    my $self = shift;
-    my $from = 'xs/XS.xs';
-    my $to = 'lib/Marpa/XS.xs';
-    my $base = $self->base_dir();
-    my $blib = $self->blib;
-    $self->add_to_cleanup($to);
-    my $bundle = File::Spec->catfile($blib, qw(arch auto Marpa XS XS.bundle) );
-    my $marpa_c = File::Spec->catfile($base, qw(libmarpa main src marpa.c) );
-    SOURCE: for my $try_source ($marpa_c) {
-	say STDERR "comparing to $marpa_c: $bundle";
-	next SOURCE if $self->up_to_date([$marpa_c], $bundle);
-	say STDERR "Unlinking $bundle";
-	unlink $bundle;
-    }
-    my $XS_o = File::Spec->catfile($base, qw(lib Marpa XS.o ) );
-    my $marpa_h = File::Spec->catfile($base, qw(libmarpa main src marpa.h) );
-    SOURCE: for my $try_source ($marpa_h) {
-	say STDERR "comparing to $marpa_h: $XS_o";
-	next SOURCE if $self->up_to_date([$marpa_h], $XS_o);
-	say STDERR "Unlinking $XS_o";
-	unlink $XS_o;
-    }
-    $self->copy_if_modified( from => $from, to => $to );
-    $self->process_xs($to);
-}
-
 sub ACTION_code {
     my $self = shift;
     say STDERR "Writing version files";
     $self->write_file($version_pm, qw(lib Marpa XS Version.pm) );
     $self->write_file($perl_version_pm, qw(lib Marpa XS Perl Version.pm) );
     $self->do_libmarpa();
-
-    # "Inlined" From Module::Build:
-    # All installable stuff gets created in blib/ .
-    # Create blib/arch to keep blib.pm happy
-    my $blib = $self->blib;
-    $self->add_to_cleanup($blib);
-    File::Path::mkpath( File::Spec->catdir($blib, 'arch') );
-
-    $self->process_PL_files('PL');
-    $self->process_support_files('support');
-    $self->process_pm_files('pm');
-
-    $self->do_xs();
-
-    $self->process_share_dir_files('share_dir');
-    $self->process_pod_files('pod');
-    $self->process_script_files('script');
-
-    $self->depends_on('config_data');
+    $self->SUPER::ACTION_code;
 }
 
 sub ACTION_clean {
