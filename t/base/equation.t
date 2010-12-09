@@ -19,7 +19,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 13;
+use Test::More tests => 14;
 
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
@@ -135,6 +135,34 @@ Marpa::XS::Test::is( ${$actual_ref},
 1: E -> Number
 2: E['] -> E /* vlhs real=1 */
 END_RULES
+
+SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+
+$actual_ref = save_stdout();
+
+print $grammar->show_AHFA_items()
+    or die "print failed: $ERRNO";
+
+Marpa::XS::Test::is( $grammar->show_AHFA_items(), <<'EOS', 'Aycock/Horspool AHFA Items' );
+AHFA item 0: sort = 0; postdot = "E"
+    E -> . E Op E
+AHFA item 1: sort = 3; postdot = "Op"
+    E -> E . Op E
+AHFA item 2: sort = 1; postdot = "E"
+    E -> E Op . E
+AHFA item 3: sort = 5; completion
+    E -> E Op E .
+AHFA item 4: sort = 4; postdot = "Number"
+    E -> . Number
+AHFA item 5: sort = 6; completion
+    E -> Number .
+AHFA item 6: sort = 2; postdot = "E"
+    E['] -> . E
+AHFA item 7: sort = 7; completion
+    E['] -> E .
+EOS
+
+} ## SKIP
 
 $actual_ref = save_stdout();
 

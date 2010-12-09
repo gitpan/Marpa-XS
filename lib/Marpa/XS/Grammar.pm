@@ -330,7 +330,6 @@ sub Marpa::XS::Grammar::new {
 
 use constant GRAMMAR_OPTIONS => [
     qw{
-        academic
         action_object
         actions
         cycle_ranking_action
@@ -455,13 +454,6 @@ sub Marpa::XS::Grammar::set {
                 if ref $value ne 'ARRAY';
             add_user_rules( $grammar, $value );
         } ## end if ( defined( my $value = $args->{'rules'} ) )
-
-        if ( defined( my $value = $args->{'academic'} ) ) {
-            Marpa::XS::exception(
-                'academic option not allowed after grammar is precomputed')
-                if $grammar_c->is_precomputed();
-            $grammar_c->is_academic_set($value);
-        }
 
         if ( defined( my $value = $args->{'default_null_value'} ) ) {
             $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_NULL_VALUE] =
@@ -1065,6 +1057,45 @@ sub Marpa::XS::show_item {
     } ## end else [ if ( not defined $item ) ]
     return $text;
 } ## end sub Marpa::XS::show_item
+
+sub Marpa::XS::show_AHFA_item {
+    my ( $grammar, $item_id ) = @_;
+    my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules      = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $symbols    = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $postdot_id = $grammar_c->AHFA_item_postdot($item_id);
+    my $rule_id    = $grammar_c->AHFA_item_rule($item_id);
+    my $rule       = $rules->[$rule_id];
+    my $position   = $grammar_c->AHFA_item_position($item_id);
+    my $dot_position =
+        $position < 0 ? $grammar_c->rule_length($rule_id) : $position;
+    my $sort_key = $grammar_c->AHFA_item_sort_key($item_id);
+    my $text     = "AHFA item $item_id: ";
+    my @properties = ();
+    push @properties, "sort = $sort_key";
+    if ( $postdot_id < 0 ) {
+        push @properties, 'completion';
+    } else {
+        my $postdot_symbol_name =
+            $symbols->[$postdot_id]->[Marpa::XS::Internal::Symbol::NAME];
+        push @properties, qq{postdot = "$postdot_symbol_name"};
+    }
+    $text .= join q{; }, @properties;
+    $text .= "\n" . (q{ } x 4);
+    $text .= Marpa::XS::show_dotted_rule( $rule, $dot_position ) . "\n";
+    return $text;
+}
+
+sub Marpa::XS::Grammar::show_AHFA_items {
+    my ($grammar) = @_;
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $text      = q{};
+    my $count = $grammar_c->AHFA_item_count();
+    for my $AHFA_item_id ( 0 .. $count - 1 ) {
+        $text .= Marpa::XS::show_AHFA_item($grammar, $AHFA_item_id);
+    }
+    return $text;
+}
 
 sub Marpa::XS::show_NFA_state {
     my ($state) = @_;

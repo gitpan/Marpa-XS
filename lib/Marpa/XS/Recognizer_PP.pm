@@ -185,11 +185,6 @@ sub Marpa::XS::Recognizer::new {
         );
     } ## end if ($problems)
 
-    if ( $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] ) {
-        Marpa::XS::exception( "Attempt to parse grammar marked academic\n",
-            'Marpa::XS cannot proceed' );
-    }
-
     my $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE];
     if ( $phase != Marpa::XS::Internal::Phase::PRECOMPUTED ) {
         Marpa::XS::exception(

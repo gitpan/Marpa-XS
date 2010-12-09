@@ -600,13 +600,13 @@ static inline gint rule_is_valid(
 struct marpa_g *g, Marpa_Rule_ID rule_id);
 
 @*0 Grammar Start Symbol.
-@<Int aligned grammar elements@> = Marpa_Symbol_ID start_symbol;
+@<Int aligned grammar elements@> = Marpa_Symbol_ID start_symbol_id;
 @ @<Initialize grammar elements@> =
-g->start_symbol = -1;
+g->start_symbol_id = -1;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 Marpa_Symbol_ID marpa_start_symbol(struct marpa_g* g)
-{ return g->start_symbol; }
+{ return g->start_symbol_id; }
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_start_symbol(struct marpa_g* g);
 @ Returns |TRUE| on success,
@@ -623,7 +623,7 @@ gboolean marpa_start_symbol_set(struct marpa_g*g, Marpa_Symbol_ID id)
         g->error = "invalid start symbol";
 	return FALSE;
     }
-    g->start_symbol = id;
+    g->start_symbol_id = id;
     return TRUE;
 }
 @ @<Public function prototypes@> =
@@ -716,46 +716,6 @@ struct marpa_g*g, gboolean value)
 }
 @ @<Public function prototypes@> =
 gboolean marpa_is_lhs_terminal_ok_set( struct marpa_g*g, gboolean value);
-
-@*0 Grammar Boolean: Academic.
-Academic grammars are only of interest for maintenance,
-development and testing of changes to Marpa.
-Academic grammars for which the Marpa's usual
-precomputations are not done.
-Marpa produces an NFA and an AHFA for them exactly as is.
-\par
-Following Aycock-Horspool, Marpa needs its grammar to be
-rewritten if it is going to use it for parsing,
-so no rewrites means no useful parsing.
-Academic grammars
-can used on to produce the NFA and AHFA for the examples
-in the textbooks, exactly as they
-appear in the pages.
-This makes them useful for testing Marpa's precomputation.
-@<Bit aligned grammar elements@> = unsigned int is_academic:1;
-@ @<Initialize grammar elements@> =
-g->is_academic = FALSE;
-@ The internal accessor would be trivial, so there is none.
-@<Function definitions@> =
-gboolean marpa_is_academic(struct marpa_g* g)
-{ return g->is_academic; }
-@ @<Public function prototypes@> =
-gboolean marpa_is_academic(struct marpa_g* g);
-@ Returns |TRUE| on success,
-|FALSE| on failure.
-@<Function definitions@> =
-gboolean marpa_is_academic_set(
-struct marpa_g*g, gboolean value)
-{
-    if (g->is_precomputed) {
-        g->error = "precomputed";
-	return FALSE;
-    }
-    g->is_academic = value;
-    return TRUE;
-}
-@ @<Public function prototypes@> =
-gboolean marpa_is_academic_set( struct marpa_g*g, gboolean value);
 
 @*0 The Grammar's Context.
 The "context" is a hash of miscellaneous data,
@@ -2079,23 +2039,15 @@ which is external.
 struct marpa_g* marpa_precompute(struct marpa_g* g)
 {
      if (!census(g)) return NULL;
-     if (!g->is_academic) {
-	 if (!CHAF_rewrite(g)) return NULL;
-	 if (!g_augment(g)) return NULL;
-	loop_detect(g);
-    } else {
-       @<Mark all rules used@>@;
-    }
+     if (!CHAF_rewrite(g)) return NULL;
+     if (!g_augment(g)) return NULL;
+    loop_detect(g);
     create_AHFA_items(g);
+    create_AHFA_states(g);
      return g;
 }
 @ @<Public function prototypes@> =
 struct marpa_g* marpa_precompute(struct marpa_g* g);
-
-@ @<Mark all rules used@> =
-Marpa_Rule_ID rule_id;
-for (rule_id = 0; rule_id < g->rules->len; rule_id++)
-{ rule_id2p(g, rule_id)->is_used = 1; }
 
 @** The Grammar Census.
 
@@ -2195,7 +2147,7 @@ if (original_start_symbol->lhs->len <= 0) {
     return NULL;
 }
 @ @<Declare census variables@> =
-Marpa_Symbol_ID original_start_symbol_id = g->start_symbol;
+Marpa_Symbol_ID original_start_symbol_id = g->start_symbol_id;
 struct marpa_symbol* original_start_symbol;
 
 @ @<Census LHS symbols@> =
@@ -2327,9 +2279,9 @@ rhs_closure(g, productive_v);
 } }
 }
 @ @<Check that start symbol is productive@> =
-if (!bv_bit_test(productive_v, g->start_symbol))
+if (!bv_bit_test(productive_v, g->start_symbol_id))
 {
-    context_int_add(g, "symbol_id", g->start_symbol);
+    context_int_add(g, "symbol_id", g->start_symbol_id);
     g->error = "unproductive start symbol";
     return NULL;
 }
@@ -2864,7 +2816,7 @@ struct marpa_g* g_augment(struct marpa_g* g) {
     struct marpa_symbol* proper_old_start = NULL;
     struct marpa_symbol* nulling_old_start = NULL;
     struct marpa_symbol* proper_new_start = NULL;
-    struct marpa_symbol* old_start = symbol_id2p(g, g->start_symbol);
+    struct marpa_symbol* old_start = symbol_id2p(g, g->start_symbol_id);
     @<Find and classify the old start symbols@>@;
     if (proper_old_start) { @<Set up a new proper start rule@> }
     if (nulling_old_start) { @<Set up a new nulling start rule@> }
@@ -2888,7 +2840,7 @@ struct marpa_rule* new_start_rule;
 proper_old_start->is_start = 0;
 proper_new_start = symbol_new(g);
 proper_new_start_id = proper_new_start->id;
-g->start_symbol = proper_new_start_id;
+g->start_symbol_id = proper_new_start_id;
 proper_new_start->is_accessible = TRUE;
 proper_new_start->is_productive = TRUE;
 proper_new_start->is_start = TRUE;
@@ -2916,7 +2868,7 @@ if (proper_new_start) { /* There are two start symbols */
 } else { /* The only start symbol is a nulling symbol */
     nulling_new_start = symbol_new(g);
     nulling_new_start_id = nulling_new_start->id;
-    g->start_symbol = nulling_new_start_id;
+    g->start_symbol_id = nulling_new_start_id;
     nulling_new_start->is_nulling = TRUE;
     nulling_new_start->is_nullable = TRUE;
     nulling_new_start->is_productive = TRUE;
@@ -3223,7 +3175,7 @@ gint marpa_AHFA_item_position(struct marpa_g* g,
     @<Return |-2| on failure@>@/
     @<Fail if not precomputed@>@/
     @<Fail if |item_id| is invalid@>@/
-    return item_id2p(g, item_id)->rule->id;
+    return item_id2p(g, item_id)->position;
 }
 @ @<Public function prototypes@> =
 gint marpa_AHFA_item_position(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
@@ -3336,11 +3288,18 @@ g->AHFA_items_by_rule = items_by_rule; }
 @ The AHFA items were created with a temporary ID which sort them
 by rule, then by position within that rule.  We need one that sort the AHFA items
 by (from major to minor) postdot symbol, then rule, then position.
+A postdot symbol of $-1$ should sort high.
 @ @<Function definitions@> =
-static gint cmp_by_AHFA_item_id (gconstpointer a,
-	gconstpointer b, gpointer user_data) {
-    return ((struct AHFA_item*)a)->postdot - ((struct AHFA_item*)b)->postdot
-    || ((struct AHFA_item*)a)->sort_key - ((struct AHFA_item*)b)->sort_key ;
+static gint cmp_by_AHFA_item_id (gconstpointer ap,
+	gconstpointer bp, gpointer user_data) {
+    struct AHFA_item *a = *(struct AHFA_item**)ap;
+    struct AHFA_item *b = *(struct AHFA_item**)bp;
+    gint a_postdot = a->postdot;
+    gint b_postdot = b->postdot;
+    if (a_postdot == b_postdot) return a->sort_key - b->sort_key ;@#
+    if (a_postdot < 0) return 1;
+    if (b_postdot < 0) return -1;
+    return a_postdot-b_postdot;
 }
 @ @<Private function prototypes@> =
 static gint cmp_by_AHFA_item_id (gconstpointer a,
@@ -3362,6 +3321,9 @@ for (item_id = 0; item_id < no_of_items; item_id++) {
 g_free(sort_array); }
 
 @** AHFA States.
+@<Public typedefs@> =
+typedef gint Marpa_AHFA_State_ID;
+
 @ {\bf Estimating the number of AHFA States}: Based on the numbers given previously
 for Perl and HTML,
 I estimate that the $2s$ is a high-ball estimate of the number of AHFA states for
@@ -3386,13 +3348,83 @@ or $2s$.
 
 @<Private structures@> =
 struct AHFA_state {
-    struct AHFA_item* items;
+    struct AHFA_item** items;
     gint item_count;
     unsigned int is_reset:1;
 };
 @ @<Widely aligned grammar elements@> = struct AHFA_state* AHFA;
 @ @<Int aligned grammar elements@> = gint AHFA_len;
 @ @<Destroy grammar elements@> = if (g->AHFA) { STOLEN_DQUEUE_DATA_FREE(g->AHFA); }
+
+@ Internal accessor to find an AHFA state by its id.
+@<Function definitions@> =
+static inline struct AHFA_state*
+AHFA_state_id2p(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id)
+{ return g->AHFA+AHFA_state_id; };
+@ @<Private function prototypes@> =
+static inline struct AHFA_state*
+AHFA_state_id2p(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
+
+@ Check that symbol is in valid range.
+@<Function definitions@> =
+static inline gint AHFA_state_is_valid(
+struct marpa_g *g, Marpa_AHFA_State_ID AHFA_state_id) {
+return AHFA_state_id < g->AHFA_len && AHFA_state_id >= 0;
+}
+@ @<Private function prototypes@> =
+static inline gint AHFA_state_is_valid(
+struct marpa_g *g, Marpa_AHFA_State_ID AHFA_state_id);
+
+@*0 AHFA State External Accessors.
+@<Function definitions@> =
+gint
+marpa_AHFA_state_item_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id)
+{ @<Return |-1| on failure@>@/
+    struct AHFA_state* state;
+    @<Fail if not precomputed@>@/
+    @<Fail if |AHFA_state_id| is invalid@>@/
+    state = AHFA_state_id2p(g, AHFA_state_id);
+    return state->item_count;
+}
+@ @<Public function prototypes@> =
+gint marpa_AHFA_state_item_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
+
+@ @<Function definitions@> =
+Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
+     Marpa_AHFA_State_ID AHFA_state_id,
+	gint item_ix) {
+    struct AHFA_state* state;
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |AHFA_state_id| is invalid@>@/
+    state = AHFA_state_id2p(g, AHFA_state_id);
+    if (item_ix < 0 || item_ix >= state->item_count) {
+	context_clear(g);
+	context_int_add(g, "item_ix", item_ix);
+	context_int_add(g, "AHFA_state_id", AHFA_state_id);
+	g->error = "invalid state item ix";
+	return failure_indicator;
+    }
+    return state_item_ix2id(state, item_ix);
+}
+@ @<Public function prototypes@> =
+Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
+     Marpa_AHFA_State_ID AHFA_state_id,
+	gint item_ix);
+
+@ @<Function definitions@> =
+gint marpa_AHFA_state_is_reset(struct marpa_g* g,
+	Marpa_AHFA_State_ID AHFA_state_id) {
+    struct AHFA_state* state;
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |AHFA_state_id| is invalid@>@/
+    state = AHFA_state_id2p(g, AHFA_state_id);
+    return state->is_reset;
+}
+@ @<Public function prototypes@> =
+gint marpa_AHFA_state_is_reset(struct marpa_g* g,
+	Marpa_AHFA_State_ID AHFA_state_id);
 
 @ @<Function definitions@> =
 static inline
@@ -3413,24 +3445,47 @@ void create_AHFA_states(struct marpa_g* g) {
 @ @<Private function prototypes@> =
 static inline void create_AHFA_states(struct marpa_g* g);
 
-@ @<Construct initial AHFA state@> = {;}
+@ @<Construct initial AHFA state@> = {
+   Marpa_Rule_ID start_rule_id;
+   struct marpa_symbol* start_symbol = symbol_id2p(g, g->start_symbol_id);
+   struct marpa_symbol* start_alias
+       = symbol_null_alias(start_symbol);
+    gint no_of_items_in_state = start_alias ? 2 : 1;
+    struct AHFA_item ** item_list
+	= obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
+    start_rule_id = g_array_index(start_symbol->lhs, Marpa_Rule_ID, 0); /* Start rule
+	is the unique rule that has the start symbol as its LHS */
+    item_list[0] = g->AHFA_items_by_rule[start_rule_id]; /* Start item is the
+       initial item for the start rule */
+    if (start_alias) {
+       Marpa_Rule_ID alias_rule_id
+	    = g_array_index(start_alias->lhs, Marpa_Rule_ID, 0); /* Start alias
+	    rule is the unique rule that has
+	   the start alias as its LHS */
+	item_list[1] = g->AHFA_items_by_rule[alias_rule_id];
+    }
+    p_state->items = item_list;
+    p_state->item_count = no_of_items_in_state;
+}
 
 @ @<Process an AHFA state from the working stack@> = {
-gint no_of_items = state.item_count;
+gint no_of_items = p_state->item_count;
 gint current_item=0;
-struct AHFA_item *items = state.items;
-Marpa_Symbol_ID work_symbol = items[0].postdot; /*
+struct AHFA_item **items = p_state->items;
+Marpa_Symbol_ID work_symbol = items[0]->postdot; /*
     Every AHFA has at least one item */
 if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
     All items in this state are completions */
     while (1) { /* Loop over all items for this state */
 	gint first_item_for_working_symbol = current_item;
 	for (current_item++; current_item < no_of_items; current_item++) {
-	    if (items[current_item].postdot == work_symbol) break;
+	    if (items[current_item]->postdot == work_symbol) break;
 	}
 	switch (current_item - first_item_for_working_symbol) {
-	    case 1: @<Start a 1-item AHFA kernel state@>@/
-	    case 2: @<Start a 2-item AHFA kernel state@>@/
+	    case 1: @<Start a 1-item AHFA kernel state@>@;
+	    break;
+	    case 2: @<Start a 2-item AHFA kernel state@>@;
+	    break;
 	    default: @<Start an AHFA kernel state with 2+ items@>@/
 	}
 	/* $v_k$ will not be empty here */@/
@@ -3439,7 +3494,7 @@ if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
 	@<Compute non-kernel state@>@/
 	/* If $v_NK$ is not empty and is new, add it */@/
 	if (current_item >= no_of_items) break;
-	work_symbol = items[current_item].postdot;
+	work_symbol = items[current_item]->postdot;
 	if (work_symbol == -1) break;
     }@#
 NEXT_AHFA_STATE: ;
@@ -4301,6 +4356,13 @@ if (!item_is_valid(g, item_id)) {
     context_clear(g);
     context_int_add(g, "item_id", item_id);
     g->error = "invalid item id";
+    return failure_indicator;
+}
+@ @<Fail if |AHFA_state_id| is invalid@> =
+if (!AHFA_state_id_is_valid(g, AHFA_state_id)) {
+    context_clear(g);
+    context_int_add(g, "AHFA_state_id", AHFA_state_id);
+    g->error = "invalid AHFA state id";
     return failure_indicator;
 }
 

@@ -208,9 +208,6 @@ use Marpa::XS::Offset qw(
 
     PROBLEMS { fatal problems }
     START_STATES { ref to array of the start states }
-    ACADEMIC { true if this is a textbook grammar,
-    for checking the NFA and AHFA, and NOT
-    for actual Earley parsing }
 
     =LAST_RECOGNIZER_FIELD
 
@@ -354,7 +351,6 @@ sub Marpa::XS::Grammar::new {
     # set the defaults and the default defaults
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE] = *STDERR;
 
-    $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC]        = 0;
     $grammar->[Marpa::XS::Internal::Grammar::LHS_TERMINALS]   = 1;
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES]     = 0;
     $grammar->[Marpa::XS::Internal::Grammar::TRACING]         = 0;
@@ -378,7 +374,6 @@ sub Marpa::XS::Grammar::new {
 
 use constant GRAMMAR_OPTIONS => [
     qw{
-        academic
         action_object
         actions
         cycle_ranking_action
@@ -505,13 +500,6 @@ sub Marpa::XS::Grammar::set {
             $phase = $grammar->[Marpa::XS::Internal::Grammar::PHASE] =
                 Marpa::XS::Internal::Phase::RULES;
         } ## end if ( defined( my $value = $args->{'rules'} ) )
-
-        if ( defined( my $value = $args->{'academic'} ) ) {
-            Marpa::XS::exception(
-                'academic option not allowed after grammar is precomputed')
-                if $phase >= Marpa::XS::Internal::Phase::PRECOMPUTED;
-            $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] = $value;
-        } ## end if ( defined( my $value = $args->{'academic'} ) )
 
         if ( defined( my $value = $args->{'default_null_value'} ) ) {
             $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_NULL_VALUE] =
@@ -707,13 +695,8 @@ sub Marpa::XS::Grammar::precompute {
     productive($grammar);
     check_start($grammar) or return $grammar;
     accessible($grammar);
-    if ( $grammar->[Marpa::XS::Internal::Grammar::ACADEMIC] ) {
-        setup_academic_grammar($grammar);
-    }
-    else {
-        rewrite_as_CHAF($grammar);
-        detect_infinite($grammar);
-    }
+    rewrite_as_CHAF($grammar);
+    detect_infinite($grammar);
     create_NFA($grammar);
     create_AHFA($grammar);
     mark_leo_states($grammar);
@@ -2225,11 +2208,10 @@ sub detect_infinite {
 
 sub create_NFA {
     my $grammar = shift;
-    my ( $rules, $symbols, $start, $academic ) = @{$grammar}[
+    my ( $rules, $symbols, $start ) = @{$grammar}[
         Marpa::XS::Internal::Grammar::RULES,
         Marpa::XS::Internal::Grammar::SYMBOLS,
         Marpa::XS::Internal::Grammar::START,
-        Marpa::XS::Internal::Grammar::ACADEMIC
     ];
 
     # start rules are rules with the start symbol
@@ -2271,7 +2253,7 @@ sub create_NFA {
             Marpa::XS::Internal::Rule::ID, Marpa::XS::Internal::Rule::RHS,
             Marpa::XS::Internal::Rule::USED
         ];
-        next RULE if not $academic and not $useful;
+        next RULE if not $useful;
         for my $position ( 0 .. scalar @{$rhs} ) {
             my $new_state = [];
             @{$new_state}[
@@ -2676,18 +2658,6 @@ sub mark_leo_states {
 
     return;
 } ## end sub mark_leo_states
-
-sub setup_academic_grammar {
-    my $grammar = shift;
-    my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-
-    # in an academic grammar, consider all rules useful
-    for my $rule ( @{$rules} ) {
-        $rule->[Marpa::XS::Internal::Rule::USED] = 1;
-    }
-
-    return;
-} ## end sub setup_academic_grammar
 
 # given a nullable symbol, create a nulling alias and make the first symbol non-nullable
 sub alias_symbol {

@@ -35,15 +35,13 @@ BEGIN {
 # This time testing the stripped output
 
 my $g = Marpa::XS::Grammar->new(
-    {   start => q{S'},
+    {   start => 'S',
         rules => [
-            [ q{S'}, [qw/S/] ],
             [ 'S',   [qw/A A A A/] ],
             [ 'A',   [qw/a/] ],
             [ 'A',   [qw/E/] ],
             ['E'],
         ],
-        academic => 1,
     }
 );
 
@@ -52,19 +50,34 @@ $g->set( { terminals => ['a'] } );
 $g->precompute();
 
 Marpa::XS::Test::is( $g->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
-0: S' -> S /* stripped */
-1: S -> A A A A /* stripped */
-2: A -> a /* stripped */
-3: A -> E /* stripped */
-4: E -> /* empty stripped */
+0: S -> A A A A /* stripped !used */
+1: A -> a /* stripped */
+2: A -> E /* stripped !used */
+3: E -> /* empty stripped !used */
+4: S -> A S[R0:1] /* stripped vrhs real=1 */
+5: S -> A A[] A[] A[] /* stripped */
+6: S -> A[] S[R0:1] /* stripped vrhs real=1 */
+7: S[R0:1] -> A S[R0:2] /* stripped vlhs vrhs real=1 */
+8: S[R0:1] -> A A[] A[] /* stripped vlhs real=3 */
+9: S[R0:1] -> A[] S[R0:2] /* stripped vlhs vrhs real=1 */
+10: S[R0:2] -> A A /* stripped vlhs real=2 */
+11: S[R0:2] -> A A[] /* stripped vlhs real=2 */
+12: S[R0:2] -> A[] A /* stripped vlhs real=2 */
+13: S['] -> S /* stripped vlhs real=1 */
+14: S['][] -> /* empty stripped vlhs real=1 */
 EOS
 
 Marpa::XS::Test::is( $g->show_symbols, <<'EOS', 'Aycock/Horspool Symbols' );
-0: S', stripped nullable
-1: S, stripped nullable
-2: A, stripped nullable
-3: a, stripped terminal
-4: E, stripped nullable nulling
+0: S, stripped
+1: A, stripped
+2: a, stripped terminal
+3: E, stripped nullable nulling
+4: S[], stripped nullable nulling
+5: A[], stripped nullable nulling
+6: S[R0:1], stripped
+7: S[R0:2], stripped
+8: S['], stripped
+9: S['][], stripped nullable nulling
 EOS
 
 Marpa::XS::Test::is( $g->show_nullable_symbols, 'stripped_',

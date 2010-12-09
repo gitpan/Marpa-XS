@@ -93,6 +93,7 @@ html/t/score.t
 html/t/synopsis.t
 html/t/tang.t
 html/t/test.html
+html/xt/00-load.t
 html_pp_test.sh
 html_xs_test.sh
 inc/drafts/undocumented.list
@@ -103,8 +104,10 @@ inc/proof/ah2002_notes.lyx
 inc/proof/ah_to_leo.lyx
 inc/proof/proof.lyx
 lib/Marpa/XS.pm
+lib/Marpa/XS/Build_Me.pm
 lib/Marpa/XS/Callback.pm
 lib/Marpa/XS/Callback_PP.pm
+lib/Marpa/XS/Config.pm
 lib/Marpa/XS/Display.pm
 lib/Marpa/XS/Grammar.pm
 lib/Marpa/XS/Grammar_PP.pm
@@ -168,7 +171,6 @@ ppport.h
 t/00-load.t
 t/02-load_pp.t
 t/Makefile
-t/base/ah.t
 t/base/ah2.t
 t/base/ah_numeric.t
 t/base/chaf.t
@@ -183,8 +185,6 @@ t/base/duplicate_parse.t
 t/base/equation.t
 t/base/final_nonnullable.t
 t/base/gabend.t
-t/base/gj.t
-t/base/hu.t
 t/base/implementation.t
 t/base/infinite.t
 t/base/infinite2.t
@@ -210,7 +210,6 @@ t/base/syn_engine.t
 t/base/timeflies.t
 t/base/wall.t
 t/base/weaken.t
-t/pp/ah.t
 t/pp/ah2.t
 t/pp/ah_numeric.t
 t/pp/chaf.t
@@ -225,8 +224,6 @@ t/pp/duplicate_parse.t
 t/pp/equation.t
 t/pp/final_nonnullable.t
 t/pp/gabend.t
-t/pp/gj.t
-t/pp/hu.t
 t/pp/implementation.t
 t/pp/infinite.t
 t/pp/infinite2.t
@@ -253,8 +250,6 @@ t/pp/timeflies.t
 t/pp/wall.t
 t/pp/weaken.t
 t/stripped_pp.t
-t/stripped_xs.t
-t/xs/ah.t
 t/xs/ah2.t
 t/xs/ah_numeric.t
 t/xs/chaf.t
@@ -269,8 +264,6 @@ t/xs/duplicate_parse.t
 t/xs/equation.t
 t/xs/final_nonnullable.t
 t/xs/gabend.t
-t/xs/gj.t
-t/xs/hu.t
 t/xs/implementation.t
 t/xs/infinite.t
 t/xs/infinite2.t

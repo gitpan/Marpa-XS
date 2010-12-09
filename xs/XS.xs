@@ -282,26 +282,6 @@ PPCODE:
     }
 
 void
-is_academic_set( g, boolean )
-    Grammar *g;
-    int boolean;
-PPCODE:
-    { gboolean result = marpa_is_academic_set(
-	g, (boolean ? TRUE : FALSE));
-    if (result) XSRETURN_YES;
-    }
-    XSRETURN_NO;
-
-void
-is_academic( g )
-    Grammar *g;
-PPCODE:
-    { gboolean boolean = marpa_is_academic( g );
-    if (boolean) XSRETURN_YES;
-    XSRETURN_NO;
-    }
-
-void
 is_lhs_terminal_ok_set( g, boolean )
     Grammar *g;
     int boolean;
@@ -793,15 +773,13 @@ OUTPUT:
     RETVAL
 
  # -1 is a valid return value, and -2 indicates an error
- # but I do not differentiate here
 Marpa_Symbol_ID
 AHFA_item_postdot( g, item_id )
     Grammar *g;
     Marpa_AHFA_Item_ID item_id;
 CODE:
     RETVAL = marpa_AHFA_item_postdot(g, item_id);
-    if (RETVAL == -1) { XSRETURN_UNDEF; }
-    if (RETVAL <= -2) { croak("Invalid item %d", item_id); }
+    if (RETVAL <= -2) { XSRETURN_UNDEF; }
 OUTPUT:
     RETVAL
 
