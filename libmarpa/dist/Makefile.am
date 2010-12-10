@@ -14,9 +14,13 @@
 # http://www.gnu.org/licenses/.
 
 ## Makefile.am -- Process this file with automake to produce Makefile.in
+
+ACLOCAL_AMFLAGS = -I m4
+EXTRA_DIST = README
 noinst_LTLIBRARIES = libmarpa.la
 libmarpa_la_SOURCES = marpa_obs.c marpa.c standalone.c
 libmarpa_la_LIBADD = $(LIBOBJS)
 libmarpa_la_CFLAGS = $(GLIB_CFLAGS)
 include_HEADERS = marpa.h marpa_obs.h
+
 

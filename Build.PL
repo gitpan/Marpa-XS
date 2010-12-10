@@ -27,7 +27,7 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-use lib File::Spec->catdir('lib');
+use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
 use Marpa::XS::Config;
 
@@ -75,9 +75,7 @@ my @no_index_namespace_inclusive = (
 
 my @files_to_cleanup = (
     'lib/Marpa/XS/Version.pm',      'lib/Marpa/XS/Perl/Version.pm',
-    'lib/Marpa/XS.o',               'libmarpa/main/autoscan.log',
-    'libmarpa/main/configure.scan', 'libmarpa/main/build',
-    'libmarpa/main/autom4te.cache',
+    'lib/Marpa/XS.o',               'libmarpa/main/build',
 );
 
 my $build = Marpa::XS::Build_Me->new(
@@ -92,16 +90,16 @@ my $build = Marpa::XS::Build_Me->new(
     build_requires     => \%build_requires,
     dynamic_config     => 1,
     extra_compiler_flags =>
-        "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/main/src",
+        "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/dist",
     extra_linker_flags =>
-        "$glib_2_0_linker_flags libmarpa/main/build/src/.libs/libmarpa.a",
+        "$glib_2_0_linker_flags libmarpa/build/.libs/libmarpa.a",
     PL_files   => {},
     xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
         no_index => {
-            directory => [qw( inc t html devlib author.t )],
+            directory => [qw( config inc t html devlib author.t )],
             namespace => [
                 'Marpa::XS::Recognizer', 'Marpa::XS::Grammar',
                 @no_index_namespace_inclusive

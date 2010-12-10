@@ -13,9 +13,30 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-## Makefile.am -- Process this file with automake to produce Makefile.in
+use 5.010;
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS= src
-EXTRA_DIST = README
+package Marpa::XS;
+
+# This file is editable.  It is used during the
+# configuration process to set up version information.
+
+use strict;
+use warnings;
+
+%Marpa::XS::VERSION_FOR_CONFIG = (
+    'Scalar::Util'        => 1.21,
+    'List::Util'          => 1.21,
+    'Carp'                => 1.08,
+    'Data::Dumper'        => '2.125',
+    'Storable'            => 2.21,
+    'Marpa::XS'           => '0.001_019',
+    'PPI'                 => '1.206',
+    'Test::Weaken'        => '3.004000',
+    'Task::Weaken'        => '0',
+    'ExtUtils::PkgConfig' => 1.12,
+    'Module::Build'       => 0.3601,
+    'ExtUtils::CBuilder'  => 0.27,
+    'Test::More'          => 0.94,
+    'Glib'                => 1.223,
+);
 

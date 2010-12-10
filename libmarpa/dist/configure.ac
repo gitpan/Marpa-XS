@@ -59,7 +59,7 @@ AC_INIT([marpa], [marpa_version],
 
 AC_CONFIG_MACRO_DIR([m4])
 
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([foreign])
 
 # Specify a configuration file
 AC_CONFIG_HEADERS([config.h])
@@ -108,12 +108,18 @@ AC_ARG_ENABLE(debug,
               enable_debug=marpa_debug_default)
 
 LT_INIT
+
+# Checks for programs.
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_LN_S
 
-AC_C_INLINE
+# Checks for header files.
+AC_CHECK_HEADERS([inttypes.h stddef.h stdint.h stdlib.h string.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_TYPE_SIZE_T
 
 # The following logic,
 # for detailed checking of inline capabilities,
@@ -203,6 +209,6 @@ AC_DEFINE_UNQUOTED( [MARPA_CAN_INLINE], $marpa_cv_can_inline, [Does header inlin
 PKG_PROG_PKG_CONFIG([0.22])
 PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.6.0] )
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 

@@ -338,6 +338,7 @@ PPCODE:
     }
     }
 
+ # In scalar context, returns the RHS length
 void
 symbol_rhs_rule_ids( g, symbol_id )
     Grammar *g;
@@ -732,6 +733,16 @@ CODE:
 OUTPUT:
     RETVAL
 
+Marpa_Rule_ID
+semantic_equivalent( g, rule_id )
+    Grammar *g;
+    Marpa_Rule_ID rule_id;
+CODE:
+    RETVAL = marpa_rule_semantic_equivalent(g, rule_id);
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
 int
 AHFA_item_count( g )
     Grammar *g;
@@ -783,15 +794,37 @@ CODE:
 OUTPUT:
     RETVAL
 
-Marpa_Rule_ID
-semantic_equivalent( g, rule_id )
+ # In scalar context, returns the count
+void
+AHFA_state_items( g, AHFA_state_id )
     Grammar *g;
-    Marpa_Rule_ID rule_id;
-CODE:
-    RETVAL = marpa_rule_semantic_equivalent(g, rule_id);
-    if (RETVAL < 0) { XSRETURN_UNDEF; }
-OUTPUT:
-    RETVAL
+    Marpa_AHFA_State_ID AHFA_state_id;
+PPCODE:
+    { gint count = marpa_AHFA_state_item_count(g, AHFA_state_id);
+    if (count < 0) { croak("Invalid AHFA state %d", AHFA_state_id); }
+    if (GIMME == G_ARRAY) {
+        gint item_ix;
+        EXTEND(SP, count);
+        for (item_ix = 0; item_ix < count; item_ix++) {
+	    Marpa_AHFA_Item_ID item_id
+		= marpa_AHFA_state_item(g, AHFA_state_id, item_ix);
+            PUSHs( sv_2mortal( newSViv(item_id) ) );
+        }
+    } else {
+        XPUSHs( sv_2mortal( newSViv(count) ) );
+    }
+    }
+
+void
+AHFA_state_is_reset( g, AHFA_state_id )
+    Grammar *g;
+    Marpa_AHFA_State_ID AHFA_state_id;
+PPCODE:
+    { gint result = marpa_AHFA_state_is_reset( g, AHFA_state_id );
+    if (result == -1) { croak("Invalid AHFA state %d", AHFA_state_id); }
+    if (result) XSRETURN_YES;
+    XSRETURN_NO;
+    }
 
 void
 context( g, key )

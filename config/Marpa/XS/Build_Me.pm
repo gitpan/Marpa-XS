@@ -78,11 +78,11 @@ sub do_libmarpa {
     my $cwd      = $self->cwd();
     my $base_dir = $self->base_dir();
     my $libmarpa_dir =
-	File::Spec->catdir( $base_dir, qw(libmarpa main build) );
+	File::Spec->catdir( $base_dir, qw(libmarpa build) );
     -d $libmarpa_dir or mkdir $libmarpa_dir;
     chdir $libmarpa_dir;
     my $updir = File::Spec->updir();
-    my $configure_script = File::Spec->catfile( $updir, 'configure' );
+    my $configure_script = File::Spec->catfile( $updir, 'dist', 'configure' );
     if ( not -r 'stamp-h1' ) {
 	print "Configuring libmarpa\n" if $self->verbose();
 	my $shell = $Config{sh};
