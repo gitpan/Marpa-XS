@@ -21,7 +21,7 @@ use strict;
 use warnings;
 
 use Fatal qw(open close);
-use Test::More tests => 9;
+use Test::More tests => 10;
 
 use Marpa::XS::Test;
 
@@ -123,6 +123,15 @@ Marpa::XS::Test::is( $show_rules_output,
 END_RULES
 
 # Marpa::XS::Display::End
+
+SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+
+Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Implementation Example New AHFA States' );
+S0:
+Expression['] -> . Expression
+EOS
+
+} ## SKIP of XS tests
 
 my $show_AHFA_output = $grammar->show_AHFA();
 

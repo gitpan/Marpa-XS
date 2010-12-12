@@ -538,8 +538,8 @@ sequence_new( g, lhs, rhs, args )
 PREINIT:
     Marpa_Rule_ID new_rule_id;
     Marpa_Symbol_ID separator = -1;
-    int min = 1;
-    int flags = 0;
+    guint min = 1;
+    gint flags = 0;
 PPCODE:
     if (args) {
 	I32 retlen;
@@ -552,7 +552,11 @@ PPCODE:
 		continue;
 	    }
 	    if ((*key == 'm') && strnEQ(key, "min", retlen)) {
-		min = SvIV(arg_value);
+		gint raw_min = SvIV(arg_value);
+		if (raw_min < 0) {
+		    croak("sequence_new(): min cannot be less than 0");
+		}
+		min = raw_min;
 		continue;
 	    }
 	    if ((*key == 'p') && strnEQ(key, "proper", retlen)) {
@@ -794,6 +798,15 @@ CODE:
 OUTPUT:
     RETVAL
 
+int
+AHFA_state_count( g )
+    Grammar *g;
+CODE:
+    RETVAL = marpa_AHFA_state_count(g );
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
+
  # In scalar context, returns the count
 void
 AHFA_state_items( g, AHFA_state_id )
@@ -803,7 +816,7 @@ PPCODE:
     { gint count = marpa_AHFA_state_item_count(g, AHFA_state_id);
     if (count < 0) { croak("Invalid AHFA state %d", AHFA_state_id); }
     if (GIMME == G_ARRAY) {
-        gint item_ix;
+        guint item_ix;
         EXTEND(SP, count);
         for (item_ix = 0; item_ix < count; item_ix++) {
 	    Marpa_AHFA_Item_ID item_id

@@ -19,7 +19,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 11;
+use Test::More tests => 12;
 
 use Marpa::XS::Test;
 
@@ -123,6 +123,15 @@ Marpa::XS::Test::is( $grammar->show_rules,
 4: E -> Number
 5: E['] -> E /* vlhs real=1 */
 END_RULES
+
+SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+
+Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Minuses Equation New AHFA States' );
+S0:
+E['] -> . E
+EOS
+
+} ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_AHFA', 'Minuses Equation AHFA' );

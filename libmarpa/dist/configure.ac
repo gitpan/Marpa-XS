@@ -103,7 +103,7 @@ AC_SUBST(LT_CURRENT_MINUS_AGE)
 
 dnl declare --enable-* args and collect ac_help strings
 AC_ARG_ENABLE(debug,
-              AC_HELP_STRING([--enable-debug=@<:@no/minimum/yes@:>@],
+              AS_HELP_STRING([--enable-debug=@<:@no/minimum/yes@:>@],
                              [turn on debugging @<:@default=marpa_debug_default@:>@]),,
               enable_debug=marpa_debug_default)
 
@@ -120,6 +120,22 @@ AC_CHECK_HEADERS([inttypes.h stddef.h stdint.h stdlib.h string.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
+
+if test x"$GCC" = xyes; then
+  WARNING_CFLAGS="-Wall \
+    -Wextra \
+    -Wpointer-arith \
+    -Wstrict-prototypes \
+    -Wwrite-strings \
+    -Wdeclaration-after-statement \
+    -Wshadow \
+    -Winline \
+    -Wmissing-declarations \
+    -Wconversion \
+    -ansi -pedantic"
+fi
+
+AC_SUBST(WARNING_CFLAGS)
 
 # The following logic,
 # for detailed checking of inline capabilities,

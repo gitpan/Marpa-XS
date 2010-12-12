@@ -19,7 +19,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 15;
 
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
@@ -136,14 +136,20 @@ Marpa::XS::Test::is( ${$actual_ref},
 2: E['] -> E /* vlhs real=1 */
 END_RULES
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+SKIP: { skip 'Not using XS', 2 if not $Marpa::XS::USING_XS ;
+
+Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Ambiguous Equation New AHFA Items' );
+S0:
+E['] -> . E
+EOS
 
 $actual_ref = save_stdout();
 
 print $grammar->show_AHFA_items()
     or die "print failed: $ERRNO";
 
-Marpa::XS::Test::is( $grammar->show_AHFA_items(), <<'EOS', 'Aycock/Horspool AHFA Items' );
+Marpa::XS::Test::is( ${$actual_ref},
+    <<'EOS', 'Ambiguous Equation AHFA States' );
 AHFA item 0: sort = 0; postdot = "E"
     E -> . E Op E
 AHFA item 1: sort = 3; postdot = "Op"
@@ -162,7 +168,7 @@ AHFA item 7: sort = 7; completion
     E['] -> E .
 EOS
 
-} ## SKIP
+} ## SKIP of XS tests
 
 $actual_ref = save_stdout();
 

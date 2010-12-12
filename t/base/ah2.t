@@ -22,7 +22,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 32;
+use Test::More tests => 33;
 use Marpa::XS::Test;
 
 BEGIN {
@@ -112,7 +112,8 @@ Marpa::XS::Test::is(
     'Aycock/Horspool Accessible Symbols'
 );
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+SKIP: { skip 'Not using XS', 2 if not $Marpa::XS::USING_XS ;
+
 Marpa::XS::Test::is( $grammar->show_AHFA_items(), <<'EOS', 'Aycock/Horspool AHFA Items' );
 AHFA item 0: sort = 9; postdot = "a"
     A -> . a
@@ -167,7 +168,14 @@ AHFA item 24: sort = 24; completion
 AHFA item 25: sort = 25; completion
     S['][] -> .
 EOS
-}
+
+Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Aycock/Horspool New AHFA States' );
+S0:
+S['] -> . S
+S['][] -> .
+EOS
+
+} ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_NFA, <<'EOS', 'Aycock/Horspool NFA' );
 S0: /* empty */

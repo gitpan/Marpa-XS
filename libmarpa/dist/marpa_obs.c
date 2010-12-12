@@ -325,6 +325,7 @@ _marpa_obs_allocated_p (struct obstack *h, void *obj)
 
 /* The function name is overriden by a define, which we must
  * in order to actually define the function.
+ */
 #undef marpa_obs_free
 
 /* Free objects in obstack H, including OBJ and everything allocate

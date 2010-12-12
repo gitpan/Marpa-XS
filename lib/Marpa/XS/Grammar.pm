@@ -1061,14 +1061,8 @@ sub Marpa::XS::show_item {
 sub Marpa::XS::show_AHFA_item {
     my ( $grammar, $item_id ) = @_;
     my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rules      = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     my $symbols    = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
     my $postdot_id = $grammar_c->AHFA_item_postdot($item_id);
-    my $rule_id    = $grammar_c->AHFA_item_rule($item_id);
-    my $rule       = $rules->[$rule_id];
-    my $position   = $grammar_c->AHFA_item_position($item_id);
-    my $dot_position =
-        $position < 0 ? $grammar_c->rule_length($rule_id) : $position;
     my $sort_key = $grammar_c->AHFA_item_sort_key($item_id);
     my $text     = "AHFA item $item_id: ";
     my @properties = ();
@@ -1082,7 +1076,36 @@ sub Marpa::XS::show_AHFA_item {
     }
     $text .= join q{; }, @properties;
     $text .= "\n" . (q{ } x 4);
-    $text .= Marpa::XS::show_dotted_rule( $rule, $dot_position ) . "\n";
+    $text .= Marpa::XS::show_brief_AHFA_item($grammar, $item_id) . "\n";
+    return $text;
+}
+
+sub Marpa::XS::show_brief_AHFA_item {
+    my ( $grammar, $item_id ) = @_;
+    my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules      = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $postdot_id = $grammar_c->AHFA_item_postdot($item_id);
+    my $rule_id    = $grammar_c->AHFA_item_rule($item_id);
+    my $rule       = $rules->[$rule_id];
+    my $position   = $grammar_c->AHFA_item_position($item_id);
+    my $dot_position =
+        $position < 0 ? $grammar_c->rule_length($rule_id) : $position;
+    return Marpa::XS::show_dotted_rule( $rule, $dot_position );
+}
+
+sub Marpa::XS::Grammar::show_new_AHFA {
+    my ( $grammar ) = @_;
+    my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $text = q{};
+    my $AHFA_state_count = $grammar_c->AHFA_state_count();
+    for (my $state_id = 0; $state_id < $AHFA_state_count; $state_id++) {
+         $text .= "S$state_id:";
+	 $grammar_c->AHFA_state_is_reset($state_id) and $text .= " reset";
+	 $text .= "\n";
+	 for my $item_id ($grammar_c->AHFA_state_items($state_id)) {
+	      $text .= Marpa::XS::show_brief_AHFA_item($grammar, $item_id) . "\n";
+	 }
+    }
     return $text;
 }
 

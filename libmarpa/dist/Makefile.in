@@ -204,6 +204,7 @@ SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 VERSION = @VERSION@
+WARNING_CFLAGS = @WARNING_CFLAGS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -257,12 +258,13 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+AM_CFLAGS = $(WARNING_CFLAGS)
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = README
 noinst_LTLIBRARIES = libmarpa.la
 libmarpa_la_SOURCES = marpa_obs.c marpa.c standalone.c
 libmarpa_la_LIBADD = $(LIBOBJS)
-libmarpa_la_CFLAGS = $(GLIB_CFLAGS)
+libmarpa_la_CFLAGS = $(GLIB_CFLAGS) $(WARNING_CFLAGS)
 include_HEADERS = marpa.h marpa_obs.h
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
