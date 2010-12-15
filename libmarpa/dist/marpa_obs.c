@@ -306,7 +306,7 @@ _marpa_obs_newchunk (struct obstack *h, int length)
 int marpa_obs_allocated_p (struct obstack *h, void *obj);
 
 int
-_marpa_obs_allocated_p (struct obstack *h, void *obj)
+marpa_obs_allocated_p (struct obstack *h, void *obj)
 {
   register struct _obstack_chunk *lp;	/* below addr of any objects in this chunk */
   register struct _obstack_chunk *plp;	/* point to previous chunk if any */

@@ -1099,8 +1099,8 @@ sub Marpa::XS::Grammar::show_new_AHFA {
     my $text = q{};
     my $AHFA_state_count = $grammar_c->AHFA_state_count();
     for (my $state_id = 0; $state_id < $AHFA_state_count; $state_id++) {
-         $text .= "S$state_id:";
-	 $grammar_c->AHFA_state_is_reset($state_id) and $text .= " reset";
+         $text .= "* S$state_id:";
+	 $grammar_c->AHFA_state_is_predict($state_id) and $text .= " predict";
 	 $text .= "\n";
 	 for my $item_id ($grammar_c->AHFA_state_items($state_id)) {
 	      $text .= Marpa::XS::show_brief_AHFA_item($grammar, $item_id) . "\n";
@@ -1179,7 +1179,7 @@ sub Marpa::XS::show_AHFA_state {
     my $text     = q{};
     my $stripped = $#{$state} < Marpa::XS::Internal::AHFA::LAST_FIELD;
 
-    $text .= Marpa::XS::brief_AHFA_state($state) . ':';
+    $text .= '* ' . Marpa::XS::brief_AHFA_state($state) . ':';
 
     my @tags = ();
     $state->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] and push @tags, 'leo-c';

@@ -29,19 +29,18 @@ use English qw( -no_match_vars );
 
 use Marpa::XS::Config;
 
-my $marpa_xs_version = $Marpa::XS::VERSION_FOR_CONFIG{'Marpa::XS'};
-
 my @marpa_xs_use =
     qw( Scalar::Util List::Util Carp Data::Dumper Storable Glib );
 my @marpa_xs_perl_use = qw( Scalar::Util Carp Data::Dumper PPI Marpa::XS );
 
 sub version_contents {
-    my ( $package, @use_packages ) = @_;
+    my ( $self, $package, @use_packages ) = @_;
     my $text = <<'END_OF_STRING';
 # This file is written by Build.PL
 # It is not intended to be modified directly
 END_OF_STRING
 
+    my $marpa_xs_version = $self->dist_version();
     $text .= "package $package;\n";
     $text .= "BEGIN {\n";
     ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
@@ -58,9 +57,6 @@ END_OF_STRING
     return $text;
 } ## end sub version_contents
 
-my $perl_version_pm = version_contents( 'Marpa::XS::Perl', @marpa_xs_perl_use );
-my $version_pm = version_contents( 'Marpa::XS', @marpa_xs_use );
-
 sub write_file {
     my ($self, $contents, @name_components) = @_;
     my $base_dir     = $self->base_dir();
@@ -71,6 +67,114 @@ sub write_file {
     open my $fh, q{>}, $path_name;
     print {$fh} $contents;
     close $fh;
+}
+
+# This is based on _infer_xs_spec() from Module::Build.  It was
+# copied here in order to be customized
+sub marpa_infer_xs_spec {
+  my $self = shift;
+  my $file = shift;
+
+  my $cf = $self->{config};
+
+  my %spec;
+
+  my( $v, $d, $f ) = File::Spec->splitpath( $file );
+  my @d = File::Spec->splitdir( $d );
+  (my $file_base = $f) =~ s/\.[^.]+$//i;
+
+  $spec{base_name} = $file_base;
+
+  $spec{src_dir} = File::Spec->catpath( $v, $d, '' );
+
+  # the module name
+  shift( @d ) while @d && ($d[0] eq 'lib' || $d[0] eq '');
+  pop( @d ) while @d && $d[-1] eq '';
+  $spec{module_name} = join( '::', (@d, $file_base) );
+
+  $spec{archdir} = File::Spec->catdir($self->blib, 'arch', 'auto',
+				      @d, $file_base);
+
+  $spec{bs_file} = File::Spec->catfile($spec{archdir}, "${file_base}.bs");
+
+  $spec{lib_file} = File::Spec->catfile($spec{archdir},
+					"${file_base}.".$cf->get('dlext'));
+
+  $spec{c_file} = File::Spec->catfile( $spec{src_dir},
+				       "${file_base}.c" );
+
+  $spec{obj_file} = File::Spec->catfile( $spec{src_dir},
+					 "${file_base}".$cf->get('obj_ext') );
+
+  return \%spec;
+}
+
+# The following initially copied from Module::Build, to be customized for
+# Marpa.
+sub process_xs {
+  my ($self, $file) = @_;
+
+  my $spec = marpa_infer_xs_spec($self, $file);
+
+  # File name, minus the suffix
+  (my $file_base = $file) =~ s/\.[^.]+$//;
+
+  # .xs -> .c
+  $self->add_to_cleanup($spec->{c_file});
+
+  unless ($self->up_to_date(['typemap', 'Build.PL', $file], $spec->{c_file})) {
+    $self->compile_xs($file, outfile => $spec->{c_file});
+  }
+
+  # .c -> .o
+  my $v = $self->dist_version;
+  $self->compile_c($spec->{c_file},
+		   defines => {VERSION => qq{"$v"}, XS_VERSION => qq{"$v"}});
+
+  # archdir
+  File::Path::mkpath($spec->{archdir}, 0, oct(777)) unless -d $spec->{archdir};
+
+  # .xs -> .bs
+  $self->add_to_cleanup($spec->{bs_file});
+    unless ( $self->up_to_date( $file, $spec->{bs_file}))
+    {
+	require ExtUtils::Mkbootstrap;
+	$self->log_info(
+	    "ExtUtils::Mkbootstrap::Mkbootstrap('$spec->{bs_file}')\n");
+	ExtUtils::Mkbootstrap::Mkbootstrap( $spec->{bs_file} )
+	    ;    # Original had $BSLOADLIBS - what's that?
+	{ my $fh = IO::File->new(">> $spec->{bs_file}") }    # create
+	utime( (time) x 2, $spec->{bs_file} );               # touch
+    }
+
+  # .o -> .(a|bundle)
+  marpa_link_c($self, $spec);
+}
+
+# The following was initially copied from Module::Build, and have
+# been customized for Marpa.
+sub marpa_link_c {
+  my ($self, $spec) = @_;
+  my $p = $self->{properties}; # For convenience
+
+  $self->add_to_cleanup($spec->{lib_file});
+
+  my $objects = $p->{objects} || [];
+
+    return $spec->{lib_file}
+	if $self->up_to_date(
+	[ $spec->{obj_file}, @$objects, 'libmarpa/build/.libs/libmarpa.a' ],
+	$spec->{lib_file} );
+
+  my $module_name = $spec->{module_name} || $self->module_name;
+
+  $self->cbuilder->link(
+    module_name => $module_name,
+    objects     => [$spec->{obj_file}, @$objects],
+    lib_file    => $spec->{lib_file},
+    extra_linker_flags => $p->{extra_linker_flags} );
+
+  return $spec->{lib_file};
 }
 
 sub do_libmarpa {
@@ -148,6 +252,7 @@ sub ACTION_dist {
 	local $RS = undef;
 	<$fh>;
     };
+    my $marpa_xs_version = $self->dist_version();
     die qq{"$marpa_xs_version" not in Changes file}
 	if 0 > index $changes, $marpa_xs_version;
     $self->SUPER::ACTION_dist;
@@ -156,6 +261,8 @@ sub ACTION_dist {
 sub ACTION_code {
     my $self = shift;
     say STDERR "Writing version files";
+    my $perl_version_pm = version_contents( $self, 'Marpa::XS::Perl', @marpa_xs_perl_use );
+    my $version_pm = version_contents( $self, 'Marpa::XS', @marpa_xs_use );
     $self->write_file($version_pm, qw(lib Marpa XS Version.pm) );
     $self->write_file($perl_version_pm, qw(lib Marpa XS Perl Version.pm) );
     $self->do_libmarpa();

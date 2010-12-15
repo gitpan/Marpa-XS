@@ -127,8 +127,14 @@ END_RULES
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Implementation Example New AHFA States' );
-S0:
+* S0:
 Expression['] -> . Expression
+* S1: predict
+Expression -> . Term
+Term -> . Factor
+Factor -> . Number
+Term -> . Term Add Term
+Factor -> . Factor Multiply Factor
 EOS
 
 } ## SKIP of XS tests
@@ -143,10 +149,10 @@ my $show_AHFA_output = $grammar->show_AHFA();
 Marpa::XS::Test::is( $show_AHFA_output,
     <<'END_AHFA', 'Implementation Example AHFA' );
 Start States: S0; S1
-S0:
+* S0:
 Expression['] -> . Expression
  <Expression> => S2; leo(Expression['])
-S1: predict
+* S1: predict
 Expression -> . Term
 Term -> . Factor
 Factor -> . Number
@@ -155,30 +161,30 @@ Factor -> . Factor Multiply Factor
  <Factor> => S3
  <Number> => S4
  <Term> => S5
-S2: leo-c
+* S2: leo-c
 Expression['] -> Expression .
-S3:
+* S3:
 Term -> Factor .
 Factor -> Factor . Multiply Factor
  <Multiply> => S6; S7
-S4:
+* S4:
 Factor -> Number .
-S5:
+* S5:
 Expression -> Term .
 Term -> Term . Add Term
  <Add> => S8; S9
-S6:
+* S6:
 Factor -> Factor Multiply . Factor
  <Factor> => S10; leo(Factor)
-S7: predict
+* S7: predict
 Factor -> . Number
 Factor -> . Factor Multiply Factor
  <Factor> => S11
  <Number> => S4
-S8:
+* S8:
 Term -> Term Add . Term
  <Term> => S12; leo(Term)
-S9: predict
+* S9: predict
 Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
@@ -186,14 +192,14 @@ Factor -> . Factor Multiply Factor
  <Factor> => S3
  <Number> => S4
  <Term> => S13
-S10: leo-c
+* S10: leo-c
 Factor -> Factor Multiply Factor .
-S11:
+* S11:
 Factor -> Factor . Multiply Factor
  <Multiply> => S6; S7
-S12: leo-c
+* S12: leo-c
 Term -> Term Add Term .
-S13:
+* S13:
 Term -> Term . Add Term
  <Add> => S8; S9
 END_AHFA

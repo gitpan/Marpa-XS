@@ -27,6 +27,8 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
+my $marpa_xs_version = '0.001_024';
+    
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
 use Marpa::XS::Config;
@@ -36,9 +38,6 @@ my $gperl_h_location = $Glib::Install::Files::CORE;
 my %glib2_info              = ExtUtils::PkgConfig->find('glib-2.0');
 my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
-
-my $marpa_xs_version      = $Marpa::XS::VERSION_FOR_CONFIG{'Marpa::XS'};
-my $marpa_xs_perl_version = $marpa_xs_version;
 
 my %build_requires =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( ExtUtils::CBuilder Test::More );

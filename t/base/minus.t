@@ -127,8 +127,14 @@ END_RULES
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Minuses Equation New AHFA States' );
-S0:
+* S0:
 E['] -> . E
+* S1: predict
+E -> . E Minus E
+E -> . E MinusMinus
+E -> . MinusMinus E
+E -> . Minus E
+E -> . Number
 EOS
 
 } ## SKIP of XS tests
@@ -136,10 +142,10 @@ EOS
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_AHFA', 'Minuses Equation AHFA' );
 Start States: S0; S1
-S0:
+* S0:
 E['] -> . E
  <E> => S2; leo(E['])
-S1: predict
+* S1: predict
 E -> . E Minus E
 E -> . E MinusMinus
 E -> . MinusMinus E
@@ -149,31 +155,31 @@ E -> . Number
  <Minus> => S1; S4
  <MinusMinus> => S1; S5
  <Number> => S6
-S2: leo-c
+* S2: leo-c
 E['] -> E .
-S3:
+* S3:
 E -> E . Minus E
 E -> E . MinusMinus
  <Minus> => S1; S7
  <MinusMinus> => S8
-S4:
+* S4:
 E -> Minus . E
  <E> => S9; leo(E)
-S5:
+* S5:
 E -> MinusMinus . E
  <E> => S10; leo(E)
-S6:
+* S6:
 E -> Number .
-S7:
+* S7:
 E -> E Minus . E
  <E> => S11; leo(E)
-S8:
+* S8:
 E -> E MinusMinus .
-S9: leo-c
+* S9: leo-c
 E -> Minus E .
-S10: leo-c
+* S10: leo-c
 E -> MinusMinus E .
-S11: leo-c
+* S11: leo-c
 E -> E Minus E .
 END_AHFA
 

@@ -170,9 +170,20 @@ AHFA item 25: sort = 25; completion
 EOS
 
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Aycock/Horspool New AHFA States' );
-S0:
+* S0:
 S['] -> . S
 S['][] -> .
+* S1: predict
+A -> . a
+S -> . A S[R0:1]
+S -> . A A[] A[] A[]
+S -> A[] . S[R0:1]
+S[R0:1] -> . A S[R0:2]
+S[R0:1] -> . A A[] A[]
+S[R0:1] -> A[] . S[R0:2]
+S[R0:2] -> . A A
+S[R0:2] -> . A A[]
+S[R0:2] -> A[] . A
 EOS
 
 } ## SKIP of XS tests
@@ -264,11 +275,11 @@ EOS
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'EOS', 'Aycock/Horspool AHFA' );
 Start States: S0; S1
-S0:
+* S0:
 S['] -> . S
 S['][] -> .
  <S> => S2; leo(S['])
-S1: predict
+* S1: predict
 A -> . a
 S -> . A S[R0:1]
 S -> . A A[] A[] A[]
@@ -283,9 +294,9 @@ S[R0:2] -> A[] . A
  <S[R0:1]> => S5; leo(S)
  <S[R0:2]> => S6; leo(S[R0:1])
  <a> => S7
-S2: leo-c
+* S2: leo-c
 S['] -> S .
-S3:
+* S3:
 S -> A . S[R0:1]
 S -> A A[] A[] A[] .
 S[R0:1] -> A . S[R0:2]
@@ -296,7 +307,7 @@ S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
  <S[R0:1]> => S9; leo(S)
  <S[R0:2]> => S10; leo(S[R0:1])
-S4: predict
+* S4: predict
 A -> . a
 S[R0:1] -> . A S[R0:2]
 S[R0:1] -> . A A[] A[]
@@ -307,19 +318,19 @@ S[R0:2] -> A[] . A
  <A> => S11; S12
  <S[R0:2]> => S6; leo(S[R0:1])
  <a> => S7
-S5: leo-c
+* S5: leo-c
 S -> A[] S[R0:1] .
-S6: leo-c
+* S6: leo-c
 S[R0:1] -> A[] S[R0:2] .
-S7:
+* S7:
 A -> a .
-S8: leo-c
+* S8: leo-c
 S[R0:2] -> A A .
-S9: leo-c
+* S9: leo-c
 S -> A S[R0:1] .
-S10: leo-c
+* S10: leo-c
 S[R0:1] -> A S[R0:2] .
-S11:
+* S11:
 S[R0:1] -> A . S[R0:2]
 S[R0:1] -> A A[] A[] .
 S[R0:2] -> A . A
@@ -327,19 +338,19 @@ S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
  <S[R0:2]> => S10; leo(S[R0:1])
-S12: predict
+* S12: predict
 A -> . a
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
  <A> => S13; S14
  <a> => S7
-S13:
+* S13:
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
-S14: predict
+* S14: predict
 A -> . a
  <a> => S7
 EOS

@@ -1194,7 +1194,7 @@ sub Marpa::XS::show_AHFA_state {
     my $text     = q{};
     my $stripped = $#{$state} < Marpa::XS::Internal::AHFA::LAST_FIELD;
 
-    $text .= Marpa::XS::brief_AHFA_state($state) . ':';
+    $text .= '* ' . Marpa::XS::brief_AHFA_state($state) . ':';
 
     my @tags = ();
     $state->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] and push @tags, 'leo-c';

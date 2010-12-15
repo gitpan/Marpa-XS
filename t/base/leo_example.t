@@ -160,8 +160,16 @@ my $show_AHFA_output = $grammar->show_AHFA();
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo Example New AHFA States' );
-S0:
+* S0:
 Statement['] -> . Statement
+* S1: predict
+Statement -> . Expression
+Expression -> . Lvalue AssignOp Expression
+Expression -> . Lvalue AddAssignOp Expression
+Expression -> . Lvalue MinusAssignOp Expression
+Expression -> . Lvalue MultiplyAssignOp Expression
+Expression -> . Variable
+Lvalue -> . Variable
 EOS
 
 } ## SKIP of XS tests
@@ -174,10 +182,10 @@ EOS
 
 Marpa::XS::Test::is( $show_AHFA_output, <<'END_AHFA', 'Leo Example AHFA' );
 Start States: S0; S1
-S0:
+* S0:
 Statement['] -> . Statement
  <Statement> => S2; leo(Statement['])
-S1: predict
+* S1: predict
 Statement -> . Expression
 Expression -> . Lvalue AssignOp Expression
 Expression -> . Lvalue AddAssignOp Expression
@@ -188,11 +196,11 @@ Lvalue -> . Variable
  <Expression> => S3; leo(Statement)
  <Lvalue> => S4
  <Variable> => S5
-S2: leo-c
+* S2: leo-c
 Statement['] -> Statement .
-S3: leo-c
+* S3: leo-c
 Statement -> Expression .
-S4:
+* S4:
 Expression -> Lvalue . AssignOp Expression
 Expression -> Lvalue . AddAssignOp Expression
 Expression -> Lvalue . MinusAssignOp Expression
@@ -201,13 +209,13 @@ Expression -> Lvalue . MultiplyAssignOp Expression
  <AssignOp> => S7; S8
  <MinusAssignOp> => S7; S9
  <MultiplyAssignOp> => S10; S7
-S5:
+* S5:
 Expression -> Variable .
 Lvalue -> Variable .
-S6:
+* S6:
 Expression -> Lvalue AddAssignOp . Expression
  <Expression> => S11; leo(Expression)
-S7: predict
+* S7: predict
 Expression -> . Lvalue AssignOp Expression
 Expression -> . Lvalue AddAssignOp Expression
 Expression -> . Lvalue MinusAssignOp Expression
@@ -216,22 +224,22 @@ Expression -> . Variable
 Lvalue -> . Variable
  <Lvalue> => S4
  <Variable> => S5
-S8:
+* S8:
 Expression -> Lvalue AssignOp . Expression
  <Expression> => S12; leo(Expression)
-S9:
+* S9:
 Expression -> Lvalue MinusAssignOp . Expression
  <Expression> => S13; leo(Expression)
-S10:
+* S10:
 Expression -> Lvalue MultiplyAssignOp . Expression
  <Expression> => S14; leo(Expression)
-S11: leo-c
+* S11: leo-c
 Expression -> Lvalue AddAssignOp Expression .
-S12: leo-c
+* S12: leo-c
 Expression -> Lvalue AssignOp Expression .
-S13: leo-c
+* S13: leo-c
 Expression -> Lvalue MinusAssignOp Expression .
-S14: leo-c
+* S14: leo-c
 Expression -> Lvalue MultiplyAssignOp Expression .
 END_AHFA
 

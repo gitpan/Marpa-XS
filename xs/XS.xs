@@ -829,11 +829,11 @@ PPCODE:
     }
 
 void
-AHFA_state_is_reset( g, AHFA_state_id )
+AHFA_state_is_predict( g, AHFA_state_id )
     Grammar *g;
     Marpa_AHFA_State_ID AHFA_state_id;
 PPCODE:
-    { gint result = marpa_AHFA_state_is_reset( g, AHFA_state_id );
+    { gint result = marpa_AHFA_state_is_predict( g, AHFA_state_id );
     if (result == -1) { croak("Invalid AHFA state %d", AHFA_state_id); }
     if (result) XSRETURN_YES;
     XSRETURN_NO;

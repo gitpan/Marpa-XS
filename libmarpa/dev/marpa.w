@@ -1112,7 +1112,7 @@ gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id);
 @<Function definitions@> =
 void marpa_symbol_is_productive_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_productive = value; }
+{ symbol_id2p(g, id)->is_productive = value ? 1 : 0; }
 @ @<Public function prototypes@> =
 void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
@@ -1257,6 +1257,9 @@ typedef void (Marpa_Symbol_Callback)(struct marpa_g *g, Marpa_Symbol_ID id);
 @ @<Widely aligned grammar elements@> =
     Marpa_Symbol_Callback* symbol_callback;
     void *symbol_callback_arg;
+@ @<Initialize grammar elements@> =
+g->symbol_callback_arg = NULL;
+g->symbol_callback = NULL;
 @ @<Function definitions@> =
 void marpa_symbol_callback_set(struct marpa_g *g, Marpa_Symbol_Callback*cb)
 { g->symbol_callback = cb; }
@@ -1957,6 +1960,9 @@ typedef void (Marpa_Rule_Callback)(struct marpa_g *g, Marpa_Rule_ID id);
 @ @<Widely aligned grammar elements@> =
     Marpa_Rule_Callback* rule_callback;
     void *rule_callback_arg;
+@ @<Initialize grammar elements@> =
+g->rule_callback_arg = NULL;
+g->rule_callback = NULL;
 @ @<Function definitions@> =
 void marpa_rule_callback_set(struct marpa_g *g, Marpa_Rule_Callback*cb)
 { g->rule_callback = cb; }
@@ -2447,7 +2453,7 @@ static inline struct marpa_g* CHAF_rewrite(struct marpa_g* g)
 	 guint nullable_suffix_ix = 0;
 	 @<Mark and skip unused rules@>@;
 	 @<Calculate CHAF rule statistics@>@;
-	 /* If there is no proper nullable in this rule, we are done */
+	 /* If there is no proper nullable in this rule, I am done */
 	 if (factor_count <= 0) goto NEXT_RULE;
 	 @<Factor the rule into CHAF rules@>@;
 	 NEXT_RULE: ;
@@ -2568,7 +2574,7 @@ g_free(piece_rhs);
 g_free(remaining_rhs);
 
 @*0 Factor A Non-Final Piece.
-@ As long as we have more than 3 unprocessed factors, we are working on a non-final
+@ As long as I have more than 3 unprocessed factors, I am working on a non-final
 rule.
 @<Add non-final CHAF rules@> =
     Marpa_Symbol_ID chaf_virtual_symbol_id;
@@ -2607,7 +2613,7 @@ end before the second proper nullable (or factor).
 }
 
 @ Note that since the first part of |remaining_rhs| is exactly the same
-as the first part of |piece_rhs| so we copy it here in preparation
+as the first part of |piece_rhs| so I copy it here in preparation
 for the PN rule.
 @<Add PP CHAF rule for nullable continuation@> =
 {
@@ -2639,7 +2645,7 @@ for (remaining_rhs_length=piece_rhs_length-1 ;
     @<Set CHAF rule flags and call back@>@;
 }
 
-@ Note, while we have the nulling alias for the first factor,
+@ Note, while I have the nulling alias for the first factor,
 |remaining_rhs| is altered to be ready for the NN rule.
 @<Add NP CHAF rule for nullable continuation@> = {
     Marpa_Symbol_ID proper_id = rhs_symbol_id(rule, first_factor_position);
@@ -2655,7 +2661,7 @@ for (remaining_rhs_length=piece_rhs_length-1 ;
 }
 
 @ If this piece is nullable (|piece_start| at or
-after |nullable_suffix_ix|), we don't add an NN choice,
+after |nullable_suffix_ix|), I don't add an NN choice,
 because nulling both factors makes the entire piece nulling,
 and nulling rules cannot be fed directly to
 the Marpa parse engine.
@@ -3308,7 +3314,8 @@ for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
      items_by_rule[rule_id_for_item] = item;
      highest_found_rule_id = rule_id_for_item;
 }
-g->AHFA_items_by_rule = items_by_rule; }
+g->AHFA_items_by_rule = items_by_rule;
+}
 
 @ The AHFA items were created with a temporary ID which sorts them
 by rule, then by position within that rule.  We need one that sort the AHFA items
@@ -3346,6 +3353,54 @@ for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
 g_free(sort_array); }
 
 @** AHFA States.
+This algorithm to create the AHFA states is new with |libmarpa|.
+It is based on noting that the states to be created fall into
+distinct classes, and that considerable optimization is possible
+if the classes of AHFA states are optimized separately.
+@ {\bf The Initial AHFA State}:
+This is the only state which can
+contain an AHFA item for a null rule.
+It only takes one of three possible forms.
+Listing the reasons that it makes sense to special-case
+this class would take more space than the code to do it.
+@ {\bf The Initial AHFA Prediction State}:
+This state is paired with a special-cased state, so it would
+require going out of our way to {\bf not} special-case this
+state as well.
+It does
+share with the other initial state that property that it is not
+necessary to check to ensure it does not duplicate an existing
+state.
+Other than that, the code is much like that to create any other
+prediction state.
+@ {\bf Kernel States with 1 item}:
+These may be specially optimized for.
+Sorting the items can be dispensed with.
+Checking for duplicates can be done using an array indexed by
+the ID of the only AHFA item.
+Statistics for practical grammars show that most kernel states
+contain only a single AHFA item, so there is a big payoff from
+special-casing these.
+@ {\bf Kernel States with 2 or more items}:
+For non-singleton kernel states,
+I use a hand-written insertion sort,
+and check for duplicates using a hash with a customized key.
+Further optimizations are possible, but
+few kernel states fall into this case.
+Also, kernel state of 2 items are a large enough class to justify
+separating out, if a significant optimization for them could be
+found.
+@ {\bf Prediction States}:
+These are treated differently from kernel states.
+The items in these are always a subset of the initial items for rules,
+and therefore correspond one-to-one with a powerset of the rules.
+This fact is used in precomputing rule bit vectors, by postdot symbol,
+to speed up the construction of these.
+An advantage of using bit vectors is that a radix sort of the items
+happens as a side effect.
+Because prediction states follow a very different distribution from
+kernel states, they have their own hash for checking duplicates.
+
 @<Public typedefs@> =
 typedef gint Marpa_AHFA_State_ID;
 
@@ -3374,8 +3429,12 @@ Typically, the number of AHFA states should be less than this estimate.
 @<Private structures@> =
 struct AHFA_state {
     struct AHFA_item** items;
+    union {
+        Marpa_AHFA_State_ID id;
+        guint hash;
+    } id;
     guint item_count;
-    unsigned int is_reset:1;
+    unsigned int is_predict:1;
 };
 @ @<Widely aligned grammar elements@> = struct AHFA_state* AHFA;
 @ @<Int aligned grammar elements@> = gint AHFA_len;
@@ -3461,39 +3520,156 @@ Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
 	guint item_ix);
 
 @ @<Function definitions@> =
-gint marpa_AHFA_state_is_reset(struct marpa_g* g,
+gint marpa_AHFA_state_is_predict(struct marpa_g* g,
 	Marpa_AHFA_State_ID AHFA_state_id) {
     struct AHFA_state* state;
     @<Return |-1| on failure@>@/
     @<Fail if not precomputed@>@/
     @<Fail if |AHFA_state_id| is invalid@>@/
     state = AHFA_state_id2p(g, AHFA_state_id);
-    return state->is_reset;
+    return state->is_predict;
 }
 @ @<Public function prototypes@> =
-gint marpa_AHFA_state_is_reset(struct marpa_g* g,
+gint marpa_AHFA_state_is_predict(struct marpa_g* g,
 	Marpa_AHFA_State_ID AHFA_state_id);
 
+@*0 AHFA State Hashing.
+@<Function definitions@> =
+#define TEMPLATE_KEY_TYPE @[ struct AHFA_item** @] @/
+#define TEMPLATE_KEY_LENGTH(state_p) ((state_p)->item_count)
+#define TEMPLATE_KEY_INIT(state_p) @[((state_p)->items)@]@/
+#define TEMPLATE_KEY_VALUE(item_p, ix) @[ ((item_p)[ix]->sort_key) @]@/
+#define TEMPLATE_KEY_INC(item_p, inc) @[ ((item_p)+=(inc)) @]@/
+static inline guint AHFA_state_hash_compute(struct AHFA_state* p) {
+@<Hash function body template@>
+}
+@<Hash function template undefine@>
+@ @<Private function prototypes@> =
+static inline guint AHFA_state_hash_compute(struct AHFA_state* p);
+
+@ The hash function, to be passed to the |GHashTable| constructor.
+@<Function definitions@> =
+static guint AHFA_state_hash(gconstpointer p) {
+     return ((struct AHFA_state*)p)->id.hash;
+}
+@ @<Private function prototypes@> =
+static guint AHFA_state_hash(gconstpointer p);
+
 @ @<Function definitions@> =
-static inline
+static gboolean AHFA_state_eq(gconstpointer ap, gconstpointer bp)
+{
+guint i, length;
+struct AHFA_item** items_a;
+struct AHFA_item** items_b;
+const struct AHFA_state* state_a = (struct AHFA_state*)ap;
+const struct AHFA_state* state_b = (struct AHFA_state*)bp;
+length = state_a->item_count;
+if (length != state_b->item_count) return FALSE;
+items_a = state_a->items;
+items_b = state_b->items;
+for (i = 0; i < length; i++) {
+   if (items_a[i]->sort_key != items_b[i]->sort_key) return FALSE;
+}
+return TRUE;
+}
+@ @<Private function prototypes@> =
+static gboolean AHFA_state_eq(gconstpointer a, gconstpointer b);
+
+@*0 AHFA State Mutators.
+@<Function definitions@> =
+static
 void create_AHFA_states(struct marpa_g* g) {
-   const gint initial_no_of_states = 2*g->size;
+   const guint initial_no_of_states = 2*g->size;
+   guint no_of_symbols = symbol_count(g);
+   guint no_of_rules = rule_count(g);
+   GHashTable* duplicates = g_hash_table_new(AHFA_state_hash, AHFA_state_eq);
+   struct AHFA_state** singleton_duplicates = g_new0(struct AHFA_state*, g->no_of_items);
+   Bit_Matrix prediction_matrix = matrix_create(no_of_symbols, no_of_rules);
    struct AHFA_state* p_state;
    DQUEUE_DEFINE(states);
    DQUEUE_INIT(states, struct AHFA_state, initial_no_of_states);@/
-   p_state = DQUEUE_ADD(states, struct AHFA_state);@/
-   @<Construct initial AHFA state@>@/
+   p_state = DQUEUE_PUSH(states, struct AHFA_state);@/
+   @<Construct prediction matrix@>@/
+   @<Construct initial AHFA states@>@/
    while ((p_state = DQUEUE_NEXT(states, struct AHFA_state))) {
-       @<Process an AHFA state from the working stack@>@;@/
+       @<Process an AHFA state from the working stack@>@/
    }
    g->AHFA = DQUEUE_BASE(states, struct AHFA_state); /* "Steals"
        the |DQUEUE|'s data */
    g->AHFA_len = DQUEUE_END(states);
+   matrix_free(prediction_matrix);
+   g_free(singleton_duplicates);
+   g_hash_table_destroy(duplicates);
 }
 @ @<Private function prototypes@> =
-static inline void create_AHFA_states(struct marpa_g* g);
+static void create_AHFA_states(struct marpa_g* g);
 
-@ @<Construct initial AHFA state@> = {
+@ For the non-kernel states, I construct a symbol-by-rule matrix
+of predictions.  First, I determine which symbols directly predict
+others.  Then I compute the transitive closure.
+Finally, I convert this to a symbol-by-rule matrix.
+The symbol-by-rule matrix will be used in constructing the prediction
+states.
+@<Construct prediction matrix@> = {
+    Bit_Matrix symbol_by_symbol_matrix = matrix_create(no_of_symbols, no_of_symbols);
+    @<Initialize the symbol-by-symbol matrix@>@/
+    transitive_closure(symbol_by_symbol_matrix);
+    @<Create the prediction matrix from the symbol-by-symbol matrix@>@/
+    matrix_free(symbol_by_symbol_matrix);
+}
+
+@ @<Initialize the symbol-by-symbol matrix@> =
+{ Marpa_Rule_ID rule_id;
+    struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
+    for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
+	Marpa_Symbol_ID from, to;
+        struct AHFA_item* item = items_by_rule[rule_id];
+	    // Get the initial item for the rule
+	struct marpa_rule* rule;
+	if (!item) continue; // Not all rules have items
+	rule = item->rule;
+	from = lhs_symbol_id(rule);
+	to = item->postdot;
+	if (to < 0) continue; // There is no symbol-to-symbol transition
+	// for a completion item
+	matrix_bit_set(symbol_by_symbol_matrix,
+	    (guint)from, (guint)to); // Set a bit in the matrix
+} }
+
+@ At this point I have a full matrix showing which symbol implies a prediction
+of which others.  To save repeated processing when building the AHFA prediction states,
+I now convert it into a matrix from symbols to the rules they predict.
+Specifically, if symbol |S1| predicts symbol |S2|, then symbol |S1|
+predicts every rule
+with |S2| on its LHS.
+@<Create the prediction matrix from the symbol-by-symbol matrix@> = {
+struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
+    Marpa_Symbol_ID from_symbol_id;
+    for (from_symbol_id = 0; from_symbol_id < (Marpa_Symbol_ID)no_of_symbols; from_symbol_id++) {
+    // for every row of the symbol-by-symbol matrix
+	  guint min, max, start;
+	for ( start = 0; bv_scan(
+		matrix_row(symbol_by_symbol_matrix, (guint)from_symbol_id),
+		start, &min, &max);
+		start = max+2
+		) {
+	    Marpa_Symbol_ID to_symbol_id;
+	    for (to_symbol_id = min; to_symbol_id <= (Marpa_Symbol_ID)max; to_symbol_id++) {
+	    // for every predicted symbol
+	     struct marpa_symbol* to_symbol = symbol_id2p(g, to_symbol_id);
+	     GArray* lhs_rules = to_symbol->lhs;
+	 guint ix, no_of_lhs_rules = lhs_rules->len;
+     for (ix = 0; ix < no_of_lhs_rules; ix++) {
+	 // For every rule with that symbol on its LHS
+	 Marpa_Rule_ID rule_with_this_lhs_symbol = g_array_index(lhs_rules, Marpa_Rule_ID, ix);
+	 if (!items_by_rule[rule_with_this_lhs_symbol]) continue; /*
+	     We only need to predict rules which have items */
+	 matrix_bit_set(prediction_matrix, (guint)from_symbol_id,
+	     (guint)rule_with_this_lhs_symbol);
+	     // Set the $(symbol, rule)$ bit in the matrix
+} } } } }
+
+@ @<Construct initial AHFA states@> = {
    Marpa_Rule_ID start_rule_id;
    struct marpa_symbol* start_symbol = symbol_id2p(g, g->start_symbol_id);
    struct marpa_symbol* start_alias
@@ -3514,22 +3690,58 @@ static inline void create_AHFA_states(struct marpa_g* g);
     }
     p_state->items = item_list;
     p_state->item_count = no_of_items_in_state;
+    p_state->is_predict = 0;
+    if (!start_symbol->is_nulling) { // If this is not a null parse
+	@<Add an initial prediction AHFA state@>@/
+    }
 }
+
+@ @<Add an initial prediction AHFA state@> =
+Bit_Vector prediction_rule_vector
+    = matrix_row(prediction_matrix, (guint)g->start_symbol_id);
+guint start, min, max;
+guint item_list_ix = 0;
+no_of_items_in_state = 0;
+for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
+	start = max+2
+	) { // count the number of items in this AHFA state
+	no_of_items_in_state += max - min + 1; }
+item_list = obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
+for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
+	start = max+2
+	) { // Scan the prediction rule vector again, this time to populate the list
+	    Marpa_Symbol_ID predicted_rule_id;
+	    for (predicted_rule_id = min;
+		    predicted_rule_id <= (Marpa_Rule_ID)max;
+		    predicted_rule_id++) {
+		/* Add the initial item for the predicted rule */
+		item_list[item_list_ix++] = g->AHFA_items_by_rule[predicted_rule_id];
+	    }
+	}
+p_state = DQUEUE_PUSH(states, struct AHFA_state);@/
+    p_state->items = item_list;
+    p_state->item_count = no_of_items_in_state;
+    p_state->is_predict = 1;
+    p_state->id.hash = AHFA_state_hash_compute(p_state);
+    g_hash_table_insert(duplicates, p_state, p_state); /* Insert
+       into the table that checks for duplicates */
 
 @ @<Process an AHFA state from the working stack@> = {
 guint no_of_items = p_state->item_count;
 Marpa_AHFA_Item_ID current_item=0;
-struct AHFA_item **items = p_state->items;
-Marpa_Symbol_ID work_symbol = items[0]->postdot; /*
+struct AHFA_item **item_list;
+Marpa_Symbol_ID work_symbol;
+item_list = p_state->items;
+work_symbol = item_list[0]->postdot; /*
     Every AHFA has at least one item */
 if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
     All items in this state are completions */
     while (1) { /* Loop over all items for this state */
-	guint first_item_for_working_symbol = current_item;
+	Marpa_AHFA_Item_ID first_item_for_working_symbol = current_item;
 	for (current_item++;
 		current_item < (Marpa_AHFA_Item_ID)no_of_items;
 		current_item++) {
-	    if (items[current_item]->postdot != work_symbol) break;
+	    if (item_list[current_item]->postdot != work_symbol) break;
 	}
 	switch (current_item - first_item_for_working_symbol) {
 	    case 1: @<Start a 1-item AHFA kernel state@>@;
@@ -3544,7 +3756,7 @@ if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
 	@<Compute non-kernel state@>@/
 	/* If $v_NK$ is not empty and is new, add it */@/
 	if (current_item >= (Marpa_AHFA_Item_ID)no_of_items) break;
-	work_symbol = items[current_item]->postdot;
+	work_symbol = item_list[current_item]->postdot;
 	if (work_symbol == -1) break;
     }@#
 NEXT_AHFA_STATE: ;
@@ -3624,11 +3836,11 @@ typedef Bit_Vector_Word* Bit_Vector;
 @d BV_SIZE(bv) *(bv-2)
 @d BV_MASK(bv) *(bv-1)
 @<Private global variables@> =
-static const int bv_wordbits = sizeof(Bit_Vector_Word)*8u;
-static const int bv_modmask = sizeof(Bit_Vector_Word)*8u-1u;
-static const int bv_hiddenwords = 3;
-static const int bv_lsb = 1u;
-static const int bv_msb = (1u << (sizeof(Bit_Vector_Word)*8u-1u));
+static const guint bv_wordbits = sizeof(Bit_Vector_Word)*8u;
+static const guint bv_modmask = sizeof(Bit_Vector_Word)*8u-1u;
+static const guint bv_hiddenwords = 3;
+static const guint bv_lsb = 1u;
+static const guint bv_msb = (1u << (sizeof(Bit_Vector_Word)*8u-1u));
 
 @ Given a number of bits, compute the size.
 @<Function definitions@> =
@@ -3832,8 +4044,8 @@ gboolean bv_scan(Bit_Vector bv, guint start,
     *(bv+size-1) &= mask;
     bv += offset;
     size -= offset;
-    bitmask = 1 << (start & bv_modmask);
-    mask = ~ (bitmask | (bitmask - 1));
+    bitmask = (guint)1 << (start & bv_modmask);
+    mask = ~ (bitmask | (bitmask - (guint)1));
     value = *bv++;
     if ((value & bitmask) == 0)
     {
@@ -3954,7 +4166,7 @@ static void rhs_closure(struct marpa_g* g, Bit_Vector bv)
 	     for (rh_ix = 0; rh_ix < rule_length; rh_ix++) {
 		 if (!bv_bit_test(bv, (guint)rhs_symbol_id(rule, rh_ix))) goto NEXT_RULE;
 	     }
-	     /* If we are here, the bits for the RHS symbols are all
+	     /* If I am here, the bits for the RHS symbols are all
 	      * set, but the one for the LHS symbol is not.
 	      */
 	      bv_bit_set(bv, (guint)lhs_id);
@@ -4277,7 +4489,8 @@ when it needs to free the data.
 @d DQUEUE_DEFINE(this) struct dqueue this;
 @d DQUEUE_INIT(this, type, initial_size)
     ((this.current=0), DSTACK_INIT(this.s, type, initial_size))
-@d DQUEUE_ADD(this, type) DSTACK_PUSH(this.s, type)
+@d DQUEUE_PUSH(this, type) DSTACK_PUSH(this.s, type)
+@d DQUEUE_POP(this, type) DSTACK_POP(this.s, type)
 @d DQUEUE_NEXT(this, type)
     (this.current >= DSTACK_LENGTH(this.s) ? NULL : (DSTACK_BASE(this.s, type))+this.current++)
 @d DQUEUE_BASE(this, type) DSTACK_BASE(this.s, type)
@@ -4287,13 +4500,85 @@ when it needs to free the data.
 @<Private structures@> =
 struct dqueue { gint current; struct dstack s; };
 
+@** Hashing.
+The code in this section is adopted from
+|lookup3.c|.
+It is by Bob Jenkins.
+For extensive explanations, and much more,
+see Mr. Jenkin's website: http://burtleburtle.net/bob/.
+
+@d bjenkins_rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
+
+@d bjenkins_mix(a,b,c)
+{ 
+  a -= c;  a ^= bjenkins_rot(c, 4);  c += b; 
+  b -= a;  b ^= bjenkins_rot(a, 6);  a += c; 
+  c -= b;  c ^= bjenkins_rot(b, 8);  b += a; 
+  a -= c;  a ^= bjenkins_rot(c,16);  c += b;
+  b -= a;  b ^= bjenkins_rot(a,19);  a += c;
+  c -= b;  c ^= bjenkins_rot(b, 4);  b += a;
+}
+
+@d bjenkins_final(a,b,c) 
+{
+  c ^= b; c -= bjenkins_rot(b,14);
+  a ^= c; a -= bjenkins_rot(c,11);
+  b ^= a; b -= bjenkins_rot(a,25);
+  c ^= b; c -= bjenkins_rot(b,16);
+  a ^= c; a -= bjenkins_rot(c,4);
+  b ^= a; b -= bjenkins_rot(a,14);
+  c ^= b; c -= bjenkins_rot(b,24);
+}
+
+@<Hash function body template@> =
+  guint32 a,b,c;
+  gsize length = TEMPLATE_KEY_LENGTH(p);
+  TEMPLATE_KEY_TYPE k = TEMPLATE_KEY_INIT(p);
+
+  /* Set up the internal state */
+  a = b = c = 0xdeadbeef + (((guint32)length)<<2);
+
+  while (length > 3)
+  { /* Handle most of the key */
+    a += TEMPLATE_KEY_VALUE(k, 0);
+    b += TEMPLATE_KEY_VALUE(k, 1);
+    c += TEMPLATE_KEY_VALUE(k, 2);
+    bjenkins_mix(a,b,c);
+    length -= 3;
+    TEMPLATE_KEY_INC(k, 3);
+  }
+
+  switch(length)
+  { 
+  /* Handle the last 3 guint32's --
+   all the case statements fall through */
+  case 3 : c+= TEMPLATE_KEY_VALUE(k, 2);
+  case 2 : b+= TEMPLATE_KEY_VALUE(k, 1);
+  case 1 : a+= TEMPLATE_KEY_VALUE(k, 0);
+    bjenkins_final(a,b,c);
+  case 0:     /* case 0: nothing left to add */
+    break;
+  }
+  return c; /* report the result */
+
+@ @<Hash function template undefine@> =
+#undef TEMPLATE_KEY_TYPE@/
+#undef TEMPLATE_KEY_INIT@/
+#undef TEMPLATE_KEY_VALUE@/
+#undef TEMPLATE_KEY_LENGTH@/
+#undef TEMPLATE_KEY_INC@/
+
 @** Memory Allocation.
 |libmarpa| uses |g_malloc|, either directly or indirectly.
-Indirect use of |g_malloc| comes via obstacks and |g_slice|,
-both of which are more efficient, but limit the ability to resize
-and/or control the lifetime of the memory.
-It should be noted that system libraries used by |libmarpa| may
+Indirect use of |g_malloc| comes via obstacks and |g_slice|.
+Both of these are more efficient, but both also
+limit the ability to resize memory.
+Obstacks also sharply limit the ability
+to control the lifetime of the memory.
+\par
+It should be noted that the libraries used by |libmarpa| may
 also allocate memory, using their own methods.
+This allocation is often also |g_malloc| based.
 \par
 Obstacks are particularly useful for |libmarpa|.
 Much of the memory allocated in |libmarpa| is
@@ -4484,6 +4769,9 @@ typedef void (Marpa_Message_Callback)(struct marpa_g *g, Marpa_Message_ID id);
 @ @<Widely aligned grammar elements@> =
     Marpa_Message_Callback* message_callback;
     void *message_callback_arg;
+@ @<Initialize grammar elements@> =
+g->message_callback_arg = NULL;
+g->message_callback = NULL;
 @ @<Function definitions@> =
 void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb)
 { g->message_callback = cb; }

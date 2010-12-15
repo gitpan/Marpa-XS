@@ -77,8 +77,17 @@ END_OF_STRING
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'final nonnulling New AHFA States' );
-S0:
+* S0:
 S['] -> . S
+* S1: predict
+p -> . a
+n -> . a
+S -> . p p S[R0:2]
+S -> . p p[] S[R0:2]
+S -> p[] . p S[R0:2]
+S -> p[] p[] . S[R0:2]
+S[R0:2] -> . p n
+S[R0:2] -> p[] . n
 EOS
 
 } ## SKIP of XS tests
@@ -86,10 +95,10 @@ EOS
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_OF_STRING', 'final nonnulling AHFA' );
 Start States: S0; S1
-S0:
+* S0:
 S['] -> . S
  <S> => S2; leo(S['])
-S1: predict
+* S1: predict
 p -> . a
 n -> . a
 S -> . p p S[R0:2]
@@ -102,16 +111,16 @@ S[R0:2] -> p[] . n
  <a> => S4
  <n> => S5; leo(S[R0:2])
  <p> => S6; S7
-S2: leo-c
+* S2: leo-c
 S['] -> S .
-S3: leo-c
+* S3: leo-c
 S -> p[] p[] S[R0:2] .
-S4:
+* S4:
 p -> a .
 n -> a .
-S5: leo-c
+* S5: leo-c
 S[R0:2] -> p[] n .
-S6:
+* S6:
 S -> p . p S[R0:2]
 S -> p p[] . S[R0:2]
 S -> p[] p . S[R0:2]
@@ -119,7 +128,7 @@ S[R0:2] -> p . n
  <S[R0:2]> => S8
  <n> => S9; leo(S[R0:2])
  <p> => S10; S7
-S7: predict
+* S7: predict
 p -> . a
 n -> . a
 S[R0:2] -> . p n
@@ -127,23 +136,23 @@ S[R0:2] -> p[] . n
  <a> => S4
  <n> => S5; leo(S[R0:2])
  <p> => S11; S12
-S8:
+* S8:
 S -> p p[] S[R0:2] .
 S -> p[] p S[R0:2] .
-S9: leo-c
+* S9: leo-c
 S[R0:2] -> p n .
-S10:
+* S10:
 S -> p p . S[R0:2]
  <S[R0:2]> => S13; leo(S)
-S11:
+* S11:
 S[R0:2] -> p . n
  <n> => S9; leo(S[R0:2])
-S12: predict
+* S12: predict
 n -> . a
  <a> => S14
-S13: leo-c
+* S13: leo-c
 S -> p p S[R0:2] .
-S14:
+* S14:
 n -> a .
 END_OF_STRING
 
