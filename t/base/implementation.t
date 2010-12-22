@@ -126,6 +126,7 @@ END_RULES
 
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
+# does not include transitions
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Implementation Example New AHFA States' );
 * S0:
 Expression['] -> . Expression
@@ -135,6 +136,36 @@ Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
 Factor -> . Factor Multiply Factor
+* S2: leo-c
+Expression['] -> Expression .
+* S3:
+Expression -> Term .
+Term -> Term . Add Term
+* S4:
+Term -> Factor .
+Factor -> Factor . Multiply Factor
+* S5:
+Factor -> Number .
+* S6:
+Term -> Term Add . Term
+* S7: predict
+Term -> . Factor
+Factor -> . Number
+Term -> . Term Add Term
+Factor -> . Factor Multiply Factor
+* S8:
+Factor -> Factor Multiply . Factor
+* S9: predict
+Factor -> . Number
+Factor -> . Factor Multiply Factor
+* S10: leo-c
+Term -> Term Add Term .
+* S11:
+Term -> Term . Add Term
+* S12: leo-c
+Factor -> Factor Multiply Factor .
+* S13:
+Factor -> Factor . Multiply Factor
 EOS
 
 } ## SKIP of XS tests
@@ -148,7 +179,6 @@ my $show_AHFA_output = $grammar->show_AHFA();
 
 Marpa::XS::Test::is( $show_AHFA_output,
     <<'END_AHFA', 'Implementation Example AHFA' );
-Start States: S0; S1
 * S0:
 Expression['] -> . Expression
  <Expression> => S2; leo(Expression['])
@@ -158,50 +188,50 @@ Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
 Factor -> . Factor Multiply Factor
- <Factor> => S3
- <Number> => S4
- <Term> => S5
+ <Factor> => S4
+ <Number> => S5
+ <Term> => S3
 * S2: leo-c
 Expression['] -> Expression .
 * S3:
-Term -> Factor .
-Factor -> Factor . Multiply Factor
- <Multiply> => S6; S7
-* S4:
-Factor -> Number .
-* S5:
 Expression -> Term .
 Term -> Term . Add Term
- <Add> => S8; S9
+ <Add> => S6; S7
+* S4:
+Term -> Factor .
+Factor -> Factor . Multiply Factor
+ <Multiply> => S8; S9
+* S5:
+Factor -> Number .
 * S6:
-Factor -> Factor Multiply . Factor
- <Factor> => S10; leo(Factor)
-* S7: predict
-Factor -> . Number
-Factor -> . Factor Multiply Factor
- <Factor> => S11
- <Number> => S4
-* S8:
 Term -> Term Add . Term
- <Term> => S12; leo(Term)
-* S9: predict
+ <Term> => S10; leo(Term)
+* S7: predict
 Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
 Factor -> . Factor Multiply Factor
- <Factor> => S3
- <Number> => S4
- <Term> => S13
+ <Factor> => S4
+ <Number> => S5
+ <Term> => S11
+* S8:
+Factor -> Factor Multiply . Factor
+ <Factor> => S12; leo(Factor)
+* S9: predict
+Factor -> . Number
+Factor -> . Factor Multiply Factor
+ <Factor> => S13
+ <Number> => S5
 * S10: leo-c
-Factor -> Factor Multiply Factor .
-* S11:
-Factor -> Factor . Multiply Factor
- <Multiply> => S6; S7
-* S12: leo-c
 Term -> Term Add Term .
-* S13:
+* S11:
 Term -> Term . Add Term
- <Add> => S8; S9
+ <Add> => S6; S7
+* S12: leo-c
+Factor -> Factor Multiply Factor .
+* S13:
+Factor -> Factor . Multiply Factor
+ <Multiply> => S8; S9
 END_AHFA
 
 # Marpa::XS::Display::End
@@ -220,30 +250,30 @@ Earley Set 0
 S0@0-0
 S1@0-0
 Earley Set 1
-S4@0-1 [p=S1@0-0; s=Number; t=\42]
+S5@0-1 [p=S1@0-0; s=Number; t=\42]
+S4@0-1 [p=S1@0-0; c=S5@0-1]
 S3@0-1 [p=S1@0-0; c=S4@0-1]
-S5@0-1 [p=S1@0-0; c=S3@0-1]
-S2@0-1 [p=S0@0-0; c=S5@0-1]
+S2@0-1 [p=S0@0-0; c=S3@0-1]
 Earley Set 2
-S6@0-2 [p=S3@0-1; s=Multiply; t=\'*']
-S7@2-2
+S8@0-2 [p=S4@0-1; s=Multiply; t=\'*']
+S9@2-2
 Earley Set 3
-S4@2-3 [p=S7@2-2; s=Number; t=\1]
-S10@0-3 [p=S6@0-2; c=S4@2-3]
-S11@2-3 [p=S7@2-2; c=S4@2-3]
-S3@0-3 [p=S1@0-0; c=S10@0-3]
-S5@0-3 [p=S1@0-0; c=S3@0-3]
-S2@0-3 [p=S0@0-0; c=S5@0-3]
+S5@2-3 [p=S9@2-2; s=Number; t=\1]
+S12@0-3 [p=S8@0-2; c=S5@2-3]
+S13@2-3 [p=S9@2-2; c=S5@2-3]
+S4@0-3 [p=S1@0-0; c=S12@0-3]
+S3@0-3 [p=S1@0-0; c=S4@0-3]
+S2@0-3 [p=S0@0-0; c=S3@0-3]
 Earley Set 4
-S8@0-4 [p=S5@0-3; s=Add; t=\'+']
-S9@4-4
+S6@0-4 [p=S3@0-3; s=Add; t=\'+']
+S7@4-4
 Earley Set 5
-S4@4-5 [p=S9@4-4; s=Number; t=\7]
-S3@4-5 [p=S9@4-4; c=S4@4-5]
-S12@0-5 [p=S8@0-4; c=S3@4-5]
-S13@4-5 [p=S9@4-4; c=S3@4-5]
-S5@0-5 [p=S1@0-0; c=S12@0-5]
-S2@0-5 [p=S0@0-0; c=S5@0-5]
+S5@4-5 [p=S7@4-4; s=Number; t=\7]
+S4@4-5 [p=S7@4-4; c=S5@4-5]
+S10@0-5 [p=S6@0-4; c=S4@4-5]
+S11@4-5 [p=S7@4-4; c=S4@4-5]
+S3@0-5 [p=S1@0-0; c=S10@0-5]
+S2@0-5 [p=S0@0-0; c=S3@0-5]
 END_EARLEY_SETS
 
 # Marpa::XS::Display::End

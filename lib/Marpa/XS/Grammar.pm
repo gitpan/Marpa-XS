@@ -1100,11 +1100,20 @@ sub Marpa::XS::Grammar::show_new_AHFA {
     my $AHFA_state_count = $grammar_c->AHFA_state_count();
     for (my $state_id = 0; $state_id < $AHFA_state_count; $state_id++) {
          $text .= "* S$state_id:";
+	 $grammar_c->AHFA_state_is_leo_completion($state_id) and $text .= " leo-c";
 	 $grammar_c->AHFA_state_is_predict($state_id) and $text .= " predict";
 	 $text .= "\n";
+	 my @items = ();
 	 for my $item_id ($grammar_c->AHFA_state_items($state_id)) {
-	      $text .= Marpa::XS::show_brief_AHFA_item($grammar, $item_id) . "\n";
+	     push @items, [
+		 $grammar_c->AHFA_item_rule($item_id),
+		 $grammar_c->AHFA_item_postdot($item_id),
+	       Marpa::XS::show_brief_AHFA_item($grammar, $item_id) ];
 	 }
+	$text .= join "\n",
+	    map { $_->[2] }
+	    sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @items;
+	 $text .= "\n";
     }
     return $text;
 }
@@ -1222,15 +1231,8 @@ sub Marpa::XS::show_AHFA_state {
 
 sub Marpa::XS::Grammar::show_AHFA {
     my ($grammar) = @_;
-
     my $text         = q{};
     my $AHFA         = $grammar->[Marpa::XS::Internal::Grammar::AHFA];
-    my $start_states = $grammar->[Marpa::XS::Internal::Grammar::START_STATES];
-    $text .= 'Start States: ';
-    $text .= join '; ',
-        sort map { Marpa::XS::brief_AHFA_state($_) } @{$start_states};
-    $text .= "\n";
-
     for my $state ( @{$AHFA} ) {
         $text .= Marpa::XS::show_AHFA_state($state);
     }
@@ -2048,6 +2050,7 @@ sub create_AHFA {
         Marpa::XS::Internal::Grammar::NFA,
         Marpa::XS::Internal::Grammar::TRACING,
     ];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
 
     my $trace_fh;
     if ($tracing) {
@@ -2099,7 +2102,9 @@ sub create_AHFA {
         }    # $NFA_state
 
         # for each transition symbol, create the transition to the AHFA kernel state
-        for my $symbol ( sort keys %{$NFA_to_states_by_symbol} ) {
+        for my $symbol ( sort
+	    { $symbol_hash->{$a} <=> $symbol_hash->{$b} }
+	    keys %{$NFA_to_states_by_symbol} ) {
             my $to_states_by_symbol = $NFA_to_states_by_symbol->{$symbol};
             $AHFA_state->[Marpa::XS::Internal::AHFA::TRANSITION]->{$symbol} =
                 assign_AHFA_state_set( $grammar, $to_states_by_symbol );

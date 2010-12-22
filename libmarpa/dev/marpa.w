@@ -494,7 +494,10 @@ with their
 @<Widely aligned grammar elements@> = GArray* symbols;
 @ @<Initialize grammar elements@> =
 g->symbols = g_array_new(FALSE, FALSE, sizeof(struct marpa_symbol *));
-@ @<Destroy grammar elements@> = g_array_free(g->symbols, TRUE);
+@ @<Destroy grammar elements@> =
+{  Marpa_Symbol_ID id; for (id = 0; id < (Marpa_Symbol_ID)g->symbols->len; id++)
+{ symbol_free(symbol_id2p(g, id)); } }
+g_array_free(g->symbols, TRUE);
 
 @ The trace accessor returns the GArray.
 It remains "owned" by the Grammar,
@@ -550,7 +553,10 @@ with their |Marpa_Rule_ID| as the index.
 @<Widely aligned grammar elements@> = GArray* rules;
 @ @<Initialize grammar elements@> =
 g->rules = g_array_new(FALSE, FALSE, sizeof(struct marpa_rule *));
-@ @<Destroy grammar elements@> = g_array_free(g->rules, TRUE);
+@ @<Destroy grammar elements@> =
+{  Marpa_Rule_ID id; for (id = 0; id < (Marpa_Rule_ID)g->rules->len; id++)
+{ rule_free(rule_id2p(g, id)); } }
+g_array_free(g->rules, TRUE);
 
 @ The trace accessor returns the GArray.
 It remains "owned" by the Grammar,
@@ -830,7 +836,7 @@ messages.
 typedef const gchar* Marpa_Error_ID;
 @ @<Widely aligned grammar elements@> = Marpa_Error_ID error;
 @ @<Initialize grammar elements@> =
-g->error = 0;
+g->error = NULL;
 @ There is no destructor.
 The error strings are assummed to be
 {\bf not} error messages, but "cookies".
@@ -902,14 +908,11 @@ struct marpa_symbol* symbol_new(struct marpa_g *g);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_symbol_new(struct marpa_g *g);
 
-@ @<Destroy grammar elements@> =
-{  Marpa_Symbol_ID id; for (id = 0; id < (Marpa_Symbol_ID)g->symbols->len; id++)
-{ marpa_symbol_free(symbol_id2p(g, id)); } }
 @ @<Function definitions@> =
-static inline void marpa_symbol_free(struct marpa_symbol* symbol)
+static inline void symbol_free(struct marpa_symbol* symbol)
 { @<Free symbol elements@>@; g_free(symbol); }
 @ @<Private function prototypes@> =
-static inline void marpa_symbol_free(struct marpa_symbol* symbol);
+static inline void symbol_free(struct marpa_symbol* symbol);
 
 @ Symbol ID: This is the unique identifier for the symbol.
 @<Int aligned symbol elements@> = Marpa_Symbol_ID id;
@@ -920,10 +923,12 @@ This tracks the rules for which this symbol is the LHS.
 It is an optimization --- the same information could be found
 by scanning the rules every time this information is needed.
 The implementation is a |GArray|.
+@d SYMBOL_LHS_RULE_COUNT(symbol) ((symbol)->lhs->len)
 @<Widely aligned symbol elements@> = GArray* lhs;
 @ @<Initialize symbol elements@> =
 symbol->lhs = g_array_new(FALSE, FALSE, sizeof(Marpa_Rule_ID));
-@ @<Free symbol elements@> = g_array_free(symbol->lhs, TRUE);
+@ @<Free symbol elements@> =
+g_array_free(symbol->lhs, TRUE);
 @ The trace accessor returns the GArray.
 It remains "owned" by the Grammar,
 and must not be freed or modified.
@@ -1652,17 +1657,13 @@ for (; rhs_ix >= 0; rhs_ix--) {
 }
 
 @*0 Rule Destruction.
-@ @<Destroy grammar elements@> =
-{  Marpa_Rule_ID id; for (id = 0; id < (Marpa_Rule_ID)g->rules->len; id++)
-{ marpa_rule_free(rule_id2p(g, id)); } }
 @ TODO: Any rule elements which need to be freed go here.
 @<Function definitions@> =
-static inline void marpa_rule_free(struct marpa_rule* rule)
+static inline void rule_free(struct marpa_rule* rule)
 {
-/* Free rule elements */
 g_free(rule); }
 @ @<Private function prototypes@> =
-static inline void marpa_rule_free(struct marpa_rule* rule);
+static inline void rule_free(struct marpa_rule* rule);
 
 @*0 Rule Symbols.
 A rule takes the traditiona form of
@@ -3043,10 +3044,10 @@ message(g, "loop rule tally");
 @** The Aycock-Horspool Finite Automata.
 
 @*0 Some Statistics on AHFA states.
-For Perl's grammar, the kernel states range in size from 1 to 20 items,
+For Perl's grammar, the discovered states range in size from 1 to 20 items,
 but the numbers are heavily skewed toward the low
 end.  Here are the item counts that appear, with the percent of the total
-kernel AHFA states with that item count in parentheses.
+discovered AHFA states with that item count in parentheses.
 in parentheses:
 1   (67.05\%);
 2   (25.67\%);
@@ -3058,20 +3059,20 @@ in parentheses:
 8   (0.57\%);
 9   (0.19\%); and
 20   (0.19\%).
-As can be seen, well over 90\% of the total kernel states have
+As can be seen, well over 90\% of the total discovered states have
 just one or two items.
 For the HTML grammars I used, the totals are even more lopsided:
-80.96\% of all kernel states have only 1 item.
+80.96\% of all discovered states have only 1 item.
 All the others (19.04\%) have 2 items.
 
-The number of non-kernel states tends to be much more
+The number of predicted states tends to be much more
 evently distributed.
 It also tends to be much larger, and
 the average for practical grammars may be $O(s)$,
 where $s$ is the size of the grammar.
 This is the same as the theoretical worst case.
 
-Here are the number of items for non-kernel states for the Perl grammar.
+Here are the number of items for predicted states for the Perl grammar.
 The number of states with that item count in is parentheses:
 1 item (3),
 2 items (5),
@@ -3166,10 +3167,12 @@ the first AHFA item for that rule.
 @ The space is allocated during precomputation.
 Because the grammar may be destroyed before precomputation,
 I test that |g->AHFA_items| is non-zero.
-@<Destroy grammar elements@> = if (g->AHFA_items) {
-g_free(g->AHFA_items_by_rule);
-g_free(g->AHFA_items);
-};
+@ @<Initialize grammar elements@> =
+g->AHFA_items = NULL;
+g->AHFA_items_by_rule = NULL;
+@ @<Destroy grammar elements@> =
+if (g->AHFA_items) { g_free(g->AHFA_items); };
+if (g->AHFA_items_by_rule) { g_free(g->AHFA_items_by_rule); };
 
 @ @<Function definitions@> =
 static inline struct AHFA_item* 
@@ -3353,10 +3356,32 @@ for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
 g_free(sort_array); }
 
 @** AHFA States.
+
 This algorithm to create the AHFA states is new with |libmarpa|.
 It is based on noting that the states to be created fall into
 distinct classes, and that considerable optimization is possible
 if the classes of AHFA states are optimized separately.
+@ In their paper Aycock and Horspool divide the states of their
+automaton into
+call non-kernel and kernel states.
+In the AHFA, kernel states are called discovered AHFA states.
+Non-kernel states are called predicted AHFA states.
+If an AHFA states contains a start rule or
+or an AHFA item for which at least some
+non-nulling symbol has been recognized,
+it is an {\bf discovered} AFHA state.
+Otherwise, the AHFA state will contain only predictions,
+and is a {\bf predicted} AHFA state.
+@ Predicted AHFA states are so called because they only contain
+items which predict, according to the grammar,
+what might be found in the input.
+Discovered AHFA states are so called because either they "report"
+the start of the input
+or they "report" symbols actually found in the input.
+There is only one case in which
+a discovered AHFA state will contain a prediction ---
+that is when the AHFA state contains an
+AHFA item for the nulling start rule.
 @ {\bf The Initial AHFA State}:
 This is the only state which can
 contain an AHFA item for a null rule.
@@ -3373,25 +3398,25 @@ necessary to check to ensure it does not duplicate an existing
 state.
 Other than that, the code is much like that to create any other
 prediction state.
-@ {\bf Kernel States with 1 item}:
+@ {\bf Discovered States with 1 item}:
 These may be specially optimized for.
 Sorting the items can be dispensed with.
 Checking for duplicates can be done using an array indexed by
 the ID of the only AHFA item.
-Statistics for practical grammars show that most kernel states
+Statistics for practical grammars show that most discovered states
 contain only a single AHFA item, so there is a big payoff from
 special-casing these.
-@ {\bf Kernel States with 2 or more items}:
-For non-singleton kernel states,
+@ {\bf Discovered States with 2 or more items}:
+For non-singleton discovered states,
 I use a hand-written insertion sort,
 and check for duplicates using a hash with a customized key.
 Further optimizations are possible, but
-few kernel states fall into this case.
-Also, kernel state of 2 items are a large enough class to justify
+few discovered states fall into this case.
+Also, discovered states of 2 items are a large enough class to justify
 separating out, if a significant optimization for them could be
 found.
-@ {\bf Prediction States}:
-These are treated differently from kernel states.
+@ {\bf Predicted States}:
+These are treated differently from discovered states.
 The items in these are always a subset of the initial items for rules,
 and therefore correspond one-to-one with a powerset of the rules.
 This fact is used in precomputing rule bit vectors, by postdot symbol,
@@ -3399,7 +3424,7 @@ to speed up the construction of these.
 An advantage of using bit vectors is that a radix sort of the items
 happens as a side effect.
 Because prediction states follow a very different distribution from
-kernel states, they have their own hash for checking duplicates.
+discovered states, they have their own hash for checking duplicates.
 
 @<Public typedefs@> =
 typedef gint Marpa_AHFA_State_ID;
@@ -3414,13 +3439,13 @@ I come up with this as follows.
 Let the size of an AHFA state be the number of AHFA items it contains.
 \li It is impossible for the number of AHFA items to greater than
 the size of the grammar.
-\li It is impossible for the number of kernel states of size 1
+\li It is impossible for the number of discovered states of size 1
 to be greater than the number of AHFA items.
-\li The number of kernel states of size 2 or greater
-will typically be half the number of kernel states of size 1,
+\li The number of discovered states of size 2 or greater
+will typically be half the number of discovered states of size 1,
 or less.
-\li The number of non-kernel states will typically be
-considerably less than half the number of kernel states.
+\li The number of predicted states will typically be
+considerably less than half the number of discovered states.
 
 The three possibilities just enumerated exhaust the possibilities for AHFA states.
 The total is $s/2 + s/2 + s$, or $2s$.
@@ -3429,15 +3454,18 @@ Typically, the number of AHFA states should be less than this estimate.
 @<Private structures@> =
 struct AHFA_state {
     struct AHFA_item** items;
-    union {
-        Marpa_AHFA_State_ID id;
-        guint hash;
-    } id;
+    Marpa_AHFA_State_ID id;
+    guint hash;
     guint item_count;
+    Marpa_AHFA_State_ID empty_transition;
     unsigned int is_predict:1;
+    unsigned int is_leo_completion:1;
 };
 @ @<Widely aligned grammar elements@> = struct AHFA_state* AHFA;
 @ @<Int aligned grammar elements@> = gint AHFA_len;
+@ @<Initialize grammar elements@> =
+g->AHFA = NULL;
+g->AHFA_len = 0;
 @ @<Destroy grammar elements@> = if (g->AHFA) { STOLEN_DQUEUE_DATA_FREE(g->AHFA); }
 
 @ Internal accessor to find an AHFA state by its id.
@@ -3533,6 +3561,20 @@ gint marpa_AHFA_state_is_predict(struct marpa_g* g,
 gint marpa_AHFA_state_is_predict(struct marpa_g* g,
 	Marpa_AHFA_State_ID AHFA_state_id);
 
+@ @<Function definitions@> =
+gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
+	Marpa_AHFA_State_ID AHFA_state_id) {
+    struct AHFA_state* state;
+    @<Return |-1| on failure@>@/
+    @<Fail if not precomputed@>@/
+    @<Fail if |AHFA_state_id| is invalid@>@/
+    state = AHFA_state_id2p(g, AHFA_state_id);
+    return state->is_leo_completion;
+}
+@ @<Public function prototypes@> =
+gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
+	Marpa_AHFA_State_ID AHFA_state_id);
+
 @*0 AHFA State Hashing.
 @<Function definitions@> =
 #define TEMPLATE_KEY_TYPE @[ struct AHFA_item** @] @/
@@ -3550,7 +3592,7 @@ static inline guint AHFA_state_hash_compute(struct AHFA_state* p);
 @ The hash function, to be passed to the |GHashTable| constructor.
 @<Function definitions@> =
 static guint AHFA_state_hash(gconstpointer p) {
-     return ((struct AHFA_state*)p)->id.hash;
+     return ((struct AHFA_state*)p)->hash;
 }
 @ @<Private function prototypes@> =
 static guint AHFA_state_hash(gconstpointer p);
@@ -3579,14 +3621,17 @@ static gboolean AHFA_state_eq(gconstpointer a, gconstpointer b);
 @<Function definitions@> =
 static
 void create_AHFA_states(struct marpa_g* g) {
+   struct AHFA_state* p_state;
    const guint initial_no_of_states = 2*g->size;
+   struct AHFA_item* AHFA_item_0_p = g->AHFA_items;
    guint no_of_symbols = symbol_count(g);
    guint no_of_rules = rule_count(g);
-   GHashTable* duplicates = g_hash_table_new(AHFA_state_hash, AHFA_state_eq);
-   struct AHFA_state** singleton_duplicates = g_new0(struct AHFA_state*, g->no_of_items);
-   Bit_Matrix prediction_matrix = matrix_create(no_of_symbols, no_of_rules);
-   struct AHFA_state* p_state;
+   Bit_Matrix prediction_matrix;
+   struct marpa_rule** rule_by_sort_key = g_new(struct marpa_rule*, no_of_rules);
+    GHashTable* duplicates;
+    struct AHFA_state** singleton_duplicates;
    DQUEUE_DEFINE(states);
+    @<Initialize duplicates data structures@>@/
    DQUEUE_INIT(states, struct AHFA_state, initial_no_of_states);@/
    p_state = DQUEUE_PUSH(states, struct AHFA_state);@/
    @<Construct prediction matrix@>@/
@@ -3597,20 +3642,263 @@ void create_AHFA_states(struct marpa_g* g) {
    g->AHFA = DQUEUE_BASE(states, struct AHFA_state); /* "Steals"
        the |DQUEUE|'s data */
    g->AHFA_len = DQUEUE_END(states);
+   g_free(rule_by_sort_key);
    matrix_free(prediction_matrix);
-   g_free(singleton_duplicates);
-   g_hash_table_destroy(duplicates);
+   @<Free duplicates data structures@>@/
 }
 @ @<Private function prototypes@> =
 static void create_AHFA_states(struct marpa_g* g);
 
-@ For the non-kernel states, I construct a symbol-by-rule matrix
+@ @<Process an AHFA state from the working stack@> = {
+guint no_of_items = p_state->item_count;
+guint current_item_ix=0;
+struct AHFA_item **item_list;
+Marpa_Symbol_ID work_symbol;
+item_list = p_state->items;
+work_symbol = item_list[0]->postdot; /*
+    Every AHFA has at least one item */
+if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
+    All items in this state are completions */
+    while (1) { /* Loop over all items for this state */
+	guint first_working_item_ix = current_item_ix;
+	guint no_of_items_in_new_state;
+	for (current_item_ix++;
+		current_item_ix < no_of_items;
+		current_item_ix++) {
+	    if (item_list[current_item_ix]->postdot != work_symbol) break;
+	}
+	no_of_items_in_new_state = current_item_ix - first_working_item_ix;
+	if (no_of_items_in_new_state == 1) {
+	    @<Create a 1-item discovered AHFA state@>@/
+	} else {
+	    @<Create a discovered AHFA state with 2+ items@>@/
+	}
+	NEXT_WORKING_SYMBOL: ;
+	if (current_item_ix >= no_of_items) break;
+	work_symbol = item_list[current_item_ix]->postdot;
+	if (work_symbol == -1) break;
+    }@#
+NEXT_AHFA_STATE: ;
+}
+
+@ @<Initialize duplicates data structures@> = { guint item_id;
+guint no_of_items_in_grammar = g->no_of_items;
+duplicates = g_hash_table_new(AHFA_state_hash, AHFA_state_eq);
+singleton_duplicates = g_new(struct AHFA_state*, no_of_items_in_grammar);
+for ( item_id = 0; item_id < no_of_items_in_grammar; item_id++) {
+    singleton_duplicates[item_id] = NULL; // All zero bits are not necessarily a NULL pointer
+} }
+@ @<Free duplicates data structures@> =
+g_free(singleton_duplicates);
+g_hash_table_destroy(duplicates);
+
+@ @<Construct initial AHFA states@> = {
+   Marpa_Rule_ID start_rule_id;
+   struct AHFA_item* start_item;
+   struct marpa_symbol* start_symbol = symbol_id2p(g, g->start_symbol_id);
+   struct marpa_symbol* start_alias
+       = symbol_null_alias(start_symbol);
+    gint no_of_items_in_state = start_alias ? 2 : 1;
+    struct AHFA_item ** item_list
+	= obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
+    start_rule_id = g_array_index(start_symbol->lhs, Marpa_Rule_ID, 0); /* The start rule
+	is the unique rule that has the start symbol as its LHS */
+    start_item = g->AHFA_items_by_rule[start_rule_id]; /* The start item is the
+       initial item for the start rule */
+    item_list[0] = start_item;
+    if (start_alias) {
+       Marpa_Rule_ID alias_rule_id
+	    = g_array_index(start_alias->lhs, Marpa_Rule_ID, 0); /* Start alias
+	    rule is the unique rule that has
+	   the start alias as its LHS */
+	item_list[1] = g->AHFA_items_by_rule[alias_rule_id];
+    }
+    p_state->items = item_list;
+    p_state->item_count = no_of_items_in_state;
+    p_state->id = 0;
+    p_state->is_predict = 0;
+    p_state->is_leo_completion = 0;
+    if (!start_symbol->is_nulling) { // If this is not a null parse
+	create_predicted_AHFA_state(g,
+	    matrix_row(prediction_matrix, (guint)start_item->postdot),
+	     rule_by_sort_key,
+	     &states,
+	     duplicates
+	     );
+    }
+}
+
+@* Discovered AHFA States.
+@ @<Create a 1-item discovered AHFA state@> = {
+struct AHFA_item** new_state_item_list;
+struct AHFA_item* single_item_p = item_list[first_working_item_ix];
+Marpa_AHFA_Item_ID single_item_id;
+Marpa_Symbol_ID postdot;
+single_item_p++; // Transition to next item for this rule
+single_item_id = single_item_p - AHFA_item_0_p;
+if (singleton_duplicates[single_item_id]) goto NEXT_WORKING_SYMBOL;
+// Do not add, if it is a duplicate
+p_state = DQUEUE_PUSH(states, struct AHFA_state);
+// Create a new AHFA state
+singleton_duplicates[single_item_id] = p_state;
+new_state_item_list = p_state->items = obstack_alloc(&g->obs, sizeof(struct AHFA_item*));
+new_state_item_list[0] = single_item_p;
+p_state->item_count = 1;
+p_state->is_predict = 0;
+p_state->id = p_state - DQUEUE_BASE(states, struct AHFA_state);
+postdot = single_item_p->postdot;
+if (postdot >= 0) {
+    p_state->is_leo_completion = 0;
+// If the sole item is not a completion
+// attempt to create a predicted AHFA state as well
+	create_predicted_AHFA_state(g,
+	    matrix_row(prediction_matrix, (guint)postdot),
+	     rule_by_sort_key,
+	     &states,
+	     duplicates);
+} else {
+  @<Mark this state as a Leo completion if it is one@>@/
+}
+}
+
+@ Assuming this is a 1-item completion, mark this state as
+a Leo completion if the last non-nulling symbol is on a LHS.
+(This eliminates rule which end in a terminal-only symbol from
+consideration in the Leo logic.)
+We know that there is a non-nulling symbol, because there is
+one is every non-nulling rule, the only non-nulling rule will
+be in AHFA state 0, and AHFA state 0 is
+handled as a special cases.
+\par
+As a note, the current logic makes an item an leo completion
+if the last non-nulling symbol is on a LHS.
+With a bit more trouble, I could determine
+which rules are right-recursive.
+I would need to compute a transitive closure on the relationship
+"X right-derives Y" and then consider a state to be
+a Leo completion
+only if the LHS of the rule in its only item right-derives its
+last non-nulling symbol.
+
+@ The expression below takes the first (and only) item in
+the current state, finds its predecessor by simply decrementing
+the pointer.
+If the postdot symbol of this item is on the LHS of more than 0
+rules, then this state is a Leo completion.
+@<Mark this state as a Leo completion if it is one@> = 
+Marpa_Symbol_ID previous_nonnulling_symbol_id = single_item_p[-1].postdot;
+p_state->is_leo_completion
+    = SYMBOL_LHS_RULE_COUNT(
+	symbol_id2p(g, previous_nonnulling_symbol_id)
+    ) > 0;
+
+@ Discovered AHFA states are usually quite small
+and the insertion sort here is probably optimal for the usual cases.
+It is $O(n^2)$ for the large AHFA states, but at present there is
+little value in coding for such cases.
+Average complexity -- probably $O(1)$.
+Implemented worst-case complexity: $O(n^2)$.
+Theoretical complexity: $O(n \log n)$, because another sort can easily be
+substituted for the insertion sort.
+\par
+Note the mixture of indexing and old-fashioned pointer twiddling
+in the insertion sort.
+I am usually of the opinion that the pointer twiddling should be left
+to the optimizer, but in this case I think that a little bit of
+pointer twiddling actually makes the code clearer than it would
+be if written 100\% using indexes.
+@<Create a discovered AHFA state with 2+ items@> = {
+guint predecessor_ix;
+guint no_of_new_items_so_far = 0;
+struct AHFA_item** item_list_for_new_state;
+p_state = DQUEUE_PUSH(states, struct AHFA_state);
+item_list_for_new_state = p_state->items = obstack_alloc(&g->obs,
+    no_of_items_in_new_state * sizeof(struct AHFA_item*));
+p_state->item_count = no_of_items_in_new_state;
+for (predecessor_ix = first_working_item_ix;
+    predecessor_ix < current_item_ix;
+    predecessor_ix++) {
+    gint pre_insertion_point_ix = no_of_new_items_so_far - 1;
+    struct AHFA_item* new_item_p = item_list[predecessor_ix] + 1; // Transition to the next item
+    while (pre_insertion_point_ix >= 0) {  // Insert the new item, ordered by |sort_key|
+	struct AHFA_item** current_item_pp = item_list_for_new_state+pre_insertion_point_ix;
+	if ( new_item_p->sort_key >= (*current_item_pp)->sort_key ) break;
+	*(current_item_pp+1) = *current_item_pp;
+	pre_insertion_point_ix--;
+    }
+    item_list_for_new_state[pre_insertion_point_ix+1] = new_item_p;
+    no_of_new_items_so_far++;
+}
+p_state->hash = AHFA_state_hash_compute(p_state);
+if (g_hash_table_lookup(duplicates, p_state)) { // The new state would be a duplicate
+// Back it out and go on to the next in the queue
+    (void)DQUEUE_POP(states, struct AHFA_state);
+    obstack_free(&g->obs, item_list_for_new_state);
+    goto NEXT_WORKING_SYMBOL;
+}
+p_state->id = p_state - DQUEUE_BASE(states, struct AHFA_state);
+p_state->is_predict=0;
+p_state->is_leo_completion=0;
+g_hash_table_insert(duplicates, p_state, p_state);
+@<Calculate the predicted rule vector for this state
+and add the predicted AHFA state@>@/
+}
+
+@ @<Calculate the predicted rule vector for this state
+and add the predicted AHFA state@> = {
+guint item_ix;
+Marpa_Symbol_ID postdot = -1; // Initialized to prevent GCC warning
+for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++) {
+    postdot = item_list_for_new_state[item_ix]->postdot;
+    if (postdot >= 0) break;
+}
+if (postdot >= 0) { // If any item is not a completion ...
+    Bit_Vector predicted_rule_vector
+	= bv_shadow(matrix_row(prediction_matrix, (guint)postdot));
+    for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++) {
+    // "or" the other non-complete items into the prediction rule vector
+	postdot = item_list_for_new_state[item_ix]->postdot;
+	if (postdot < 0) continue;
+	bv_or_assign(predicted_rule_vector, 
+	    matrix_row(prediction_matrix, (guint)postdot));
+    }
+    create_predicted_AHFA_state(g,
+	predicted_rule_vector,
+	 rule_by_sort_key,
+	 &states,
+	 duplicates); // Add the predicted rule
+} }
+
+@*0 Predicted AHFA States.
+The method for building predicted AHFA states is highly optimized, using
+precomputed bit vectors.  It is possible, however to think other methods might
+be better, at least in some cases.  The bit vectors are $O(s)$ in length, where $s$ is the
+size of the grammar, and so is the time complexity of the method used.
+@ It may be possible to look at a list of
+only the AHFA items actually present in each state,
+which might be $O(\log s)$ in the average case.  An advantage of the bit vectors is they
+implicitly perform a radix sort.
+This would have to be performed explicitly for an enumerated
+list of AHFA items, making the putative average case $O(\log s \cdot \log \log s)$.
+@ In the worst case, however, the number of AHFA items in the predicted states is
+$O(s)$, making the time complexity
+of a list solution, $O(s \cdot \log s)$.
+In normal cases,
+the practical advantages of bit vectors are overwhelming and swamp the theoretical
+time complexity.
+The advantage of listing AHFA items is restricted to a putative "average" case,
+and even there would not kick in until the grammars became very large.
+My conclusion is that alternatives to the bit vector implementation deserve
+further investigation, but that at present, and overall,
+bit vectors appear clearly superior to the alternatives.
+@ For the predicted states, I construct a symbol-by-rule matrix
 of predictions.  First, I determine which symbols directly predict
 others.  Then I compute the transitive closure.
 Finally, I convert this to a symbol-by-rule matrix.
 The symbol-by-rule matrix will be used in constructing the prediction
 states.
-@<Construct prediction matrix@> = {
+
+@ @<Construct prediction matrix@> = {
     Bit_Matrix symbol_by_symbol_matrix = matrix_create(no_of_symbols, no_of_symbols);
     @<Initialize the symbol-by-symbol matrix@>@/
     transitive_closure(symbol_by_symbol_matrix);
@@ -3620,7 +3908,15 @@ states.
 
 @ @<Initialize the symbol-by-symbol matrix@> =
 { Marpa_Rule_ID rule_id;
+Marpa_Symbol_ID symbol_id;
     struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
+    for (symbol_id = 0; symbol_id < (Marpa_Symbol_ID)no_of_symbols; symbol_id++) {
+	// If a symbol appears on a LHS, it predicts itself.
+	struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+	if (!SYMBOL_LHS_RULE_COUNT(symbol)) continue;
+	matrix_bit_set(symbol_by_symbol_matrix,
+	    (guint)symbol_id, (guint)symbol_id);
+    }
     for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
 	Marpa_Symbol_ID from, to;
         struct AHFA_item* item = items_by_rule[rule_id];
@@ -3645,6 +3941,87 @@ with |S2| on its LHS.
 @<Create the prediction matrix from the symbol-by-symbol matrix@> = {
 struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
     Marpa_Symbol_ID from_symbol_id;
+    guint* sort_key_by_rule_id = g_new(guint, no_of_rules);
+    guint no_of_predicted_rules = 0;
+    @<Populate |sort_key_by_rule_id| with first pass value;
+	calculate |no_of_predicted_rules|@>@/
+    @<Populate |rule_by_sort_key|@>@/
+    @<Populate |sort_key_by_rule_id| with second pass value@>@/
+    @<Populate the prediction matrix@>@/
+    g_free(sort_key_by_rule_id);
+}
+
+@ For creating prediction AHFA states, we need to have an ordering of rules
+by their postdot symbol.
+A "predicted rule" is one whose initial item has a postdot symbol.
+The following facts hold:
+\li A rule is predicted iff it is both used and non-nulling.
+\li A rule is predicted iff it is a used rule which is not the nulling start rule.
+\li A rule is predicted iff it has any item with a postdot symbol.
+\par
+Here we take a first pass at this, letting the value be the postdot symbol for
+the predicted rules.
+|G_MAXINT| is used for the others, so that they will sort high.
+(|G_MAXINT| is used and not |G_MAXUINT|, because the sort routines
+work with signed values.)
+This first pass fully captures the order, but
+our final result needs to be an unique ID for every "predicted rule",
+so that it can be used as the index in a bit vector.
+@<Populate |sort_key_by_rule_id| with first pass value;
+calculate |no_of_predicted_rules|@> =
+{ Marpa_Rule_ID rule_id;
+for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
+     struct AHFA_item* item = items_by_rule[rule_id];
+     Marpa_Symbol_ID postdot;
+     if  (!item) goto NOT_A_PREDICTED_RULE;
+     postdot = item->postdot;
+     if (postdot < 0) goto NOT_A_PREDICTED_RULE;
+     sort_key_by_rule_id[rule_id] = postdot;
+     no_of_predicted_rules++;
+     continue;
+     NOT_A_PREDICTED_RULE:
+	  sort_key_by_rule_id[rule_id] = G_MAXINT;
+} }
+
+@ @<Populate |rule_by_sort_key|@> =
+{ Marpa_Rule_ID rule_id;
+for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
+    rule_by_sort_key[rule_id] = rule_id2p(g, rule_id);
+}
+g_qsort_with_data(rule_by_sort_key, (gint)no_of_rules,
+    sizeof(struct marpa_rule*), cmp_by_rule_sort_key,
+    (gpointer)sort_key_by_rule_id);
+}
+
+@ @<Function definitions@> = static gint
+cmp_by_rule_sort_key(gconstpointer ap,
+	gconstpointer bp, gpointer user_data) {
+    struct marpa_rule *a = *(struct marpa_rule**)ap;
+    struct marpa_rule *b = *(struct marpa_rule**)bp;
+    guint* sort_key_by_rule_id = (guint*)user_data;
+    Marpa_Rule_ID a_id = a->id;
+    Marpa_Rule_ID b_id = b->id;
+    guint sort_key_a = sort_key_by_rule_id[a_id];
+    guint sort_key_b = sort_key_by_rule_id[b_id];
+    if (sort_key_a == sort_key_b) return a_id - b_id;
+    return sort_key_a - sort_key_b;
+}
+@ @<Private function prototypes@> = static
+gint cmp_by_rule_sort_key(gconstpointer ap,
+	gconstpointer bp, gpointer user_data);
+
+@ We have now sorted the rules into the final sort key order.
+With this final version of the sort keys,
+populate the index from rule id to sort key.
+@<Populate |sort_key_by_rule_id| with second pass value@> = {
+guint sort_key;
+for (sort_key = 0; sort_key < no_of_rules; sort_key++) {
+     struct marpa_rule* rule = rule_by_sort_key[sort_key];
+      sort_key_by_rule_id[rule->id] = sort_key;
+} }
+
+@ @<Populate the prediction matrix@> = {
+   prediction_matrix = matrix_create(no_of_symbols, no_of_predicted_rules);
     for (from_symbol_id = 0; from_symbol_id < (Marpa_Symbol_ID)no_of_symbols; from_symbol_id++) {
     // for every row of the symbol-by-symbol matrix
 	  guint min, max, start;
@@ -3662,115 +4039,102 @@ struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
      for (ix = 0; ix < no_of_lhs_rules; ix++) {
 	 // For every rule with that symbol on its LHS
 	 Marpa_Rule_ID rule_with_this_lhs_symbol = g_array_index(lhs_rules, Marpa_Rule_ID, ix);
-	 if (!items_by_rule[rule_with_this_lhs_symbol]) continue; /*
+	 guint sort_key = sort_key_by_rule_id[rule_with_this_lhs_symbol];
+	 if (sort_key >= no_of_predicted_rules) continue; /*
 	     We only need to predict rules which have items */
-	 matrix_bit_set(prediction_matrix, (guint)from_symbol_id,
-	     (guint)rule_with_this_lhs_symbol);
-	     // Set the $(symbol, rule)$ bit in the matrix
+	 matrix_bit_set(prediction_matrix, (guint)from_symbol_id, sort_key);
+	     // Set the $(symbol, rule sort key)$ bit in the matrix
 } } } } }
 
-@ @<Construct initial AHFA states@> = {
-   Marpa_Rule_ID start_rule_id;
-   struct marpa_symbol* start_symbol = symbol_id2p(g, g->start_symbol_id);
-   struct marpa_symbol* start_alias
-       = symbol_null_alias(start_symbol);
-    gint no_of_items_in_state = start_alias ? 2 : 1;
-    struct AHFA_item ** item_list
-	= obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
-    start_rule_id = g_array_index(start_symbol->lhs, Marpa_Rule_ID, 0); /* The start rule
-	is the unique rule that has the start symbol as its LHS */
-    item_list[0] = g->AHFA_items_by_rule[start_rule_id]; /* The start item is the
-       initial item for the start rule */
-    if (start_alias) {
-       Marpa_Rule_ID alias_rule_id
-	    = g_array_index(start_alias->lhs, Marpa_Rule_ID, 0); /* Start alias
-	    rule is the unique rule that has
-	   the start alias as its LHS */
-	item_list[1] = g->AHFA_items_by_rule[alias_rule_id];
-    }
-    p_state->items = item_list;
-    p_state->item_count = no_of_items_in_state;
-    p_state->is_predict = 0;
-    if (!start_symbol->is_nulling) { // If this is not a null parse
-	@<Add an initial prediction AHFA state@>@/
-    }
-}
-
-@ @<Add an initial prediction AHFA state@> =
-Bit_Vector prediction_rule_vector
-    = matrix_row(prediction_matrix, (guint)g->start_symbol_id);
+@ @<Function definitions@> =
+static void
+create_predicted_AHFA_state(
+     struct marpa_g* g,
+     Bit_Vector prediction_rule_vector,
+     struct marpa_rule** rule_by_sort_key,
+     struct dqueue* states_p,
+    GHashTable* duplicates
+     ) {
 guint start, min, max;
+struct AHFA_item** item_list;
+struct AHFA_state* p_state;
 guint item_list_ix = 0;
-no_of_items_in_state = 0;
+guint no_of_items_in_state = 0;
 for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
 	start = max+2
 	) { // count the number of items in this AHFA state
-	no_of_items_in_state += max - min + 1; }
+	no_of_items_in_state += max - min + 1;
+}
+	if (no_of_items_in_state == 0) return;
 item_list = obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
 for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
 	start = max+2
 	) { // Scan the prediction rule vector again, this time to populate the list
-	    Marpa_Symbol_ID predicted_rule_id;
-	    for (predicted_rule_id = min;
-		    predicted_rule_id <= (Marpa_Rule_ID)max;
-		    predicted_rule_id++) {
+	    guint rule_sort_key;
+	    for (rule_sort_key = min;
+		    rule_sort_key <= max;
+		    rule_sort_key++) {
 		/* Add the initial item for the predicted rule */
-		item_list[item_list_ix++] = g->AHFA_items_by_rule[predicted_rule_id];
+		struct marpa_rule* rule = rule_by_sort_key[rule_sort_key];
+		item_list[item_list_ix++] = g->AHFA_items_by_rule[rule->id];
 	    }
 	}
-p_state = DQUEUE_PUSH(states, struct AHFA_state);@/
+p_state = DQUEUE_PUSH((*states_p), struct AHFA_state);@/
     p_state->items = item_list;
     p_state->item_count = no_of_items_in_state;
+    p_state->hash = AHFA_state_hash_compute(p_state);
+    if (g_hash_table_lookup(duplicates, p_state)) { // The new state would be a duplicate
+    // Back it out and go on to the next in the queue
+	(void)DQUEUE_POP((*states_p), struct AHFA_state);
+	obstack_free(&g->obs, item_list);
+	return;
+    }
+    p_state->id = p_state - DQUEUE_BASE((*states_p), struct AHFA_state);
     p_state->is_predict = 1;
-    p_state->id.hash = AHFA_state_hash_compute(p_state);
+    p_state->is_leo_completion = 0;
     g_hash_table_insert(duplicates, p_state, p_state); /* Insert
        into the table that checks for duplicates */
-
-@ @<Process an AHFA state from the working stack@> = {
-guint no_of_items = p_state->item_count;
-Marpa_AHFA_Item_ID current_item=0;
-struct AHFA_item **item_list;
-Marpa_Symbol_ID work_symbol;
-item_list = p_state->items;
-work_symbol = item_list[0]->postdot; /*
-    Every AHFA has at least one item */
-if (work_symbol == -1) goto NEXT_AHFA_STATE; /*
-    All items in this state are completions */
-    while (1) { /* Loop over all items for this state */
-	Marpa_AHFA_Item_ID first_item_for_working_symbol = current_item;
-	for (current_item++;
-		current_item < (Marpa_AHFA_Item_ID)no_of_items;
-		current_item++) {
-	    if (item_list[current_item]->postdot != work_symbol) break;
-	}
-	switch (current_item - first_item_for_working_symbol) {
-	    case 1: @<Start a 1-item AHFA kernel state@>@;
-	    break;
-	    case 2: @<Start a 2-item AHFA kernel state@>@;
-	    break;
-	    default: @<Start an AHFA kernel state with 2+ items@>@/
-	}
-	/* $v_k$ will not be empty here */@/
-	/* If $v_k$ is not new, next symbol */@/
-	/* Add $v_k$ */@/
-	@<Compute non-kernel state@>@/
-	/* If $v_NK$ is not empty and is new, add it */@/
-	if (current_item >= (Marpa_AHFA_Item_ID)no_of_items) break;
-	work_symbol = item_list[current_item]->postdot;
-	if (work_symbol == -1) break;
-    }@#
-NEXT_AHFA_STATE: ;
 }
+@ @<Private function prototypes@> =
+static void
+create_predicted_AHFA_state(
+     struct marpa_g* g,
+     Bit_Vector prediction_rule_vector,
+     struct marpa_rule** rule_by_sort_key,
+     struct dqueue* states_p,
+    GHashTable* duplicates);
 
-@ @<Start a 1-item AHFA kernel state@> = {;}
-@ @<Start a 2-item AHFA kernel state@> = {;}
-@ @<Start an AHFA kernel state with 2+ items@> = {;}
+@** AHFA Transitions.
 
-@ This can be done with a pass over the items in $v_k$.
-For each post-dot symbol in that state, or the transitive closure of the
-epsilon transitions into a rule vector.
-The items in $v_NK$ will be the initial items of those rules.
-@<Compute non-kernel state@> = ;
+@ @<Private structures@> =
+struct AHFA_transition {
+     Marpa_AHFA_State_ID from;
+     Marpa_Symbol_ID symbol;
+     Marpa_AHFA_State_ID to;
+};
+
+@ @<Widely aligned grammar elements@> =
+   GSequence* AHFA_transitions;
+@ @<Initialize grammar elements@> =
+   g->AHFA_transitions = g_sequence_new(NULL);
+@ @<Destroy grammar elements@> =
+   g_sequence_free(g->AHFA_transitions);
+
+@ @<Function definitions@> = static
+gint cmp_AHFA_transition(gconstpointer ap,
+	gconstpointer bp, gpointer user_data G_GNUC_UNUSED) {
+    gint subkey;
+    struct AHFA_transition *a = *(struct AHFA_transition**)ap;
+    struct AHFA_transition *b = *(struct AHFA_transition**)bp;
+    subkey = a->from - b->from;
+    if (subkey) return subkey;
+    subkey = a->symbol - b->symbol;
+    if (subkey) return subkey;
+    return a->to - b->to;
+}
+@ @<Private function prototypes@> = static
+gint cmp_AHFA_transition(gconstpointer ap,
+	gconstpointer bp, gpointer user_data);
 
 @** Earley Item Objects.
 Here are some thought about potential optimizations:
@@ -3824,8 +4188,8 @@ Marpa's boolean vectors are adapted from
 Steffen Beyer's Bit-Vector package on CPAN.
 This is a combined Perl package and C library for handling
 bit vectors.
-Someone looking for a bit vector package would do best
-to look at Steffen's first.
+Someone seeking a general bit vector package should
+look at Steffen's instead.
 |libmarpa|'s boolean vectors are tightly tied in
 with its own needs and environment.
 @<Private typedefs@> =
@@ -4022,6 +4386,18 @@ static inline void bv_or(Bit_Vector X, Bit_Vector Y, Bit_Vector Z)
 }
 @ @<Private function prototypes@> =
 static inline void bv_or(Bit_Vector X, Bit_Vector Y, Bit_Vector Z);
+
+@*0 Bitwise-or-assign a Boolean Vector.
+@<Function definitions@>=
+static inline void bv_or_assign(Bit_Vector X, Bit_Vector Y)
+{
+    guint size = BV_SIZE(X);
+    guint mask = BV_MASK(X);
+    while (size-- > 0) *X++ |= *Y++;
+    *(--X) &= mask;
+}
+@ @<Private function prototypes@> =
+static inline void bv_or_assign(Bit_Vector X, Bit_Vector Y);
 
 @*0 Scan a Boolean Vector.
 @<Function definitions@>=

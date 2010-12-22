@@ -95,12 +95,30 @@ S['][] -> .
 * S1: predict
 S -> . a A
 S -> . a A[]
+* S2: leo-c
+S['] -> S .
+* S3:
+S -> a . A
+S -> a A[] .
+* S4: predict
+S -> . a A
+S -> . a A[]
+A -> . B
+B -> . C
+C -> . S
+* S5: leo-c
+S -> a A .
+* S6: leo-c
+C -> S .
+* S7: leo-c
+A -> B .
+* S8: leo-c
+B -> C .
 EOS
 
 } ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );
-Start States: S0; S1
 * S0:
 S['] -> . S
 S['][] -> .
@@ -121,18 +139,18 @@ S -> . a A[]
 A -> . B
 B -> . C
 C -> . S
- <B> => S6; leo(A)
- <C> => S7; leo(B)
- <S> => S8; leo(C)
+ <B> => S7; leo(A)
+ <C> => S8; leo(B)
+ <S> => S6; leo(C)
  <a> => S3; S4
 * S5: leo-c
 S -> a A .
 * S6: leo-c
-A -> B .
-* S7: leo-c
-B -> C .
-* S8: leo-c
 C -> S .
+* S7: leo-c
+A -> B .
+* S8: leo-c
+B -> C .
 END_OF_STRING
 
 my $a_token = [ 'a', 'a' ];

@@ -1240,11 +1240,6 @@ sub Marpa::XS::Grammar::show_AHFA {
 
     my $text         = q{};
     my $AHFA         = $grammar->[Marpa::XS::Internal::Grammar::AHFA];
-    my $start_states = $grammar->[Marpa::XS::Internal::Grammar::START_STATES];
-    $text .= 'Start States: ';
-    $text .= join '; ',
-        sort map { Marpa::XS::brief_AHFA_state($_) } @{$start_states};
-    $text .= "\n";
 
     for my $state ( @{$AHFA} ) {
         $text .= Marpa::XS::show_AHFA_state($state);
@@ -2478,6 +2473,7 @@ sub create_AHFA {
         Marpa::XS::Internal::Grammar::NFA,
         Marpa::XS::Internal::Grammar::TRACING,
     ];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
 
     my $trace_fh;
     if ($tracing) {
@@ -2529,7 +2525,9 @@ sub create_AHFA {
         }    # $NFA_state
 
         # for each transition symbol, create the transition to the AHFA kernel state
-        for my $symbol ( sort keys %{$NFA_to_states_by_symbol} ) {
+        for my $symbol ( sort
+		{ $symbol_hash->{$a} <=> $symbol_hash->{$b} }
+		keys %{$NFA_to_states_by_symbol} ) {
             my $to_states_by_symbol = $NFA_to_states_by_symbol->{$symbol};
             $AHFA_state->[Marpa::XS::Internal::AHFA::TRANSITION]->{$symbol} =
                 assign_AHFA_state_set( $grammar, $to_states_by_symbol );

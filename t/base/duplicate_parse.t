@@ -60,7 +60,7 @@ my $grammar = Marpa::XS::Grammar->new(
 $grammar->precompute();
 
 Marpa::XS::Test::is( $grammar->show_rules,
-    <<'END_OF_STRING', 'final nonnulling Rules' );
+    <<'END_OF_STRING', 'duplicate parse Rules' );
 0: S -> p p p n /* !used */
 1: p -> a
 2: p -> /* empty !used */
@@ -76,7 +76,8 @@ END_OF_STRING
 
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'final nonnulling New AHFA States' );
+# no transitions
+Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'duplicate parse New AHFA States' );
 * S0:
 S['] -> . S
 * S1: predict
@@ -88,13 +89,46 @@ S -> p[] . p S[R0:2]
 S -> p[] p[] . S[R0:2]
 S[R0:2] -> . p n
 S[R0:2] -> p[] . n
+* S2: leo-c
+S['] -> S .
+* S3:
+p -> a .
+n -> a .
+* S4:
+S -> p . p S[R0:2]
+S -> p p[] . S[R0:2]
+S -> p[] p . S[R0:2]
+S[R0:2] -> p . n
+* S5: predict
+p -> . a
+n -> . a
+S[R0:2] -> . p n
+S[R0:2] -> p[] . n
+* S6: leo-c
+S[R0:2] -> p[] n .
+* S7: leo-c
+S -> p[] p[] S[R0:2] .
+* S8:
+S -> p p . S[R0:2]
+* S9: leo-c
+S[R0:2] -> p n .
+* S10:
+S -> p p[] S[R0:2] .
+S -> p[] p S[R0:2] .
+* S11:
+S[R0:2] -> p . n
+* S12: predict
+n -> . a
+* S13: leo-c
+S -> p p S[R0:2] .
+* S14:
+n -> a .
 EOS
 
 } ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA,
-    <<'END_OF_STRING', 'final nonnulling AHFA' );
-Start States: S0; S1
+    <<'END_OF_STRING', 'duplicate parse AHFA' );
 * S0:
 S['] -> . S
  <S> => S2; leo(S['])
@@ -107,43 +141,43 @@ S -> p[] . p S[R0:2]
 S -> p[] p[] . S[R0:2]
 S[R0:2] -> . p n
 S[R0:2] -> p[] . n
- <S[R0:2]> => S3; leo(S)
- <a> => S4
- <n> => S5; leo(S[R0:2])
- <p> => S6; S7
+ <S[R0:2]> => S7; leo(S)
+ <a> => S3
+ <n> => S6; leo(S[R0:2])
+ <p> => S4; S5
 * S2: leo-c
 S['] -> S .
-* S3: leo-c
-S -> p[] p[] S[R0:2] .
-* S4:
+* S3:
 p -> a .
 n -> a .
-* S5: leo-c
-S[R0:2] -> p[] n .
-* S6:
+* S4:
 S -> p . p S[R0:2]
 S -> p p[] . S[R0:2]
 S -> p[] p . S[R0:2]
 S[R0:2] -> p . n
- <S[R0:2]> => S8
+ <S[R0:2]> => S10
  <n> => S9; leo(S[R0:2])
- <p> => S10; S7
-* S7: predict
+ <p> => S5; S8
+* S5: predict
 p -> . a
 n -> . a
 S[R0:2] -> . p n
 S[R0:2] -> p[] . n
- <a> => S4
- <n> => S5; leo(S[R0:2])
+ <a> => S3
+ <n> => S6; leo(S[R0:2])
  <p> => S11; S12
+* S6: leo-c
+S[R0:2] -> p[] n .
+* S7: leo-c
+S -> p[] p[] S[R0:2] .
 * S8:
-S -> p p[] S[R0:2] .
-S -> p[] p S[R0:2] .
+S -> p p . S[R0:2]
+ <S[R0:2]> => S13; leo(S)
 * S9: leo-c
 S[R0:2] -> p n .
 * S10:
-S -> p p . S[R0:2]
- <S[R0:2]> => S13; leo(S)
+S -> p p[] S[R0:2] .
+S -> p[] p S[R0:2] .
 * S11:
 S[R0:2] -> p . n
  <n> => S9; leo(S[R0:2])

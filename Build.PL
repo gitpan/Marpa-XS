@@ -27,7 +27,7 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_xs_version = '0.001_024';
+my $marpa_xs_version = '0.001_025';
     
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;

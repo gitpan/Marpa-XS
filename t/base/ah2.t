@@ -169,7 +169,8 @@ AHFA item 25: sort = 25; completion
     S['][] -> .
 EOS
 
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Aycock/Horspool New AHFA States' );
+# excluding transitions
+Marpa::XS::Test::is( $grammar->show_new_AHFA, <<'EOS', 'Aycock/Horspool New AHFA States' );
 * S0:
 S['] -> . S
 S['][] -> .
@@ -184,9 +185,56 @@ S[R0:1] -> A[] . S[R0:2]
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
+* S2: leo-c
+S['] -> S .
+* S3:
+S -> A . S[R0:1]
+S -> A A[] A[] A[] .
+S[R0:1] -> A . S[R0:2]
+S[R0:1] -> A A[] A[] .
+S[R0:2] -> A . A
+S[R0:2] -> A A[] .
+S[R0:2] -> A[] A .
+* S4: predict
+A -> . a
+S[R0:1] -> . A S[R0:2]
+S[R0:1] -> . A A[] A[]
+S[R0:1] -> A[] . S[R0:2]
+S[R0:2] -> . A A
+S[R0:2] -> . A A[]
+S[R0:2] -> A[] . A
+* S5:
+A -> a .
+* S6: leo-c
+S -> A[] S[R0:1] .
+* S7: leo-c
+S[R0:1] -> A[] S[R0:2] .
+* S8: leo-c
+S[R0:2] -> A A .
+* S9: leo-c
+S -> A S[R0:1] .
+* S10: leo-c
+S[R0:1] -> A S[R0:2] .
+* S11:
+S[R0:1] -> A . S[R0:2]
+S[R0:1] -> A A[] A[] .
+S[R0:2] -> A . A
+S[R0:2] -> A A[] .
+S[R0:2] -> A[] A .
+* S12: predict
+A -> . a
+S[R0:2] -> . A A
+S[R0:2] -> . A A[]
+S[R0:2] -> A[] . A
+* S13:
+S[R0:2] -> A . A
+S[R0:2] -> A A[] .
+S[R0:2] -> A[] A .
+* S14: predict
+A -> . a
 EOS
 
-} ## SKIP of XS tests
+}
 
 Marpa::XS::Test::is( $grammar->show_NFA, <<'EOS', 'Aycock/Horspool NFA' );
 S0: /* empty */
@@ -274,7 +322,6 @@ S35: S['][] -> .
 EOS
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'EOS', 'Aycock/Horspool AHFA' );
-Start States: S0; S1
 * S0:
 S['] -> . S
 S['][] -> .
@@ -291,9 +338,9 @@ S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
  <A> => S3; S4
- <S[R0:1]> => S5; leo(S)
- <S[R0:2]> => S6; leo(S[R0:1])
- <a> => S7
+ <S[R0:1]> => S6; leo(S)
+ <S[R0:2]> => S7; leo(S[R0:1])
+ <a> => S5
 * S2: leo-c
 S['] -> S .
 * S3:
@@ -316,14 +363,14 @@ S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
  <A> => S11; S12
- <S[R0:2]> => S6; leo(S[R0:1])
- <a> => S7
-* S5: leo-c
-S -> A[] S[R0:1] .
-* S6: leo-c
-S[R0:1] -> A[] S[R0:2] .
-* S7:
+ <S[R0:2]> => S7; leo(S[R0:1])
+ <a> => S5
+* S5:
 A -> a .
+* S6: leo-c
+S -> A[] S[R0:1] .
+* S7: leo-c
+S[R0:1] -> A[] S[R0:2] .
 * S8: leo-c
 S[R0:2] -> A A .
 * S9: leo-c
@@ -344,7 +391,7 @@ S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
  <A> => S13; S14
- <a> => S7
+ <a> => S5
 * S13:
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
@@ -352,7 +399,7 @@ S[R0:2] -> A[] A .
  <A> => S8; leo(S[R0:2])
 * S14: predict
 A -> . a
- <a> => S7
+ <a> => S5
 EOS
 
 my $recce =
@@ -365,42 +412,42 @@ S0@0-0
 S1@0-0
 END_OF_SET0
 Earley Set 1
-S7@0-1 [p=S1@0-0; s=a; t=\'a']
-S3@0-1 [p=S1@0-0; c=S7@0-1]
+S5@0-1 [p=S1@0-0; s=a; t=\'a']
+S3@0-1 [p=S1@0-0; c=S5@0-1]
 S4@1-1
-S2@0-1 [p=S0@0-0; c=S3@0-1] [p=S0@0-0; c=S5@0-1]
-S5@0-1 [p=S1@0-0; c=S3@0-1] [p=S1@0-0; c=S6@0-1]
-S6@0-1 [p=S1@0-0; c=S3@0-1]
+S2@0-1 [p=S0@0-0; c=S3@0-1] [p=S0@0-0; c=S6@0-1]
+S6@0-1 [p=S1@0-0; c=S3@0-1] [p=S1@0-0; c=S7@0-1]
+S7@0-1 [p=S1@0-0; c=S3@0-1]
 L9@0-1; actual="S[R0:1]"->9; [c=S3@0-1]
 END_OF_SET1
 Earley Set 2
-S7@1-2 [p=S4@1-1; s=a; t=\'a']
-S8@0-2 [p=S3@0-1; c=S7@1-2]
-S11@1-2 [p=S4@1-1; c=S7@1-2]
+S5@1-2 [p=S4@1-1; s=a; t=\'a']
+S8@0-2 [p=S3@0-1; c=S5@1-2]
+S11@1-2 [p=S4@1-1; c=S5@1-2]
 S12@2-2
-S6@0-2 [p=S1@0-0; c=S8@0-2]
-S9@0-2 [l=L9@0-1; c=S11@1-2] [l=L9@0-1; c=S6@1-2]
+S7@0-2 [p=S1@0-0; c=S8@0-2]
+S9@0-2 [l=L9@0-1; c=S11@1-2] [l=L9@0-1; c=S7@1-2]
 S10@0-2 [p=S3@0-1; c=S11@1-2]
-S6@1-2 [p=S4@1-1; c=S11@1-2]
-S5@0-2 [p=S1@0-0; c=S6@0-2] [p=S1@0-0; c=S10@0-2]
-S2@0-2 [p=S0@0-0; c=S9@0-2] [p=S0@0-0; c=S5@0-2]
+S7@1-2 [p=S4@1-1; c=S11@1-2]
+S6@0-2 [p=S1@0-0; c=S7@0-2] [p=S1@0-0; c=S10@0-2]
+S2@0-2 [p=S0@0-0; c=S9@0-2] [p=S0@0-0; c=S6@0-2]
 L9@0-2; actual="S[R0:2]"->10; [l=L9@0-1; c=S11@1-2]
 END_OF_SET2
 Earley Set 3
-S7@2-3 [p=S12@2-2; s=a; t=\'a']
-S8@1-3 [p=S11@1-2; c=S7@2-3]
-S13@2-3 [p=S12@2-2; c=S7@2-3]
+S5@2-3 [p=S12@2-2; s=a; t=\'a']
+S8@1-3 [p=S11@1-2; c=S5@2-3]
+S13@2-3 [p=S12@2-2; c=S5@2-3]
 S14@3-3
 S10@0-3 [p=S3@0-1; c=S8@1-3]
-S6@1-3 [p=S4@1-1; c=S8@1-3]
-S9@0-3 [l=L9@0-2; c=S13@2-3] [l=L9@0-1; c=S6@1-3]
-S5@0-3 [p=S1@0-0; c=S10@0-3]
-S2@0-3 [p=S0@0-0; c=S9@0-3] [p=S0@0-0; c=S5@0-3]
+S7@1-3 [p=S4@1-1; c=S8@1-3]
+S9@0-3 [l=L9@0-2; c=S13@2-3] [l=L9@0-1; c=S7@1-3]
+S6@0-3 [p=S1@0-0; c=S10@0-3]
+S2@0-3 [p=S0@0-0; c=S9@0-3] [p=S0@0-0; c=S6@0-3]
 L9@0-3; actual="A"->8; [l=L9@0-2; c=S13@2-3]
 END_OF_SET3
 Earley Set 4
-S7@3-4 [p=S14@3-3; s=a; t=\'a']
-S9@0-4 [l=L9@0-3; c=S7@3-4]
+S5@3-4 [p=S14@3-3; s=a; t=\'a']
+S9@0-4 [l=L9@0-3; c=S5@3-4]
 S2@0-4 [p=S0@0-0; c=S9@0-4]
 END_OF_SET4
 

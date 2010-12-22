@@ -138,12 +138,23 @@ END_RULES
 
 SKIP: { skip 'Not using XS', 2 if not $Marpa::XS::USING_XS ;
 
+# does not include transitions
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Ambiguous Equation New AHFA Items' );
 * S0:
 E['] -> . E
 * S1: predict
 E -> . E Op E
 E -> . Number
+* S2: leo-c
+E['] -> E .
+* S3:
+E -> E . Op E
+* S4:
+E -> Number .
+* S5:
+E -> E Op . E
+* S6: leo-c
+E -> E Op E .
 EOS
 
 $actual_ref = save_stdout();
@@ -211,7 +222,6 @@ print $grammar->show_AHFA()
 
 Marpa::XS::Test::is( ${$actual_ref},
     <<'END_AHFA', 'Ambiguous Equation AHFA' );
-Start States: S0; S1
 * S0:
 E['] -> . E
  <E> => S2; leo(E['])

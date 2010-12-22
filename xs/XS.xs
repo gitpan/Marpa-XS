@@ -840,6 +840,17 @@ PPCODE:
     }
 
 void
+AHFA_state_is_leo_completion( g, AHFA_state_id )
+    Grammar *g;
+    Marpa_AHFA_State_ID AHFA_state_id;
+PPCODE:
+    { gint result = marpa_AHFA_state_is_leo_completion( g, AHFA_state_id );
+    if (result == -1) { croak("Invalid AHFA state %d", AHFA_state_id); }
+    if (result) XSRETURN_YES;
+    XSRETURN_NO;
+    }
+
+void
 context( g, key )
     Grammar *g;
     char *key;

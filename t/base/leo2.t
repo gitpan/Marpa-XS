@@ -68,6 +68,7 @@ END_OF_STRING
 
 SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
+# does not include transitions
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo166 New AHFA States' );
 * S0:
 S['] -> . S
@@ -75,12 +76,18 @@ S['][] -> .
 * S1: predict
 S -> . a S
 S -> . a S[]
+* S2: leo-c
+S['] -> S .
+* S3:
+S -> a . S
+S -> a S[] .
+* S4: leo-c
+S -> a S .
 EOS
 
 } ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );
-Start States: S0; S1
 * S0:
 S['] -> . S
 S['][] -> .
