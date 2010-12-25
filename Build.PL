@@ -27,7 +27,7 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_xs_version = '0.001_025';
+my $marpa_xs_version = '0.001_026';
     
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
@@ -91,7 +91,7 @@ my $build = Marpa::XS::Build_Me->new(
     extra_compiler_flags =>
         "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/dist",
     extra_linker_flags =>
-        "$glib_2_0_linker_flags libmarpa/build/.libs/libmarpa.a",
+        "$glib_2_0_linker_flags",
     PL_files   => {},
     xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
     meta_merge => {

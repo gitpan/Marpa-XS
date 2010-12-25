@@ -23,6 +23,7 @@ use warnings;
 @Marpa::XS::Build_Me::ISA = ('Module::Build');
 
 use Config;
+use File::Copy;
 use IPC::Cmd;
 use Module::Build;
 use English qw( -no_match_vars );
@@ -134,6 +135,28 @@ sub process_xs {
   # archdir
   File::Path::mkpath($spec->{archdir}, 0, oct(777)) unless -d $spec->{archdir};
 
+    # finalize libmarpa.a
+    my $libmarpa_libs_dir =
+	File::Spec->catdir( $self->base_dir(), qw(libmarpa build .libs) );
+    my $unfinished_libmarpa_a = File::Spec->catfile( $libmarpa_libs_dir, 'libmarpa.a' );
+    my $xs_dir = File::Spec->catdir( $self->base_dir(), 'xs' );
+    my $final_libmarpa_a = File::Spec->catfile( $xs_dir, 'libmarpa.a' );
+    File::Copy::syscopy( $unfinished_libmarpa_a, $final_libmarpa_a );
+    my $ranlib = $Config{ranlib};
+    if ( $ranlib ne q{:} ) {
+	if (not IPC::Cmd::run(
+		command => [ (split /\s+/, $ranlib), $final_libmarpa_a ],
+		verbose => 1
+	    )
+	    )
+	{
+	    say STDERR "Failed: $ranlib $final_libmarpa_a";
+	    die 'Cannot run libmarpa configure';
+	} ## end if ( not IPC::Cmd::run( command => [ $shell, ...]))
+    }
+
+  push @{$self->{properties}->{objects}}, $final_libmarpa_a;
+
   # .xs -> .bs
   $self->add_to_cleanup($spec->{bs_file});
     unless ( $self->up_to_date( $file, $spec->{bs_file}))
@@ -163,7 +186,7 @@ sub marpa_link_c {
 
     return $spec->{lib_file}
 	if $self->up_to_date(
-	[ $spec->{obj_file}, @$objects, 'libmarpa/build/.libs/libmarpa.a' ],
+	[ $spec->{obj_file}, @$objects ],
 	$spec->{lib_file} );
 
   my $module_name = $spec->{module_name} || $self->module_name;

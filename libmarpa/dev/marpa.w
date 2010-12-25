@@ -3448,16 +3448,15 @@ or less.
 considerably less than half the number of discovered states.
 
 The three possibilities just enumerated exhaust the possibilities for AHFA states.
-The total is $s/2 + s/2 + s$, or $2s$.
+The total is ${s \over 2} + {s \over 2} + s = 2s$.
 Typically, the number of AHFA states should be less than this estimate.
 
 @<Private structures@> =
 struct AHFA_state {
     struct AHFA_item** items;
     Marpa_AHFA_State_ID id;
-    guint hash;
     guint item_count;
-    Marpa_AHFA_State_ID empty_transition;
+    struct AHFA_state* empty_transition;
     unsigned int is_predict:1;
     unsigned int is_leo_completion:1;
 };
@@ -3575,47 +3574,46 @@ gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
 gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
 	Marpa_AHFA_State_ID AHFA_state_id);
 
-@*0 AHFA State Hashing.
+@ The ordering of the AHFA states can be arbitrarily chosen
+to be efficient to compute.
+All the that is necessary is that state with identical sets
+of items compare equal.
+Here the length is the first subkey, because
+that will be enough to order most predicted states.
+The discovered states will be efficient to compute because
+they will to be either short, or to be quickly differentiated
+based on length.
+\par
+Note that this function is not used for discovered AHFA states of
+size 1.
+Checking those for duplicates is optimized, using an array
+indexed by the ID of their only AHFA item.
 @<Function definitions@> =
-#define TEMPLATE_KEY_TYPE @[ struct AHFA_item** @] @/
-#define TEMPLATE_KEY_LENGTH(state_p) ((state_p)->item_count)
-#define TEMPLATE_KEY_INIT(state_p) @[((state_p)->items)@]@/
-#define TEMPLATE_KEY_VALUE(item_p, ix) @[ ((item_p)[ix]->sort_key) @]@/
-#define TEMPLATE_KEY_INC(item_p, inc) @[ ((item_p)+=(inc)) @]@/
-static inline guint AHFA_state_hash_compute(struct AHFA_state* p) {
-@<Hash function body template@>
-}
-@<Hash function template undefine@>
-@ @<Private function prototypes@> =
-static inline guint AHFA_state_hash_compute(struct AHFA_state* p);
-
-@ The hash function, to be passed to the |GHashTable| constructor.
-@<Function definitions@> =
-static guint AHFA_state_hash(gconstpointer p) {
-     return ((struct AHFA_state*)p)->hash;
-}
-@ @<Private function prototypes@> =
-static guint AHFA_state_hash(gconstpointer p);
-
-@ @<Function definitions@> =
-static gboolean AHFA_state_eq(gconstpointer ap, gconstpointer bp)
+static gint AHFA_state_cmp(
+    gconstpointer ap,
+    gconstpointer bp,
+    gpointer user_data G_GNUC_UNUSED)
 {
-guint i, length;
+guint i;
 struct AHFA_item** items_a;
 struct AHFA_item** items_b;
 const struct AHFA_state* state_a = (struct AHFA_state*)ap;
 const struct AHFA_state* state_b = (struct AHFA_state*)bp;
-length = state_a->item_count;
+guint length = state_a->item_count;
+gint subkey = length - state_b->item_count;
+if (subkey) return subkey;
 if (length != state_b->item_count) return FALSE;
 items_a = state_a->items;
 items_b = state_b->items;
 for (i = 0; i < length; i++) {
-   if (items_a[i]->sort_key != items_b[i]->sort_key) return FALSE;
+   subkey = items_a[i]->sort_key - items_b[i]->sort_key;
+   if (subkey) return subkey;
 }
-return TRUE;
+return 0;
 }
 @ @<Private function prototypes@> =
-static gboolean AHFA_state_eq(gconstpointer a, gconstpointer b);
+static gint AHFA_state_cmp(gconstpointer a, gconstpointer b,
+    gpointer user_data G_GNUC_UNUSED);
 
 @*0 AHFA State Mutators.
 @<Function definitions@> =
@@ -3628,7 +3626,7 @@ void create_AHFA_states(struct marpa_g* g) {
    guint no_of_rules = rule_count(g);
    Bit_Matrix prediction_matrix;
    struct marpa_rule** rule_by_sort_key = g_new(struct marpa_rule*, no_of_rules);
-    GHashTable* duplicates;
+    GSequence* duplicates;
     struct AHFA_state** singleton_duplicates;
    DQUEUE_DEFINE(states);
     @<Initialize duplicates data structures@>@/
@@ -3683,14 +3681,14 @@ NEXT_AHFA_STATE: ;
 
 @ @<Initialize duplicates data structures@> = { guint item_id;
 guint no_of_items_in_grammar = g->no_of_items;
-duplicates = g_hash_table_new(AHFA_state_hash, AHFA_state_eq);
+duplicates = g_sequence_new(NULL);
 singleton_duplicates = g_new(struct AHFA_state*, no_of_items_in_grammar);
 for ( item_id = 0; item_id < no_of_items_in_grammar; item_id++) {
     singleton_duplicates[item_id] = NULL; // All zero bits are not necessarily a NULL pointer
 } }
 @ @<Free duplicates data structures@> =
 g_free(singleton_duplicates);
-g_hash_table_destroy(duplicates);
+g_sequence_free(duplicates);
 
 @ @<Construct initial AHFA states@> = {
    Marpa_Rule_ID start_rule_id;
@@ -3718,13 +3716,15 @@ g_hash_table_destroy(duplicates);
     p_state->id = 0;
     p_state->is_predict = 0;
     p_state->is_leo_completion = 0;
+    p_state->empty_transition = NULL;
     if (!start_symbol->is_nulling) { // If this is not a null parse
-	create_predicted_AHFA_state(g,
-	    matrix_row(prediction_matrix, (guint)start_item->postdot),
-	     rule_by_sort_key,
-	     &states,
-	     duplicates
-	     );
+	p_state->empty_transition
+	    = create_predicted_AHFA_state(g,
+		matrix_row(prediction_matrix,
+		(guint)start_item->postdot),
+		 rule_by_sort_key,
+		 &states,
+		 duplicates);
     }
 }
 
@@ -3751,12 +3751,14 @@ if (postdot >= 0) {
     p_state->is_leo_completion = 0;
 // If the sole item is not a completion
 // attempt to create a predicted AHFA state as well
+  p_state->empty_transition =
 	create_predicted_AHFA_state(g,
 	    matrix_row(prediction_matrix, (guint)postdot),
 	     rule_by_sort_key,
 	     &states,
 	     duplicates);
 } else {
+  p_state->empty_transition = NULL;
   @<Mark this state as a Leo completion if it is one@>@/
 }
 }
@@ -3785,12 +3787,13 @@ the current state, finds its predecessor by simply decrementing
 the pointer.
 If the postdot symbol of this item is on the LHS of more than 0
 rules, then this state is a Leo completion.
-@<Mark this state as a Leo completion if it is one@> = 
+@<Mark this state as a Leo completion if it is one@> = {
 Marpa_Symbol_ID previous_nonnulling_symbol_id = single_item_p[-1].postdot;
 p_state->is_leo_completion
     = SYMBOL_LHS_RULE_COUNT(
 	symbol_id2p(g, previous_nonnulling_symbol_id)
     ) > 0;
+}
 
 @ Discovered AHFA states are usually quite small
 and the insertion sort here is probably optimal for the usual cases.
@@ -3811,6 +3814,7 @@ be if written 100\% using indexes.
 guint predecessor_ix;
 guint no_of_new_items_so_far = 0;
 struct AHFA_item** item_list_for_new_state;
+struct AHFA_state* queued_AHFA_state;
 p_state = DQUEUE_PUSH(states, struct AHFA_state);
 item_list_for_new_state = p_state->items = obstack_alloc(&g->obs,
     no_of_items_in_new_state * sizeof(struct AHFA_item*));
@@ -3829,20 +3833,42 @@ for (predecessor_ix = first_working_item_ix;
     item_list_for_new_state[pre_insertion_point_ix+1] = new_item_p;
     no_of_new_items_so_far++;
 }
-p_state->hash = AHFA_state_hash_compute(p_state);
-if (g_hash_table_lookup(duplicates, p_state)) { // The new state would be a duplicate
+queued_AHFA_state = assign_AHFA_state(p_state, duplicates);
+if (queued_AHFA_state) { // The new state would be a duplicate
 // Back it out and go on to the next in the queue
     (void)DQUEUE_POP(states, struct AHFA_state);
     obstack_free(&g->obs, item_list_for_new_state);
     goto NEXT_WORKING_SYMBOL;
 }
+// If we added the new state, finish up its data.
 p_state->id = p_state - DQUEUE_BASE(states, struct AHFA_state);
 p_state->is_predict=0;
 p_state->is_leo_completion=0;
-g_hash_table_insert(duplicates, p_state, p_state);
 @<Calculate the predicted rule vector for this state
 and add the predicted AHFA state@>@/
 }
+
+@ Ensure the AHFA state in the argument exists.
+If it does not exist, insert it and return |NULL|.
+If it does exist, return it.
+@<Function definitions@> =
+static inline struct AHFA_state* assign_AHFA_state(
+struct AHFA_state* state_p, GSequence* duplicates) {
+    GSequenceIter* insertion_point
+	= g_sequence_search(duplicates, state_p, AHFA_state_cmp, NULL);
+    if (!g_sequence_iter_is_begin(insertion_point)) { /* If there is a state
+           equal to the one to be added, it is prior to the insertion point.
+	   If the prior state is equal, just return it */
+	struct AHFA_state* prev_state
+	    = g_sequence_get(g_sequence_iter_prev(insertion_point));
+	if (!AHFA_state_cmp(prev_state, state_p, NULL)) return prev_state;
+    }
+    g_sequence_insert_before(insertion_point, state_p);
+    return NULL;
+}
+@ @<Private function prototypes@> =
+static inline struct AHFA_state* assign_AHFA_state(
+struct AHFA_state* state_p, GSequence* duplicates);
 
 @ @<Calculate the predicted rule vector for this state
 and add the predicted AHFA state@> = {
@@ -3852,6 +3878,7 @@ for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++) {
     postdot = item_list_for_new_state[item_ix]->postdot;
     if (postdot >= 0) break;
 }
+p_state->empty_transition = NULL;
 if (postdot >= 0) { // If any item is not a completion ...
     Bit_Vector predicted_rule_vector
 	= bv_shadow(matrix_row(prediction_matrix, (guint)postdot));
@@ -3862,7 +3889,7 @@ if (postdot >= 0) { // If any item is not a completion ...
 	bv_or_assign(predicted_rule_vector, 
 	    matrix_row(prediction_matrix, (guint)postdot));
     }
-    create_predicted_AHFA_state(g,
+    p_state->empty_transition = create_predicted_AHFA_state(g,
 	predicted_rule_vector,
 	 rule_by_sort_key,
 	 &states,
@@ -4047,17 +4074,17 @@ for (sort_key = 0; sort_key < no_of_rules; sort_key++) {
 } } } } }
 
 @ @<Function definitions@> =
-static void
+static struct AHFA_state*
 create_predicted_AHFA_state(
      struct marpa_g* g,
      Bit_Vector prediction_rule_vector,
      struct marpa_rule** rule_by_sort_key,
      struct dqueue* states_p,
-    GHashTable* duplicates
+     GSequence* duplicates
      ) {
 guint start, min, max;
 struct AHFA_item** item_list;
-struct AHFA_state* p_state;
+struct AHFA_state* p_new_state;
 guint item_list_ix = 0;
 guint no_of_items_in_state = 0;
 for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
@@ -4065,7 +4092,7 @@ for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
 	) { // count the number of items in this AHFA state
 	no_of_items_in_state += max - min + 1;
 }
-	if (no_of_items_in_state == 0) return;
+	if (no_of_items_in_state == 0) return NULL;
 item_list = obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
 for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
 	start = max+2
@@ -4079,30 +4106,34 @@ for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
 		item_list[item_list_ix++] = g->AHFA_items_by_rule[rule->id];
 	    }
 	}
-p_state = DQUEUE_PUSH((*states_p), struct AHFA_state);@/
-    p_state->items = item_list;
-    p_state->item_count = no_of_items_in_state;
-    p_state->hash = AHFA_state_hash_compute(p_state);
-    if (g_hash_table_lookup(duplicates, p_state)) { // The new state would be a duplicate
-    // Back it out and go on to the next in the queue
-	(void)DQUEUE_POP((*states_p), struct AHFA_state);
-	obstack_free(&g->obs, item_list);
-	return;
+p_new_state = DQUEUE_PUSH((*states_p), struct AHFA_state);@/
+    p_new_state->items = item_list;
+    p_new_state->item_count = no_of_items_in_state;
+    { struct AHFA_state* queued_AHFA_state = assign_AHFA_state(p_new_state, duplicates);
+	 /* The new state would be a duplicate
+	 Back it out the new state we were creating and
+       and return the one that already exists */
+        if (queued_AHFA_state) {
+	    (void)DQUEUE_POP((*states_p), struct AHFA_state);
+	    obstack_free(&g->obs, item_list);
+	    return queued_AHFA_state;
+	}
     }
-    p_state->id = p_state - DQUEUE_BASE((*states_p), struct AHFA_state);
-    p_state->is_predict = 1;
-    p_state->is_leo_completion = 0;
-    g_hash_table_insert(duplicates, p_state, p_state); /* Insert
-       into the table that checks for duplicates */
+    // The new state was added -- finish up its data
+    p_new_state->id = p_new_state - DQUEUE_BASE((*states_p), struct AHFA_state);
+    p_new_state->is_predict = 1;
+    p_new_state->is_leo_completion = 0;
+    return p_new_state;
 }
 @ @<Private function prototypes@> =
-static void
+static struct AHFA_state*
 create_predicted_AHFA_state(
      struct marpa_g* g,
      Bit_Vector prediction_rule_vector,
      struct marpa_rule** rule_by_sort_key,
      struct dqueue* states_p,
-    GHashTable* duplicates);
+     GSequence* duplicates
+     );
 
 @** AHFA Transitions.
 
@@ -5364,13 +5395,15 @@ whenever |MARPA_PUBLIC_INLINE| is used,
 
 This section is a hack to silence the ``never used'' warnings
 for the templates.
-I expect to use these sections.
+I expect eventually to use these sections.
 
 @(never_used.c@> =
 
 @<Simple list public inline definition template@>
 @<Simple list public prototype template@>
 @<Simple list public structure template@>
+@<Hash function body template@>
+@<Hash function template undefine@>
 
 @** Index.
 
