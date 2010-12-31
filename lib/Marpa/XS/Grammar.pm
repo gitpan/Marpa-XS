@@ -80,8 +80,6 @@ use Marpa::XS::Offset qw(
     =LAST_RECOGNIZER_FIELD
 
     ORIGINAL_RULE { for a rewritten rule, the original }
-    VIRTUAL_START
-    VIRTUAL_END
 
     =LAST_FIELD
 );
@@ -865,6 +863,7 @@ sub Marpa::XS::Grammar::brief_original_rule {
 
 sub Marpa::XS::Grammar::brief_virtual_rule {
     my ( $grammar, $rule, $dot_position ) = @_;
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $original_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE];
     if ( not defined $original_rule ) {
         return Marpa::XS::show_dotted_rule( $rule, $dot_position )
@@ -877,8 +876,8 @@ sub Marpa::XS::Grammar::brief_virtual_rule {
     my $original_lhs     = $original_rule->[Marpa::XS::Internal::Rule::LHS];
     my $chaf_rhs         = $rule->[Marpa::XS::Internal::Rule::RHS];
     my $original_rhs     = $original_rule->[Marpa::XS::Internal::Rule::RHS];
-    my $chaf_start       = $rule->[Marpa::XS::Internal::Rule::VIRTUAL_START];
-    my $chaf_end         = $rule->[Marpa::XS::Internal::Rule::VIRTUAL_END];
+    my $chaf_start = $grammar_c->rule_virtual_start($rule_id);
+    my $chaf_end = $grammar_c->rule_virtual_end($rule_id);
 
     if ( not defined $chaf_start ) {
         return "dot at $dot_position, virtual "
@@ -1094,26 +1093,62 @@ sub Marpa::XS::show_brief_AHFA_item {
 }
 
 sub Marpa::XS::Grammar::show_new_AHFA {
-    my ( $grammar ) = @_;
-    my $grammar_c  = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $text = q{};
+    my ( $grammar, $verbose ) = @_;
+    $verbose //= 1;    # legacy is to be verbose, so default to it
+    my $grammar_c        = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $symbols          = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $text             = q{};
     my $AHFA_state_count = $grammar_c->AHFA_state_count();
-    for (my $state_id = 0; $state_id < $AHFA_state_count; $state_id++) {
-         $text .= "* S$state_id:";
-	 $grammar_c->AHFA_state_is_leo_completion($state_id) and $text .= " leo-c";
-	 $grammar_c->AHFA_state_is_predict($state_id) and $text .= " predict";
-	 $text .= "\n";
-	 my @items = ();
-	 for my $item_id ($grammar_c->AHFA_state_items($state_id)) {
-	     push @items, [
-		 $grammar_c->AHFA_item_rule($item_id),
-		 $grammar_c->AHFA_item_postdot($item_id),
-	       Marpa::XS::show_brief_AHFA_item($grammar, $item_id) ];
-	 }
-	$text .= join "\n",
-	    map { $_->[2] }
-	    sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @items;
-	 $text .= "\n";
+    STATE:
+    for ( my $state_id = 0; $state_id < $AHFA_state_count; $state_id++ )
+    {
+        $text .= "* S$state_id:";
+        $grammar_c->AHFA_state_is_leo_completion($state_id)
+            and $text .= " leo-c";
+        $grammar_c->AHFA_state_is_predict($state_id) and $text .= " predict";
+        $text .= "\n";
+        my @items = ();
+        for my $item_id ( $grammar_c->AHFA_state_items($state_id) ) {
+            push @items,
+                [
+                $grammar_c->AHFA_item_rule($item_id),
+                $grammar_c->AHFA_item_postdot($item_id),
+                Marpa::XS::show_brief_AHFA_item( $grammar, $item_id )
+                ];
+        }
+        $text .= join "\n", map { $_->[2] }
+            sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @items;
+        $text .= "\n";
+
+        next STATE if not $verbose;
+
+        my @raw_transitions = $grammar_c->AHFA_state_transitions($state_id);
+	my %transitions = ();
+        while ( my ( $symbol_id, $to_state_id ) =
+            splice( @raw_transitions, 0, 2 ) )
+	{
+            my $symbol_name =
+                $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+	    $transitions{$symbol_name} = $to_state_id;
+	}
+	for my $transition_symbol (sort keys %transitions) {
+            $text .= ' <' . $transition_symbol . '> => ';
+	    my $to_state_id = $transitions{$transition_symbol};
+            my @to_descs = ("S$to_state_id");
+	    # There will be only one to item -- this is a Leo completion
+	    my @to_items = $grammar_c->AHFA_state_items($to_state_id);
+	    my $completed_rule_id    = $grammar_c->AHFA_item_rule($to_items[0]);
+	    my $lhs_id  = $grammar_c->rule_lhs($completed_rule_id);
+	    my $lhs_name =
+                $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME];
+            $grammar_c->AHFA_state_is_leo_completion($to_state_id)
+                and push @to_descs, "leo($lhs_name)";
+            my $empty_transition_state
+		= $grammar_c->AHFA_state_empty_transition($to_state_id);
+	    $empty_transition_state >= 0 and push @to_descs, "S$empty_transition_state";
+            $text .= (join "; ", sort @to_descs) . "\n";
+        }
+
     }
     return $text;
 }
@@ -2115,51 +2150,6 @@ sub create_AHFA {
 
 } ## end sub create_AHFA
 
-# To the reader:
-# You are not expected to understand the following.  It is
-# notes toward a proof.  This is useful, along with testing,
-# to increase confidence
-# that Marpa::XS correctly incorporates Leo Joop's algorithm.
-#
-# Theorem: In Marpa::XS,
-# all Leo completion states are in their own LR(0) state.
-#
-# Proof: Every Marpa::XS LR(0) item has its own NFA state.
-# (By definition, no Marpa::XS LR(0) item will have
-# a nulling post-dot symbol.)
-# The Leo completion LR(0) item will have a non-nulling symbol,
-# by its definiton.
-# Call the Leo completion item's final non-nulling symbol,
-# symbol S.
-# Suppose, for reduction to absurdity,
-# that another LR(0) item is combined with
-# the Leo completion item in creating the LR(0) DFA.
-# Call that other LR(0) item, item X.
-# If so,
-# there must be a Leo kernel LR(0) state where two of the
-# LR(0) items, after a transition on symbol S,
-# produce both item X and the Leo completion item.
-# That means that in the Leo kernel LR(0) state, there
-# are two LR(0) items with S as the postdot symbol.
-# Therefore the parent Earley set (which contains the
-# Leo kernel LR(0) DFA state) will have multiple
-# LR(0) items with S as the postdot symbol.
-# But by Leo's definitions, the LR(0) item with S as
-# the postdot symbol must be unique.
-# So the assumption that another LR(0) item will be
-# combined with a Leo completion LR(0) item in producing
-# a DFA state must be false.
-# QED
-#
-# Theorem: All Leo completion states are in their own AHFA state.
-# Proof: By the theorem above, all Leo completion states are in
-# their own state in the LR(0) DFA.
-# The conversion to an epsilion-DFA will not add any items to this
-# state, because the only item in it is a completion item.
-# And conversion to a split epsilon-DFA will not add items.
-# So the Leo completion item will remain in its own AHFA state.
-# QED.
-
 # Mark the Leo kernel and completion states
 sub mark_leo_states {
     my $grammar   = shift;
@@ -2221,6 +2211,8 @@ sub mark_leo_states {
         {
             my $to_states = $transitions->{$symbol_name};
 
+	    # There will be no prediction to-state for a leo-completion,
+	    # which means that there will be only one to-state.
             # Since there is only one to-state, @leo_lhs
             # will have only one entry -- this will be the
             # lhs of the only rule in the Leo completion

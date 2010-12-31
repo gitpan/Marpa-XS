@@ -80,6 +80,7 @@ SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'duplicate parse New AHFA States' );
 * S0:
 S['] -> . S
+ <S> => S2; leo(S['])
 * S1: predict
 p -> . a
 n -> . a
@@ -89,6 +90,10 @@ S -> p[] . p S[R0:2]
 S -> p[] p[] . S[R0:2]
 S[R0:2] -> . p n
 S[R0:2] -> p[] . n
+ <S[R0:2]> => S7; leo(S)
+ <a> => S3
+ <n> => S6; leo(S[R0:2])
+ <p> => S4; S5
 * S2: leo-c
 S['] -> S .
 * S3:
@@ -99,17 +104,24 @@ S -> p . p S[R0:2]
 S -> p p[] . S[R0:2]
 S -> p[] p . S[R0:2]
 S[R0:2] -> p . n
+ <S[R0:2]> => S10
+ <n> => S9; leo(S[R0:2])
+ <p> => S5; S8
 * S5: predict
 p -> . a
 n -> . a
 S[R0:2] -> . p n
 S[R0:2] -> p[] . n
+ <a> => S3
+ <n> => S6; leo(S[R0:2])
+ <p> => S11; S12
 * S6: leo-c
 S[R0:2] -> p[] n .
 * S7: leo-c
 S -> p[] p[] S[R0:2] .
 * S8:
 S -> p p . S[R0:2]
+ <S[R0:2]> => S13; leo(S)
 * S9: leo-c
 S[R0:2] -> p n .
 * S10:
@@ -117,8 +129,10 @@ S -> p p[] S[R0:2] .
 S -> p[] p S[R0:2] .
 * S11:
 S[R0:2] -> p . n
+ <n> => S9; leo(S[R0:2])
 * S12: predict
 n -> . a
+ <a> => S14
 * S13: leo-c
 S -> p p S[R0:2] .
 * S14:

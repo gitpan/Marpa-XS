@@ -141,18 +141,22 @@ sub process_xs {
     my $unfinished_libmarpa_a = File::Spec->catfile( $libmarpa_libs_dir, 'libmarpa.a' );
     my $xs_dir = File::Spec->catdir( $self->base_dir(), 'xs' );
     my $final_libmarpa_a = File::Spec->catfile( $xs_dir, 'libmarpa.a' );
-    File::Copy::syscopy( $unfinished_libmarpa_a, $final_libmarpa_a );
-    my $ranlib = $Config{ranlib};
-    if ( $ranlib ne q{:} ) {
-	if (not IPC::Cmd::run(
-		command => [ (split /\s+/, $ranlib), $final_libmarpa_a ],
-		verbose => 1
-	    )
-	    )
-	{
-	    say STDERR "Failed: $ranlib $final_libmarpa_a";
-	    die 'Cannot run libmarpa configure';
-	} ## end if ( not IPC::Cmd::run( command => [ $shell, ...]))
+    if ( not $self->up_to_date( $unfinished_libmarpa_a, $final_libmarpa_a ) )
+    {
+        File::Copy::syscopy( $unfinished_libmarpa_a, $final_libmarpa_a );
+        my $ranlib = $Config{ranlib};
+        if ( $ranlib ne q{:} ) {
+            if (not IPC::Cmd::run(
+                    command =>
+                        [ ( split /\s+/, $ranlib ), $final_libmarpa_a ],
+                    verbose => 1
+                )
+                )
+            {
+                say STDERR "Failed: $ranlib $final_libmarpa_a";
+                die 'Cannot run libmarpa configure';
+            } ## end if ( not IPC::Cmd::run( command => [ $shell, ...]))
+        }
     }
 
   push @{$self->{properties}->{objects}}, $final_libmarpa_a;
@@ -188,6 +192,9 @@ sub marpa_link_c {
 	if $self->up_to_date(
 	[ $spec->{obj_file}, @$objects ],
 	$spec->{lib_file} );
+
+        say STDERR $spec->{lib_file}, "Out of date wrt ", 
+	 join ", ", $spec->{obj_file}, @$objects;
 
   my $module_name = $spec->{module_name} || $self->module_name;
 

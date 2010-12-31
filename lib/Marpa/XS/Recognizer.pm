@@ -738,7 +738,7 @@ sub Marpa::XS::Recognizer::show_progress {
     my $text = q{};
     for my $ix ( $start_ix .. $end_ix ) {
         my $earley_set = $earley_set_list->[$ix];
-        my $reports    = report_progress($earley_set);
+        my $reports    = report_progress($recce, $earley_set);
         my @sort_data;
         for my $report ( @{$reports} ) {
             my $rule_id =
@@ -795,7 +795,10 @@ sub Marpa::XS::Recognizer::show_progress {
 } ## end sub Marpa::XS::Recognizer::show_progress
 
 sub report_progress {
-    my ($earley_set) = @_;
+    my ($recce, $earley_set) = @_;
+    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
 
     # Reports must be unique by a key
     # composted of original rule, rule position, and
@@ -811,18 +814,14 @@ sub report_progress {
         my $leo_links =
             $earley_item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
         my $is_leo = $leo_links && scalar @{$leo_links};
-        my $NFA_states = $AHFA_state->[Marpa::XS::Internal::AHFA::NFA_STATES];
-        if ( not $NFA_states ) {
-            Marpa::XS::exception(
-                'Cannot progress of Marpa::XS::Recognizer: it is stripped');
-        }
-        NFA_STATE: for my $NFA_state ( @{$NFA_states} ) {
-            my $LR0_item   = $NFA_state->[Marpa::XS::Internal::NFA::ITEM];
-            my $marpa_rule = $LR0_item->[Marpa::XS::Internal::LR0_item::RULE];
-            my $marpa_position =
-                $LR0_item->[Marpa::XS::Internal::LR0_item::POSITION];
-            my $chaf_start =
-                $marpa_rule->[Marpa::XS::Internal::Rule::VIRTUAL_START];
+        my @AHFA_items = $grammar_c->AHFA_state_items($AHFA_state->[Marpa::XS::Internal::AHFA::ID]);
+        AHFA_ITEM: for my $AHFA_item_id ( @AHFA_items ) {
+            my $marpa_rule_id = $grammar_c->AHFA_item_rule($AHFA_item_id);
+	    my $marpa_rule = $rules->[$marpa_rule_id];
+            my $marpa_position = $grammar_c->AHFA_item_position($AHFA_item_id);
+	    $marpa_position < 0 and $marpa_position = $grammar_c->rule_length($marpa_rule_id);
+            my $chaf_start = $grammar_c->rule_virtual_start($marpa_rule_id);
+	    $chaf_start < 0 and $chaf_start = undef;
             my $original_rule = $marpa_rule;
 	    if (defined $chaf_start
 		and ( my $chaf_original_rule =

@@ -174,6 +174,7 @@ Marpa::XS::Test::is( $grammar->show_new_AHFA, <<'EOS', 'Aycock/Horspool New AHFA
 * S0:
 S['] -> . S
 S['][] -> .
+ <S> => S2; leo(S['])
 * S1: predict
 A -> . a
 S -> . A S[R0:1]
@@ -185,6 +186,10 @@ S[R0:1] -> A[] . S[R0:2]
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
+ <A> => S3; S4
+ <S[R0:1]> => S6; leo(S)
+ <S[R0:2]> => S7; leo(S[R0:1])
+ <a> => S5
 * S2: leo-c
 S['] -> S .
 * S3:
@@ -195,6 +200,9 @@ S[R0:1] -> A A[] A[] .
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
+ <A> => S8; leo(S[R0:2])
+ <S[R0:1]> => S9; leo(S)
+ <S[R0:2]> => S10; leo(S[R0:1])
 * S4: predict
 A -> . a
 S[R0:1] -> . A S[R0:2]
@@ -203,6 +211,9 @@ S[R0:1] -> A[] . S[R0:2]
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
+ <A> => S11; S12
+ <S[R0:2]> => S7; leo(S[R0:1])
+ <a> => S5
 * S5:
 A -> a .
 * S6: leo-c
@@ -221,17 +232,23 @@ S[R0:1] -> A A[] A[] .
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
+ <A> => S8; leo(S[R0:2])
+ <S[R0:2]> => S10; leo(S[R0:1])
 * S12: predict
 A -> . a
 S[R0:2] -> . A A
 S[R0:2] -> . A A[]
 S[R0:2] -> A[] . A
+ <A> => S13; S14
+ <a> => S5
 * S13:
 S[R0:2] -> A . A
 S[R0:2] -> A A[] .
 S[R0:2] -> A[] A .
+ <A> => S8; leo(S[R0:2])
 * S14: predict
 A -> . a
+ <a> => S5
 EOS
 
 }

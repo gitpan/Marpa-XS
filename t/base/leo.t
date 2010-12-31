@@ -99,12 +99,15 @@ Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo168 New AHFA States
 * S0:
 S['] -> . S
 S['][] -> .
+ <S> => S2; leo(S['])
 * S1: predict
 S -> . a S
 S -> . a S[]
 S -> . C
 C -> . a C b
 C -> . a C[] b
+ <C> => S4; leo(S)
+ <a> => S1; S3
 * S2: leo-c
 S['] -> S .
 * S3:
@@ -112,6 +115,9 @@ S -> a . S
 S -> a S[] .
 C -> a . C b
 C -> a C[] . b
+ <C> => S7
+ <S> => S6; leo(S)
+ <b> => S5
 * S4: leo-c
 S -> C .
 * S5:
@@ -120,6 +126,7 @@ C -> a C[] b .
 S -> a S .
 * S7:
 C -> a C . b
+ <b> => S8
 * S8:
 C -> a C b .
 EOS

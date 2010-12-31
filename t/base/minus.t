@@ -130,29 +130,39 @@ SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Minuses Equation New AHFA States' );
 * S0:
 E['] -> . E
+ <E> => S2; leo(E['])
 * S1: predict
 E -> . E Minus E
 E -> . E MinusMinus
 E -> . MinusMinus E
 E -> . Minus E
 E -> . Number
+ <E> => S6
+ <Minus> => S1; S4
+ <MinusMinus> => S1; S5
+ <Number> => S3
 * S2: leo-c
 E['] -> E .
 * S3:
 E -> Number .
 * S4:
 E -> Minus . E
+ <E> => S7; leo(E)
 * S5:
 E -> MinusMinus . E
+ <E> => S8; leo(E)
 * S6:
 E -> E . Minus E
 E -> E . MinusMinus
+ <Minus> => S1; S9
+ <MinusMinus> => S10
 * S7: leo-c
 E -> Minus E .
 * S8: leo-c
 E -> MinusMinus E .
 * S9:
 E -> E Minus . E
+ <E> => S11; leo(E)
 * S10:
 E -> E MinusMinus .
 * S11: leo-c

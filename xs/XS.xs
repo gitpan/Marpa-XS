@@ -17,15 +17,6 @@
 
 #include <gperl.h>
 
-#pragma GCC diagnostic warning "-Wall"
-#pragma GCC diagnostic warning "-Wextra"
-#pragma GCC diagnostic warning "-Wpointer-arith"
-#pragma GCC diagnostic warning "-Wstrict-prototypes"
-#pragma GCC diagnostic warning "-Wwrite-strings"
-#pragma GCC diagnostic warning "-Wdeclaration-after-statement"
-#pragma GCC diagnostic warning "-Wshadow"
-#pragma GCC diagnostic ignored "-Wformat-security"
-
 #include "config.h"
 #include "marpa.h"
 
@@ -663,23 +654,32 @@ PPCODE:
     XSRETURN_NO;
     }
 
+int
+rule_virtual_start( g, rule_id )
+    Grammar *g;
+    Marpa_Rule_ID rule_id;
+CODE:
+    RETVAL = marpa_virtual_start( g, rule_id );
+    if (RETVAL == -2) { croak("Invalid rule %d", rule_id); }
+OUTPUT:
+    RETVAL
+
+int
+rule_virtual_end( g, rule_id )
+    Grammar *g;
+    Marpa_Rule_ID rule_id;
+CODE:
+    RETVAL = marpa_virtual_end( g, rule_id );
+    if (RETVAL == -2) { croak("Invalid rule %d", rule_id); }
+OUTPUT:
+    RETVAL
+
 void
 rule_is_used( g, rule_id )
     Grammar *g;
     Marpa_Rule_ID rule_id;
 PPCODE:
     { gint result = marpa_rule_is_used( g, rule_id );
-    if (result == -1) { croak("Invalid rule %d", rule_id); }
-    if (result) XSRETURN_YES;
-    XSRETURN_NO;
-    }
-
-void
-rule_is_proper_separation( g, rule_id )
-    Grammar *g;
-    Marpa_Rule_ID rule_id;
-PPCODE:
-    { gint result = marpa_rule_is_proper_separation( g, rule_id );
     if (result == -1) { croak("Invalid rule %d", rule_id); }
     if (result) XSRETURN_YES;
     XSRETURN_NO;
@@ -827,6 +827,41 @@ PPCODE:
         XPUSHs( sv_2mortal( newSViv(count) ) );
     }
     }
+
+ # In scalar context, returns the count
+void
+AHFA_state_transitions( g, AHFA_state_id )
+    Grammar *g;
+    Marpa_AHFA_State_ID AHFA_state_id;
+PPCODE:
+    { gint count = marpa_AHFA_state_transition_count(g, AHFA_state_id);
+    if (count < 0) { croak("Invalid AHFA state %d", AHFA_state_id); }
+    if (GIMME == G_ARRAY) {
+        guint transition_ix;
+	struct marpa_AHFA_transition* transitions;
+        EXTEND(SP, count*2);
+	Newx( transitions, count, struct marpa_AHFA_transition );
+	marpa_AHFA_state_transitions(g, AHFA_state_id, transitions);
+        for (transition_ix = 0; transition_ix < count; transition_ix++) {
+            PUSHs( sv_2mortal( newSViv(transitions[transition_ix].symbol) ) );
+            PUSHs( sv_2mortal( newSViv(transitions[transition_ix].to) ) );
+        }
+	Safefree( transitions );
+    } else {
+        XPUSHs( sv_2mortal( newSViv(count) ) );
+    }
+    }
+
+ # -1 is a valid return value, and -2 indicates an error
+Marpa_AHFA_State_ID
+AHFA_state_empty_transition( g, AHFA_state_id )
+    Grammar *g;
+    Marpa_AHFA_State_ID AHFA_state_id;
+CODE:
+    RETVAL = marpa_AHFA_state_empty_transition(g, AHFA_state_id);
+    if (RETVAL <= -2) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
 
 void
 AHFA_state_is_predict( g, AHFA_state_id )

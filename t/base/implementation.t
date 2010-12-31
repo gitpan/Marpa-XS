@@ -130,42 +130,57 @@ SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Implementation Example New AHFA States' );
 * S0:
 Expression['] -> . Expression
+ <Expression> => S2; leo(Expression['])
 * S1: predict
 Expression -> . Term
 Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
 Factor -> . Factor Multiply Factor
+ <Factor> => S4
+ <Number> => S5
+ <Term> => S3
 * S2: leo-c
 Expression['] -> Expression .
 * S3:
 Expression -> Term .
 Term -> Term . Add Term
+ <Add> => S6; S7
 * S4:
 Term -> Factor .
 Factor -> Factor . Multiply Factor
+ <Multiply> => S8; S9
 * S5:
 Factor -> Number .
 * S6:
 Term -> Term Add . Term
+ <Term> => S10; leo(Term)
 * S7: predict
 Term -> . Factor
 Factor -> . Number
 Term -> . Term Add Term
 Factor -> . Factor Multiply Factor
+ <Factor> => S4
+ <Number> => S5
+ <Term> => S11
 * S8:
 Factor -> Factor Multiply . Factor
+ <Factor> => S12; leo(Factor)
 * S9: predict
 Factor -> . Number
 Factor -> . Factor Multiply Factor
+ <Factor> => S13
+ <Number> => S5
 * S10: leo-c
 Term -> Term Add Term .
 * S11:
 Term -> Term . Add Term
+ <Add> => S6; S7
 * S12: leo-c
 Factor -> Factor Multiply Factor .
 * S13:
 Factor -> Factor . Multiply Factor
+ <Multiply> => S8; S9
 EOS
 
 } ## SKIP of XS tests
