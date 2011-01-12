@@ -54,15 +54,11 @@ $grammar->precompute();
 
 my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-my @tokens = (
-    [ 'Number', 42 ],
-    [ 'Multiply', ],
-    [ 'Number', 1 ],
-    [ 'Add', ],
-    [ 'Number', 7 ],
-);
-
-$recce->tokens( \@tokens );
+$recce->read( 'Number', 42 );
+$recce->read( 'Multiply', );
+$recce->read( 'Number', 1 );
+$recce->read( 'Add', );
+$recce->read( 'Number', 7 );
 
 sub My_Actions::do_add {
     my ( undef, $t1, undef, $t2 ) = @_;
@@ -103,7 +99,11 @@ $ambiguous_grammar->precompute();
 my $ambiguous_recce =
     Marpa::XS::Recognizer->new( { grammar => $ambiguous_grammar } );
 
-$ambiguous_recce->tokens( \@tokens );
+$ambiguous_recce->read( 'Number', 42 );
+$ambiguous_recce->read( 'Multiply', );
+$ambiguous_recce->read( 'Number', 1 );
+$ambiguous_recce->read( 'Add', );
+$ambiguous_recce->read( 'Number', 7 );
 
 my @values = ();
 while ( defined( my $ambiguous_value_ref = $ambiguous_recce->value() ) ) {
@@ -122,23 +122,23 @@ sub fix_things {
     die q{Don't know how to fix things};
 }
 
-$recce =
-    Marpa::XS::Recognizer->new( { grammar => $grammar, mode => 'stream' } );
-
 # Marpa::XS::Display
 # name: Engine Synopsis Interactive Parse
 
-RECCE_RESPONSE: for ( my $token_ix = 0;; ) {
+$recce =
+    Marpa::XS::Recognizer->new( { grammar => $grammar, interactive => 1 } );
 
-    my ( $current_earleme, $expected_tokens ) =
-        $recce->tokens( \@tokens, \$token_ix );
+my @tokens = (
+    [ 'Number', 42 ],
+    ['Multiply'], [ 'Number', 1 ],
+    ['Add'],      [ 'Number', 7 ],
+);
 
-    last RECCE_RESPONSE if $token_ix > $#tokens;
-
-    fix_things( \@tokens, $expected_tokens )
+TOKEN: for ( my $token_ix = 0; $token_ix <= $#tokens; $token_ix++ ) {
+    defined $recce->read( @{ $tokens[$token_ix] } )
+        or fix_things( $recce, \@tokens )
         or die q{Don't know how to fix things};
-
-} ## end for ( my $token_ix = 0;; )
+}
 
 # Marpa::XS::Display::End
 

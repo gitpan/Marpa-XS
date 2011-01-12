@@ -96,7 +96,7 @@ $grammar->precompute();
 
 my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens( [ [ 'X', 'x' ], ] );
+$recce->read( 'X', 'x' );
 
 # Marpa::XS::Display::End
 

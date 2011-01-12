@@ -87,6 +87,73 @@ earleme location in other ways.
 The purpose of this document is to discuss alternatives
 to the token stream model.
 
+=head1 METHODS
+
+=head2 earleme_complete
+
+=head2 alternative
+
+On success, returns the current earleme.
+On failures, other than the rejection of a token in interactive mode,
+throws an exception.
+
+If the recognizer is in interactive mode, and
+the token is rejected, a Perl C<undef> is returned.
+The user wanted to check for token
+rejection must be careful to test for an undefined return,
+and not merely a Perl false.
+When a token is accepted at earleme 0,
+the C<alternative> method returns 0.
+
+=head2 exhausted
+
+[ From the old Recognizer document: ]
+Recognition may reach a point where the recognizer is exhausted.
+A recognizer is B<exhausted> if there is no parse at the current location,
+and if no possible additional input could
+produce parses at any subsequent location.
+If a recognizer is not exhausted, it is B<active>.
+
+The evaluators look for a parse
+from the parse start location
+to the parse end location.
+By default, the parse start location is the beginning of the input.
+By default, the parse end location is the end of the input.
+In other words, the default is to parse the entire input.
+
+When an evaluator is called using the default parse end location,
+the evaluator will find no parses
+in an exhausted recognizer.
+It may be possible for an exhausted recognizer to produce a valid parse
+if the parse end location is set
+to a location before the end of input.
+
+
+=head2 end_input
+
+Indicates that input is finished.
+Calling C<end_input> is not necessary
+or useful
+in the recognizer's
+C<default> mode.
+In C<stream> mode,
+the C<end_input> method is needed to indicate the end of input.
+
+The C<end_input> method takes no arguments.
+The C<end_input> method returns a Perl true value on success.
+On failure, it throws an exception.
+
+Calling C<end_input> multiple times on the same recognizer object
+is harmless,
+but useless.
+The second and subsequent calls will
+return a Perl true,
+but will have no effect.
+Once C<end_input> has been called,
+calls to C<tokens> on the same recognizer object
+will cause an
+exception to be thrown.
+
 =head1 INTERFACE
 
 Alternative models are implemented

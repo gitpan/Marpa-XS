@@ -19,11 +19,10 @@ Marpa::XS::Advanced::Implementation - Marpa Implementation
 
 =head1 OVERVIEW
 
+This information in this document is not necessary
+for ordinary users of Marpa.
 This document describes 
-the Marpa data structures that
-are useful for
-tracing and debugging
-grammars.
+the Marpa data structures.
 It assumes that the reader
 knows
 the Marpa API,
@@ -65,7 +64,7 @@ B<Nulling symbols> are those which are I<always> nulled.
 B<Nullable symbols> are those which are I<sometimes> nulled.
 B<Non-nullable symbols> are those which are I<never> nulled.
 
-Pedantically, all nulling symbols are also nullable symbols.
+All nulling symbols are also nullable symbols.
 A B<proper nullable> is any nullable symbol which is not a nulling symbol.
 In other words,
 a proper nullable is a symbol that
@@ -101,27 +100,11 @@ Rules with proper nullables on the RHS
 have to be replaced with
 new rules covering every possible combination of
 the non-nullable and nulling variants.
-That rewrite is called the CHAF rewrite,
-and is described in the next section.
+That rewrite is called the CHAF rewrite.
 
 =head2 CHAF Rewriting
 
-To deal with the splitting of RHS proper nullables into two symbols,
-one non-nullable and one nulling,
-Aycock and Horspool created new rules covering all possible RHS combinations
-of non-nullable and nulling symbols.
-This B<factoring> is exponential in the theoretical worst case,
-and I believe would create efficiency issues in practice as well.
-
-A result due to Chomsky shows that any grammar can be rewritten
-as a grammar with at most two symbols on the right hand side.
-Relaxing Chomsky's rewrite to allow right hand sides with any number of symbols,
-but at most two proper nullables,
-produces a rewrite I call CHAF (Chomsky-Horspool-Aycock Form).
-
-CHAF changes the worst case to linear, and in practical cases lowers
-the multiplier.  Here's an example of a CHAF rewrite.
-First, the rule:
+Here's an example of a CHAF rewrite:
 
 =for Marpa::XS::Display
 name: CHAF Rule
@@ -169,16 +152,16 @@ partial: 1
 normalize-whitespace: 1
 flatten: 1
 
-    13: statement -> optional_whitespace expression statement[R0:2] /* vrhs real=2 */
-    14: statement -> optional_whitespace expression optional_whitespace[] optional_modifier[] optional_whitespace[]
-    15: statement -> optional_whitespace[] expression statement[R0:2] /* vrhs real=2 */
-    16: statement -> optional_whitespace[] expression optional_whitespace[] optional_modifier[] optional_whitespace[]
-    17: statement[R0:2] -> optional_whitespace statement[R0:3] /* vlhs vrhs real=1 */
-    18: statement[R0:2] -> optional_whitespace optional_modifier[] optional_whitespace[] /* vlhs real=3 */
-    19: statement[R0:2] -> optional_whitespace[] statement[R0:3] /* vlhs vrhs real=1 */
-    20: statement[R0:3] -> optional_modifier optional_whitespace /* vlhs real=2 */
-    21: statement[R0:3] -> optional_modifier optional_whitespace[] /* vlhs real=2 */
-    22: statement[R0:3] -> optional_modifier[] optional_whitespace /* vlhs real=2 */
+    15: statement -> optional_whitespace expression statement[R0:2] /* vrhs real=2 */
+    16: statement -> optional_whitespace expression optional_whitespace[] optional_modifier[] optional_whitespace[]
+    17: statement -> optional_whitespace[] expression statement[R0:2] /* vrhs real=2 */
+    18: statement -> optional_whitespace[] expression optional_whitespace[] optional_modifier[] optional_whitespace[]
+    19: statement[R0:2] -> optional_whitespace statement[R0:3] /* vlhs vrhs real=1 */
+    20: statement[R0:2] -> optional_whitespace optional_modifier[] optional_whitespace[] /* vlhs real=3 */
+    21: statement[R0:2] -> optional_whitespace[] statement[R0:3] /* vlhs vrhs real=1 */
+    22: statement[R0:3] -> optional_modifier optional_whitespace /* vlhs real=2 */
+    23: statement[R0:3] -> optional_modifier optional_whitespace[] /* vlhs real=2 */
+    24: statement[R0:3] -> optional_modifier[] optional_whitespace /* vlhs real=2 */
 
 =for Marpa::XS::Display::End
 
@@ -187,18 +170,18 @@ the rule is marked "C<!used>",
 telling later stages in the precomputation to ignore it.
 Marpa breaks Rule 0 up into three pieces,
 each with no more than two proper nullables.
-Marpa then eliminates the proper nullables in each piece by factoring.
-B<Factoring> is so called because the proper nullables are
-"factored out" into their nulling and non-nulling variants.
+Marpa then eliminates the proper nullables in each piece by
+B<factoring>.
 
 To B<factor> a piece, Marpa first rewrites it into multiple rules,
 one for each possible combination of nulled and non-nulled symbols.
 Marpa then replaces each proper nullable
 with its nulling or non-nullable variant, as appropriate.
-There are two symbol variants for each proper nullable,
-and a maximum of two proper nullables for each piece.
-That means that each piece will be factored into, at most,
-four rules.
+There are two symbol variants for each proper nullable.
+With a maximum of two proper nullables for each piece,
+each with two variants, there are at most four combinations.
+A rule for one of these combinations is called a
+B<factored rule>, or a B<factor>.
 
 In the example in the above display,
 the original rule (Rule 0) was broken into three pieces.
@@ -207,10 +190,10 @@ and the three pieces contain, respectively, the first two RHS symbols;
 the third RHS symbol;
 and the last two (that is, 4th and 5th) RHS symbols.
 
-The first piece of Rule 0 is factored into four rules: Rules 13 to 16.
-The second piece is factored into three rules: Rules 17 to 19.
+The first piece of Rule 0 is factored into four rules: Rules 15 to 18.
+The second piece is factored into three rules: Rules 19 to 21.
 The third and last piece of Rule 0 is also factored into three rules:
-Rules 20 to 22.
+Rules 22 to 24.
 
 When a rule is broken into pieces, the
 left hand side of the first piece is the left hand
@@ -234,10 +217,13 @@ This worst case occurs when
 all the original symbols in the
 piece for the new LHS
 and all symbols in all subsequent pieces are proper nullables.
-When a newly created LHS symbol is a proper nullable,
-it counts against the limit of two proper nullables per piece,
-and it must also be factored,
-just like the proper nullables in the original rule.
+
+A newly created LHS symbol will always appear on the RHS of the previous piece.
+If the newly created symbol is a proper nullable,
+then it counts against the limit of two proper nullables for that previous piece,
+and it must be factored,
+just the same as if it was
+one of the proper nullables appearing in the original rule.
 
 Rule 0 is such a worst case.
 The last three symbols
@@ -253,18 +239,6 @@ there are 6 proper nullables:
 the original 4 plus the 2 symbols newly created to serve as left hand sides.
 This is why, in order to have at most 2 proper nullables per piece,
 the original rule must to be divided into 3 pieces.
-
-Even though Rule 0 is a CHAF worst case,
-CHAF's factoring result in 10 rules.
-The original Aycock-Horspool factoring (NNF)
-resulted in 16 rules.
-For cases other than the worst,
-and for situations with
-more than 4 proper nullables, the advantage of CHAF becomes overwhelming.
-For 5 proper nullables, there would be 13 rules for CHAF,
-versus 32 for NNF.
-For 6 proper nullables, there would be 16 rules for CHAF,
-versus 64 for NNF.
 
 CHAF preserves user semantics.
 Marpa,
@@ -300,17 +274,19 @@ name: Rewrite show_rules Output
 partial: 1
 normalize-whitespace: 1
 
-    1: statements -> statement[Seq:1-*][Sep:comma] /* vrhs discard_sep real=0 */
-    2: statements -> statement[Seq:1-*][Sep:comma] comma /* vrhs discard_sep real=1 */
-    3: statement[Seq:1-*][Sep:comma] -> statement /* vlhs real=1 */
-    4: statement[Seq:1-*][Sep:comma] -> statement[Seq:1-*][Sep:comma] comma statement /* vlhs vrhs real=2 */
+    2: statements -> statements[Subseq:8:5] /* vrhs discard_sep real=0 */
+    3: statements -> statements[Subseq:8:5] comma /* vrhs discard_sep real=1 */
+    4: statements[Subseq:8:5] -> statement /* vlhs real=1 */
+    5: statements[Subseq:8:5] -> statements[Subseq:8:5] comma statement /* vlhs vrhs real=2 */
 
 =for Marpa::XS::Display::End
 
-In the added symbol, the tag "C<[Seq:1-*]>" indicates this is a symbol for a sequence
-of from 1 to an infinite number of symbols
-and the tag "C<[Sep:comma]>" that it is
-C<comma> separated.
+In the added symbol, the tag "C<[Subseq:8:5]>" indicates a special
+symbol introduced to serve as the LHS of the sequence.
+The "C<8:5>" indentifies the sequence using the symbol ID's of the two
+symbols involved.
+"C<statements>", the LHS symbol, has symbol ID 8.
+"C<statement>", the RHS symbol, has symbol ID 5.
 
 Here's another example, this time of a sequence without a separator.
 The rule
@@ -330,14 +306,14 @@ name: Rewrite show_rules Output
 partial: 1
 normalize-whitespace: 1
 
-    5: block -> /* empty !used nullable */
-    6: block -> statements[Seq:1-*] /* vrhs real=0 */
-    7: statements[Seq:1-*] -> statements /* vlhs real=1 */
-    8: statements[Seq:1-*] -> statements[Seq:1-*] statements /* vlhs vrhs real=1 */
+    7: block -> /* empty !used */
+    8: block -> block[Subseq:0:8] /* vrhs real=0 */
+    9: block[Subseq:0:8] -> statements /* vlhs real=1 */
+    10: block[Subseq:0:8] -> block[Subseq:0:8] statements /* vlhs vrhs real=1 */
 
 =for Marpa::XS::Display::End
 
-Note that rule 5, the empty rule with the C<block> symbol as its LHS,
+Note that rule 7, the empty rule with the C<block> symbol as its LHS,
 is marked "C<!used>".
 C<block> is a proper nullable, and rules from sequence conversion
 undergo the same rewriting of proper nullables as any other rules.
@@ -350,7 +326,7 @@ and that is why it was marked "C<!used>".
 =head1 EARLEY SETS
 
 Creating the Earley sets is
-not parsing in the strict pedantic sense.
+not parsing in the strict sense.
 Creating the Earley sets is B<recognition> --
 determining whether or not a grammar recognizes an input.
 During recognition,
@@ -390,11 +366,11 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S4@2-3
+    S5@2-3
 
 =for Marpa::XS::Display::End
 
-This Earley item is for AHFA state 4 (that is the "C<S4>" part).
+This Earley item is for AHFA state 5 (that is the "C<S5>" part).
 The "C<@2-3>" part says that this Earley item
 originates at earleme 2, and is current at earleme 3.
 The number of an Earley item's current earleme
@@ -402,7 +378,7 @@ is always
 the same as number of the Earley set that contains the item.
 
 (Note to experts:
-Those familiar with Earley parsing will note that C<S4@2-3> does not look like
+Those familiar with Earley parsing will note that C<S5@2-3> does not look like
 a traditional Earley item.
 AHFA states are not traditional --
 they come from Aycock and Horspool.
@@ -421,11 +397,11 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S5@0-3
+    S3@0-3
 
 =for Marpa::XS::Display::End
 
-This states that this item is for AHFA state 5;
+This states that this item is for AHFA state 3;
 that it originates at earleme 0;
 and that it is currently at
 (or has its dot position at)
@@ -438,30 +414,22 @@ along with the other
 trace and debugging outputs for this example,
 is in the appendices.)
 
-Here's what C<show_AHFA> says about AHFA state 5:
+Here's what C<show_AHFA> says about AHFA state 3:
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S5: 2,8
+    S3:
     Expression -> Term .
     Term -> Term . Add Term
-     <Add> => S8; S9
+     <Add> => S6; S7
 
 =for Marpa::XS::Display::End
 
 The first line of C<show_AHFA>'s description
-of AHFA state 5 begins with its name: C<S5>.
-The two numbers on the first line 
-after the AHFA state name
-are the numbers of the LR(0) NFA states
-from which this AHFA state was formed.
-They
-will not be mentioned again in this document,
-and may be ignored.
-
+of AHFA state 3 begins with its name: C<S3>.
 Marpa uses AHFA states to track the parse.
 Every AHFA state has one or more LR(0) items.
 In the above display,
@@ -483,10 +451,10 @@ The symbol before the dot position in an LR(0) item is called the B<pre-dot symb
 The symbol after the dot position in an LR(0) item is called the B<post-dot symbol>.
 
 The last line in the above display shows the B<transitions>
-from AHFA state S5.
+from AHFA state S3.
 It says that, when Marpa sees an C<Add> token,
-it will transition both to AHFA state S8
-and to AHFA state S9.
+it will transition both to AHFA state S6
+and to AHFA state S7.
 We will use both transitions in our examples.
 
 It's important not to confuse Earley items with LR(0) items.
@@ -568,31 +536,31 @@ input, and where.
 Let's look at the case where we are at earleme 3;
 we are about to recognize an C<Add> token;
 and we have in our Earley set 3
-the Earley item S5@0-3.
-S5@0-3 is the Earley item we
+the Earley item S3@0-3.
+S3@0-3 is the Earley item we
 already looked at.
 
 The current earleme for 
-S5@0-3 is earleme 3.
+S3@0-3 is earleme 3.
 Here, again, is the information for
-AHFA state S5,
+AHFA state S3,
 the AHFA state
-in Earley item S5@0-3.
+in Earley item S3@0-3.
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S5: 2,8
+    S3:
     Expression -> Term .
     Term -> Term . Add Term
-     <Add> => S8; S9
+     <Add> => S6; S7
 
 =for Marpa::XS::Display::End
 
 Marpa knows that it can instruct the lexer to look for a C<Add> token at earleme 3,
-because in AHFA state S5,
+because in AHFA state S3,
 there is a transition on an C<Add> token.
 In this example, an C<Add> token corresponds to a plus sign ("C<+>").
 
@@ -606,40 +574,40 @@ has at most one transition.
 Marpa's AHFA states,
 for any given token,
 can have up to two transitions.
-In the case of AHFA state S5,
+In the case of AHFA state S3,
 on an C<Add> token
 there are two transitions:
-one to AHFA state S8
-and one to AHFA state S9.
+one to AHFA state S6
+and one to AHFA state S7.
 We will use both transitions in our examples.
 
 The transition to
-AHFA state S9 is
+AHFA state S7 is
 an example of adding a B<predicted Earley item>
 to an Earley set.
 The transition to
-AHFA state S8 is
+AHFA state S6 is
 an example of adding a B<scanned Earley item>
 to an Earley set.
 At this point, we are discussing scanning,
 so the first transition that we will look at
-is the transition to AHFA state 8.
+is the transition to AHFA state 6.
 
 =for Marpa::XS::Display:
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S8: 9
+    S6:
     Term -> Term Add . Term
-     <Term> => S12
+    <Term> => S10; leo(Term)
 
 =for Marpa::XS::Display::End
 
-Which Earley set does the new Earley item for AHFA state S8 go into?
+Which Earley set does the new Earley item for AHFA state S6 go into?
 In this example, the C<Add> token has a length
 (in earlemes) of 1.
-The current earleme for S5@0-3 is earleme 3.
+The current earleme for S3@0-3 is earleme 3.
 Since 3+1 equals 4,
 the current earleme for the new Earley item will be earleme 4.
 
@@ -648,16 +616,16 @@ used to create a scanned Earley item
 is called the B<predecessor> of the scanned Earley item.
 In this example the predecessor of the scanned Earley item
 is the Earley item
-S5@0-3.
+S3@0-3.
 The origin of a scanned Earley item is always the same
 as the origin of its predecessor.
 
 Collecting what
 we've determined so far, the new, scanned, Earley item
 will have its dot location at earleme 4,
-will have AHFA state S8,
+will have AHFA state S6,
 and will have its origin at earleme 0.
-This means that the new, scanned, Earley item will be S8@0-4,
+This means that the new, scanned, Earley item will be S6@0-4,
 and will look like this:
 
 =for Marpa::XS::Display:
@@ -665,14 +633,14 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S8@0-4 [p=S5@0-3; s=Add; t=\'+']
+    S6@0-4 [p=S3@0-3; s=Add; t=\'+']
 
 =for Marpa::XS::Display::End
 
 Any item which is added to an Earley set based on a AHFA state transition
 from a predecessor,
 is called that predecessor's B<successor>.
-In this example, S8@0-4 is the successor of S5@0-3.
+In this example, S6@0-4 is the successor of S3@0-3.
 
 In the current example, the token values are
 "C<42>",
@@ -681,7 +649,7 @@ In the current example, the token values are
 "C<+> and
 "C<1>".
 The current earleme for 
-Earley item S8@0-4 is earleme 4,
+Earley item S6@0-4 is earleme 4,
 indicating that the 4th token has just been
 seen.
 The fourth token value is a plus sign ("C<+>"),
@@ -694,20 +662,20 @@ When the context makes the
 meaning clear, an B<Earley item source choice>
 may be called a B<source> or a B<source choice>.
 In this example, the source choice is
-C<[p=S5@0-3; s=Add; t=\'+']>.
+C<[p=S3@0-3; s=Add; t=\'+']>.
 This parse is not ambiguous,
 so all Earley items have at most one source choice entry.
 
 In this case the source choice entry is for a B<token choice>.
 Token choices are shown as C<[p=>I<predecessor>C<; s=>I<token_name>C<; t=>I<token_value>C<]> 3-tuples.
 The token choice
-C<[p=S5@0-3; s=Add; t=\'+']>
+C<[p=S3@0-3; s=Add; t=\'+']>
 indicates that
 the scanned token was an C<Add> symbol,
 that the scanned token value is "C<'+'>",
 and that
-the predecessor of S8@0-4 is
-S5@0-3.
+the predecessor of S6@0-4 is
+S3@0-3.
 
 =head3 Token Lengths
 
@@ -726,39 +694,39 @@ see L<Marpa::XS::Advanced::Models>.
 =head2 Prediction
 
 In the previous section, we looked at one of
-the two transitions from AHFA state S5 at earleme 3
+the two transitions from AHFA state S3 at earleme 3
 on an C<Add> token.
-The transition we looked at was to AHFA state S8.
-Now we will look at the other transition, to AHFA state S9.
-Here is AHFA state S9:
+The transition we looked at was to AHFA state S6.
+Now we will look at the other transition, to AHFA state S7.
+Here is AHFA state S7:
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S9: predict; 3,5,7,11
+    * S7: predict
     Term -> . Factor
     Factor -> . Number
     Term -> . Term Add Term
     Factor -> . Factor Multiply Factor
-     <Factor> => S3
-     <Number> => S4
-     <Term> => S13
+     <Factor> => S4
+     <Number> => S5
+     <Term> => S11
 
 =for Marpa::XS::Display::End
 
-In the first line of the C<show_AHFA> output for AHFA state S9,
+In the first line of the C<show_AHFA> output for AHFA state S7,
 immediately after the name of the state, comes the string C<"predict">.
-This means that S9 is a prediction state,
+This means that S7 is a predicted state,
 and that the new Earley item we add as a result of the transition
-to S9 will be a predicted Earley item.
+to S7 will be a predicted Earley item.
 
 The current location of a predicted Earley item is determined in
 the same way as the current location of a scanned item.
 We take the current location of the Earley item containing the
 transition and add the length of the token causing the transition.
-In this case the transition is in S5@0-3, whose current location is 3.
+In this case the transition is in S3@0-3, whose current location is 3.
 The token is the same as it was in the previous section: an C<Add>
 token with a token length of 1.
 As before, 3+1 equals 4, so that the new current location will be 4.
@@ -781,16 +749,16 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S9@4-4
+    S7@4-4
 
 =for Marpa::XS::Display::End
 
 Note that no source choice is shown.
 Source choices are not recorded for predicted items.
 
-=head3 More about Prediction States
+=head3 More about Predicted States
 
-Prediction states exist because
+Predicted states exist because
 the presence of incomplete LR(0) items at an earleme location
 gives rise to rule initializations
 at that same earleme location.
@@ -815,20 +783,27 @@ L<Aycock and Horspool
 |Marpa::XS::Advanced::Bibliography/"Aycock and Horspool 2002">
 handle these recursive rule initializations
 efficiently.
-Above we looked at AHFA states S8 and S9.
+Above we looked at AHFA states S6 and S7.
 In the following paragraphs,
 we'll examine the recursive sequence of rule
 initializations as it
-originates in S8
-and is collected in S9.
+originates in S6
+and is collected in S7.
+
+If an AHFA state is not a predicted AHFA state,
+then it is a B<discovered> AHFA state.
+The idea behind these terms is that in predicted states,
+no symbols for any of the rules have actually been seen.
+In discovered states, at least one symbol in every rule
+was found (or "discovered") in the input.
 
 The AHFA's invented by
 Aycock and Horspool pair
-every transition to a prediction state with the
-transition to a kernel (or non-prediction) state.
-In this case, S8 and S9 are a pair,
-where S8 is the kernel state.
-S8 contains only one LR(0) item:
+every transition to a predicted state with a
+transition to a discovered state.
+In this case, S6 and S7 are a pair,
+where S6 is the discovered state.
+S6 contains only one LR(0) item:
 
 =for Marpa::XS::Display:
 name: Implementation Example show_AHFA Output
@@ -840,8 +815,8 @@ normalize-whitespace: 1
 =for Marpa::XS::Display::End
 
 In this LR(0) item the post-dot symbol is C<Term>.
-S9, the prediction AHFA state
-paired with kernel AHFA state S8,
+S7, the predicted AHFA state
+paired with discovered AHFA state S6,
 will contain
 all the rule initializations
 caused by the expectation
@@ -915,9 +890,9 @@ step.
 That means there will be no more new rule initializations,
 and therefore no more new expected symbols.
 
-Starting with the expected symbol in AHFA state S8,
+Starting with the expected symbol in AHFA state S6,
 we found four rule initializations.
-The prediction state paired with S8 is S9.
+The predicted state paired with S6 is S7.
 Let's look at it again:
 
 =for Marpa::XS::Display
@@ -925,19 +900,19 @@ name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S9: predict; 3,5,7,11
+    * S7: predict
     Term -> . Factor
     Factor -> . Number
     Term -> . Term Add Term
     Factor -> . Factor Multiply Factor
-     <Factor> => S3
-     <Number> => S4
-     <Term> => S13
+     <Factor> => S4
+     <Number> => S5
+     <Term> => S11
 
 =for Marpa::XS::Display::End
 
 We see that, indeed,
-S9 contains all four of the rule
+S7 contains all four of the rule
 initializations
 that we found in this section.
 
@@ -967,16 +942,16 @@ Earley items with completed symbols
 can cause other Earley items to be added
 to the Earley sets.
 Let's look at one example.
-S4@2-3, in Earley set 3,
+S5@2-3, in Earley set 3,
 contains a completed symbol.
-Here is what AHFA state 4 looks like:
+Here is what AHFA state 5 looks like:
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S4: 6
+    S5:
     Factor -> Number .
 
 =for Marpa::XS::Display::End
@@ -989,7 +964,7 @@ of the Earley item that completes
 that symbol.
 In this case,
 the Earley item completing the symbol C<Factor>
-is S4@2-3 so that
+is S5@2-3 so that
 C<Factor> is a completed symbol with
 origin at 2 and current earleme at 3.
 
@@ -1024,35 +999,35 @@ an Earley item in
 Earley set 2 which has C<Factor> as one of the post-dot symbols.
 
 In this example we find two matching predecessors: 
-S6@0-2 and S7@2-2.
+S8@0-2 and S9@2-2.
 Completion effects are added for both of these.
 We'll look only at the completion effect
 that has
-S6@0-2 as its
+S8@0-2 as its
 matching predecessor.
-Here is AHFA state 6.
+Here is AHFA state 8.
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S6: 13
+    * S8:
     Factor -> Factor Multiply . Factor
-     <Factor> => S10
+     <Factor> => S12; leo(Factor)
 
 =for Marpa::XS::Display::End
 
-The transition for C<Factor> in AHFA state S6
-is to S10, so the new completion effect will have
-AHFA state S10.
+The transition for C<Factor> in AHFA state S8
+is to S12, so the new completion effect will have
+AHFA state S12.
 A completion effect always has the same current earleme
-as its completion cause (in this case S4@2-3).
+as its completion cause (in this case S5@2-3).
 The origin of a completion effect is always the
-same as the origin of its matching predecessor (in this case S6@0-2).
+same as the origin of its matching predecessor (in this case S8@0-2).
 The means our new 
 new completion effect
-will have AHFA state S10, origin 0 and current earleme 3.
+will have AHFA state S12, origin 0 and current earleme 3.
 Here it is:
 
 =for Marpa::XS::Display
@@ -1060,18 +1035,18 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S10@0-3 [p=S6@0-2; c=S4@2-3]
+    S12@0-3 [p=S8@0-2; c=S5@2-3]
 
 =for Marpa::XS::Display::End
 
 Note the source choice in brackets after the name:
-C<[p=S6@0-2; c=S4@2-3]>.
+C<[p=S8@0-2; c=S5@2-3]>.
 Previously we saw a token source choice.
 This is another kind of source choice, a B<completion source choice>.
-This source choice says the reason for S10@0-3 to be in the Earley sets
-is the completion cause S4@2-3
+This source choice says the reason for S12@0-3 to be in the Earley sets
+is the completion cause S5@2-3
 and its matching predecessor,
-S6@0-2.
+S8@0-2.
 
 When a parse is ambiguous,
 Earley items can have multiple source choices.
@@ -1087,24 +1062,24 @@ contains a completed symbol,
 and if that completion effect has a matching predecessor,
 then it is also a completion cause.
 
-The completion effect that we just added (S10@0-3)
+The completion effect that we just added (S12@0-3)
 is a completion cause as well.
 It is a step in a recursive sequence of completions.
-Earley item S10@0-3 has AHFA state S10.
-AHFA state S10 contains a completed rule:
+Earley item S12@0-3 has AHFA state S12.
+AHFA state S12 contains a completed rule:
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S10: leo-c; 14
+    * S12: leo-c
     Factor -> Factor Multiply Factor .
 
 =for Marpa::XS::Display::End
 
 (Ignore the "leo-c" notation for now.
-It indicates that S10 is what's called a Leo completion.
+It indicates that S12 is what's called a Leo completion.
 The Leo logic is dealt in L<another
 document|Marpa::XS::Advanced::Leo>.)
 
@@ -1122,47 +1097,47 @@ name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S1: predict; 1,3,5,7,11
+    * S1: predict
     Expression -> . Term
     Term -> . Factor
     Factor -> . Number
     Term -> . Term Add Term
     Factor -> . Factor Multiply Factor
-     <Factor> => S3
-     <Number> => S4
-     <Term> => S5
+     <Factor> => S4
+     <Number> => S5
+     <Term> => S3
 
 =for Marpa::XS::Display::End
 
 The completed symbol is C<Factor> and its transition
-in S1 is to S3, so we add S3@0-3 to Earley set 3.
+in S1 is to S4, so we add S4@0-3 to Earley set 3.
 
 =for Marpa::XS::Display
 name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S3@0-3 [p=S1@0-0; c=S10@0-3]
+    S4@0-3 [p=S1@0-0; c=S12@0-3]
 
 =for Marpa::XS::Display::End
 
 In our scanning example,
-we referred to S5@0-3.
+we referred to S3@0-3.
 One more step in the sequence of completions
 and we will see
-S5@0-3 again.
-The origin of S3@0-3 is at earleme 0.
-C<Term> is only the completed symbol in AHFA state 3.
+S3@0-3 again.
+The origin of S4@0-3 is at earleme 0.
+C<Term> is only the completed symbol in AHFA state 4.
 
 =for Marpa::XS::Display
 name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S3: 4,12
+    * S4:
     Term -> Factor .
     Factor -> Factor . Multiply Factor
-     <Multiply> => S6; S7
+    <Multiply> => S8; S9
 
 =for Marpa::XS::Display::End
 
@@ -1170,31 +1145,31 @@ S1@0-0 contains an LR(0) item
 which has C<Term> as the post-dot
 symbol.
 In AHFA state S1, the transition on C<Term>
-is to AHFA state S5.
-This means S5@0-3 will be
+is to AHFA state S3.
+This means S3@0-3 will be
 added to Earley set 3 as a completion effect,
-with S3@0-3 as the cause and S1@0-0 as the matching predecessor:
+with S4@0-3 as the cause and S1@0-0 as the matching predecessor:
 
 =for Marpa::XS::Display
 name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S5@0-3 [p=S1@0-0; c=S3@0-3]
+    S3@0-3 [p=S1@0-0; c=S4@0-3]
 
 =for Marpa::XS::Display::End
 
 We call a completion effect Earley item the 
 B<successor> of its matching predecessor.
 For example,
-S5@0-3 is the successor
+S3@0-3 is the successor
 of S1@0-0.
 The matching predecessor of an Earley item is often
 simply called
 its B<predecessor>.
 For example,
 S1@0-0 is the predecessor of
-S5@0-3.
+S3@0-3.
 
 =head2 Initialization
 
@@ -1214,18 +1189,13 @@ normalize-whitespace: 1
 S0@0-0 will always be present in Earley set 0.
 AHFA state 0 contains the start rules, with the dot pointer at the beginning.
 Only Earley set 0 will contain an Earley item for AHFA state 0.
-
 S1@0-0 contains the rules predicted by S0@0-0.
-For some very simple grammars S1@0-0 is not necessary.
 
 =head1 EVALUATION
 
-As of this writing,
-this section is not a complete presentation of Marpa's
-Generation 3 evaluator.
-Instead,
-it focuses on the issues relevant to users
-using Marpa's advanced trace accessors.
+This section
+discusses
+matters relevant to Marpa's Generation 3 evaluator.
 
 =head2 Applicable Dotted Rules
 
@@ -1238,20 +1208,14 @@ A dotted rule that applies in a particular parse result
 is called an B<applicable dotted rule>
 or an B<applicable LR(0) item>.
 
-The search for applicable dotted rules begins with the start
-Earley item.
+The search for dotted rules applicable to a parse result
+proceeds top-down,
+starting with
+the applicable dotted rule in the start Earley item.
 There will always be exactly one dotted rule in
 a start Earley item,
 and that one dotted rule will always be applicable
 to the current parse result.
-In other words,
-in any parse result,
-the dotted rule in its start Earley item
-is an applicable dotted rule.
-The search for the other dotted rules applicable to that parse result
-proceeds top-down,
-starting with
-the applicable dotted rule in the start Earley item.
 
 If the parse is not ambiguous, there will be exactly one
 applicable dotted rule for every Earley item.
@@ -1347,11 +1311,15 @@ two or more applicable dotted rules.
 
 =head2 Calculating the Parse Result
 
-Marpa calculates parse results using fairly traditional methods.
-Marpa first derives a pre-order tree from the Earley sets.
-Marpa then evaluates the pre-order tree bottom-up,
-using an evaluation stack.
+To calculate the parse result, Marpa creates a parse tree from
+the Earley sets, using the applicable dotted rule logic as
+described above.
+For the successive values of an ambiguouos parse,
+the parse tree must be iterated.
+The process for this is complex, and will not be dealt with here.
 
+For the evaluation of each parse tree, Marpa
+uses an evaluation stack, which is the standard method.
 The evaluation stack is initialized to empty.
 Every time Marpa evaluates a tree node,
 it pushes the result onto the evaluation stack.
@@ -1468,7 +1436,7 @@ name: Implementation Example show_AHFA Output
 partial: 1
 normalize-whitespace: 1
 
-    S2: leo-c; 16
+    * S2: leo-c
     Expression['] -> Expression .
 
 =for Marpa::XS::Display::End
@@ -1487,23 +1455,25 @@ name: Implementation Example show_earley_sets Output
 partial: 1
 normalize-whitespace: 1
 
-    S2@0-5 [p=S0@0-0; c=S5@0-5]
+    S2@0-5 [p=S0@0-0; c=S3@0-5]
 
 =for Marpa::XS::Display::End
       
 A parse is B<successful> if that parse is
 successful at its end of parsing location.
-Marpa's default idea of the end of parsing location
-depends on its input model.
+Marpa's default end of parsing location is the end location
+of the last token read.
+In the default input model, if I<N> tokens were read,
+the end of parsing location will be earleme I<N>.
 (The end of parsing location
 can be also be explicitly set by the user.)
 
 The parse in our example
-reads five tokens,
-uses the default input model,
-and uses the default end of parsing.
-That puts the end of parsing for our
-example parse at earleme location 5.
+reads five tokens
+using the default input model,
+and it uses the default end of parsing.
+That means that the end of parsing for our
+example parse is at earleme location 5.
 Since parsing is successful at location 5,
 the parse in our example is successful.
 
@@ -1549,7 +1519,9 @@ perltidy: '-dcsc -sil=0'
         [ 'Number', 7 ],
     );
 
-    $recce->tokens( \@tokens );
+    for my $token_and_value (@tokens) {
+        $recce->read( @{$token_and_value} );
+    }
 
     sub My_Actions::do_add {
         my ( undef, $t1, undef, $t2 ) = @_;
@@ -1608,60 +1580,59 @@ name: Implementation Example show_AHFA Output
 remove-display-indent: 1
 remove-blank-last-line: 1
 
-    Start States: S0; S1
-    S0: 15
+    * S0:
     Expression['] -> . Expression
      <Expression> => S2; leo(Expression['])
-    S1: predict; 1,3,5,7,11
+    * S1: predict
     Expression -> . Term
     Term -> . Factor
     Factor -> . Number
     Term -> . Term Add Term
     Factor -> . Factor Multiply Factor
-     <Factor> => S3
-     <Number> => S4
-     <Term> => S5
-    S2: leo-c; 16
+     <Factor> => S4
+     <Number> => S5
+     <Term> => S3
+    * S2: leo-c
     Expression['] -> Expression .
-    S3: 4,12
-    Term -> Factor .
-    Factor -> Factor . Multiply Factor
-     <Multiply> => S6; S7
-    S4: 6
-    Factor -> Number .
-    S5: 2,8
+    * S3:
     Expression -> Term .
     Term -> Term . Add Term
-     <Add> => S8; S9
-    S6: 13
-    Factor -> Factor Multiply . Factor
-     <Factor> => S10; leo(Factor)
-    S7: predict; 5,11
-    Factor -> . Number
-    Factor -> . Factor Multiply Factor
-     <Factor> => S11
-     <Number> => S4
-    S8: 9
+     <Add> => S6; S7
+    * S4:
+    Term -> Factor .
+    Factor -> Factor . Multiply Factor
+     <Multiply> => S8; S9
+    * S5:
+    Factor -> Number .
+    * S6:
     Term -> Term Add . Term
-     <Term> => S12; leo(Term)
-    S9: predict; 3,5,7,11
+     <Term> => S10; leo(Term)
+    * S7: predict
     Term -> . Factor
     Factor -> . Number
     Term -> . Term Add Term
     Factor -> . Factor Multiply Factor
-     <Factor> => S3
-     <Number> => S4
-     <Term> => S13
-    S10: leo-c; 14
-    Factor -> Factor Multiply Factor .
-    S11: 12
-    Factor -> Factor . Multiply Factor
-     <Multiply> => S6; S7
-    S12: leo-c; 10
+     <Factor> => S4
+     <Number> => S5
+     <Term> => S11
+    * S8:
+    Factor -> Factor Multiply . Factor
+     <Factor> => S12; leo(Factor)
+    * S9: predict
+    Factor -> . Number
+    Factor -> . Factor Multiply Factor
+     <Factor> => S13
+     <Number> => S5
+    * S10: leo-c
     Term -> Term Add Term .
-    S13: 8
+    * S11:
     Term -> Term . Add Term
-     <Add> => S8; S9
+     <Add> => S6; S7
+    * S12: leo-c
+    Factor -> Factor Multiply Factor .
+    * S13:
+    Factor -> Factor . Multiply Factor
+     <Multiply> => S8; S9
 
 =for Marpa::XS::Display::End
 
@@ -1677,30 +1648,30 @@ remove-blank-last-line: 1
     S0@0-0
     S1@0-0
     Earley Set 1
-    S4@0-1 [p=S1@0-0; s=Number; t=\42]
+    S5@0-1 [p=S1@0-0; s=Number; t=\42]
+    S4@0-1 [p=S1@0-0; c=S5@0-1]
     S3@0-1 [p=S1@0-0; c=S4@0-1]
-    S5@0-1 [p=S1@0-0; c=S3@0-1]
-    S2@0-1 [p=S0@0-0; c=S5@0-1]
+    S2@0-1 [p=S0@0-0; c=S3@0-1]
     Earley Set 2
-    S6@0-2 [p=S3@0-1; s=Multiply; t=\'*']
-    S7@2-2
+    S8@0-2 [p=S4@0-1; s=Multiply; t=\'*']
+    S9@2-2
     Earley Set 3
-    S4@2-3 [p=S7@2-2; s=Number; t=\1]
-    S10@0-3 [p=S6@0-2; c=S4@2-3]
-    S11@2-3 [p=S7@2-2; c=S4@2-3]
-    S3@0-3 [p=S1@0-0; c=S10@0-3]
-    S5@0-3 [p=S1@0-0; c=S3@0-3]
-    S2@0-3 [p=S0@0-0; c=S5@0-3]
+    S5@2-3 [p=S9@2-2; s=Number; t=\1]
+    S12@0-3 [p=S8@0-2; c=S5@2-3]
+    S13@2-3 [p=S9@2-2; c=S5@2-3]
+    S4@0-3 [p=S1@0-0; c=S12@0-3]
+    S3@0-3 [p=S1@0-0; c=S4@0-3]
+    S2@0-3 [p=S0@0-0; c=S3@0-3]
     Earley Set 4
-    S8@0-4 [p=S5@0-3; s=Add; t=\'+']
-    S9@4-4
+    S6@0-4 [p=S3@0-3; s=Add; t=\'+']
+    S7@4-4
     Earley Set 5
-    S4@4-5 [p=S9@4-4; s=Number; t=\7]
-    S3@4-5 [p=S9@4-4; c=S4@4-5]
-    S12@0-5 [p=S8@0-4; c=S3@4-5]
-    S13@4-5 [p=S9@4-4; c=S3@4-5]
-    S5@0-5 [p=S1@0-0; c=S12@0-5]
-    S2@0-5 [p=S0@0-0; c=S5@0-5]
+    S5@4-5 [p=S7@4-4; s=Number; t=\7]
+    S4@4-5 [p=S7@4-4; c=S5@4-5]
+    S10@0-5 [p=S6@0-4; c=S4@4-5]
+    S11@4-5 [p=S7@4-4; c=S4@4-5]
+    S3@0-5 [p=S1@0-0; c=S10@0-5]
+    S2@0-5 [p=S0@0-0; c=S3@0-5]
 
 =for Marpa::XS::Display::End
 

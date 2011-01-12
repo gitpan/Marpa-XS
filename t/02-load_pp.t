@@ -24,14 +24,14 @@ use Carp;
 use Data::Dumper;
 
 package Marpa::XS;
-our $FORCE_PP;
+our $USE_PP;
 
 package main;
 
 BEGIN {
 
     # force perl-only version to be tested
-    $Marpa::XS::FORCE_PP = 1;
+    $Marpa::XS::USE_PP = 1;
     Test::More::use_ok('Marpa::XS');
 } ## end BEGIN
 

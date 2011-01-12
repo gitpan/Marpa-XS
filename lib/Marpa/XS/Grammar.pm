@@ -59,41 +59,9 @@ use Marpa::XS::Offset qw(
     :package=Marpa::XS::Internal::Rule
 
     C { A C structure }
-
     ID
-    LHS { ref of the left hand symbol }
-    RHS { array of symbol refs }
-    =LAST_BASIC_DATA_FIELD
-
-    USED { Use this rule in NFA? }
     ACTION { action for this rule as specified by user }
     RANKING_ACTION
-    VIRTUAL_LHS
-    VIRTUAL_RHS
-    DISCARD_SEPARATION
-    REAL_SYMBOL_COUNT
-    CYCLE { Can this rule be part of a cycle? }
-    VIRTUAL_CYCLE { Is this rule part of a cycle from the virtual
-    point of view? }
-
-    =LAST_EVALUATOR_FIELD
-    =LAST_RECOGNIZER_FIELD
-
-    ORIGINAL_RULE { for a rewritten rule, the original }
-
-    =LAST_FIELD
-);
-
-use Marpa::XS::Offset qw(
-
-    :package=Marpa::XS::Internal::NFA
-
-    ID
-    NAME
-    ITEM { an LR(0) item }
-    TRANSITION { the transitions, as a hash from symbol name to NFA states }
-    AT_NULLING { dot just before a nullable symbol? }
-    COMPLETE { rule is complete? }
 
 );
 
@@ -102,7 +70,6 @@ use Marpa::XS::Offset qw(
     :package=Marpa::XS::Internal::AHFA
 
     ID
-    NAME
     =LAST_BASIC_DATA_FIELD
 
     COMPLETE_RULES { an array of lists of the complete rules,
@@ -124,18 +91,10 @@ use Marpa::XS::Offset qw(
 
     LEO_COMPLETION { Is this a Leo completion state? }
 
-    NFA_STATES { in an AHFA: an array of NFA states }
+    ITEMS { temporary, for development, delete after
+        conversion to C }
 
     =LAST_FIELD
-);
-
-use Marpa::XS::Offset qw(
-
-    :package=Marpa::XS::Internal::LR0_item
-
-    RULE
-    POSITION
-
 );
 
 use Marpa::XS::Offset qw(
@@ -153,15 +112,13 @@ use Marpa::XS::Offset qw(
     CYCLE_RANKING_ACTION { Action for ranking rules which cycle }
     TRACE_FILE_HANDLE
     WARNINGS { print warnings about grammar? }
-    TRACING { master flag, set if any tracing is being done
-    (to control overhead for non-tracing processes) }
 
     =LAST_BASIC_DATA_FIELD
 
     { === Evaluator Fields === }
 
     TERMINAL_NAMES { hash of terminal symbols, by name }
-    SYMBOL_HASH { hash to symbol ID by name of symbol refs }
+    SYMBOL_HASH { hash to symbol ID by name of symbol }
     DEFAULT_NULL_VALUE { default value for nulled symbols }
     ACTION_OBJECT
     INFINITE_ACTION
@@ -174,8 +131,6 @@ use Marpa::XS::Offset qw(
     =LAST_RECOGNIZER_FIELD
 
     START_NAME { name of original symbol }
-    NFA { array of states }
-    AHFA_BY_NAME { hash from AHFA name to AHFA reference }
     INACCESSIBLE_OK
     UNPRODUCTIVE_OK
     TRACE_RULES
@@ -300,7 +255,6 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE] = *STDERR;
 
     $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES]     = 0;
-    $grammar->[Marpa::XS::Internal::Grammar::TRACING]         = 0;
     $grammar->[Marpa::XS::Internal::Grammar::WARNINGS]        = 1;
     $grammar->[Marpa::XS::Internal::Grammar::INACCESSIBLE_OK] = {};
     $grammar->[Marpa::XS::Internal::Grammar::UNPRODUCTIVE_OK] = {};
@@ -309,7 +263,6 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS]             = [];
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH]         = {};
     $grammar->[Marpa::XS::Internal::Grammar::RULES]               = [];
-    $grammar->[Marpa::XS::Internal::Grammar::AHFA_BY_NAME]        = {};
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C] =
         Marpa::XS::Internal::G_C->new($grammar);
@@ -354,7 +307,6 @@ sub Marpa::XS::Grammar::set {
     # set trace_fh even if no tracing, because we may turn it on in this method
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
-    my $tracing = $grammar->[Marpa::XS::Internal::Grammar::TRACING];
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
 
     for my $args (@arg_hashes) {
@@ -393,7 +345,6 @@ sub Marpa::XS::Grammar::set {
                         "Warning: Setting trace_rules after $rule_count rules have been defined"
                         or Marpa::XS::exception("Could not print: $ERRNO");
                 }
-                $grammar->[Marpa::XS::Internal::Grammar::TRACING] = 1;
             } ## end if ($value)
         } ## end if ( defined( my $value = $args->{'trace_rules'} ) )
 
@@ -562,7 +513,6 @@ sub Marpa::XS::Grammar::set {
 sub Marpa::XS::Grammar::precompute {
     my $grammar = shift;
 
-    my $tracing   = $grammar->[Marpa::XS::Internal::Grammar::TRACING];
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
@@ -621,15 +571,9 @@ sub Marpa::XS::Grammar::precompute {
 
     # Here I update the Perl structures to reflect changes made
     # in the C structures.  Eventually I will eliminate the Perl
-    # structurres, and this code with them.
-    #
-    # The intent is that this code will "roll forward" as I move
-    # more and more of what follows it into libmarpa.
-    shadow_all_rules($grammar);
+    # structures, and this code with them.
+    shadow_AHFA($grammar);
 
-    create_NFA($grammar);
-    create_AHFA($grammar);
-    mark_leo_states($grammar);
     $grammar->[Marpa::XS::Internal::Grammar::TERMINAL_NAMES] = {
         map { ( $_->[Marpa::XS::Internal::Symbol::NAME] => 1 ) }
             grep {
@@ -843,41 +787,48 @@ sub Marpa::XS::Grammar::brief_rule {
     my $lhs_id = $grammar_c->rule_lhs($rule_id);
     my $text .= $rule_id . ': '
         . $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME] . ' ->';
-    my $rh_length = $grammar_c->rule_length($rule_id);
-    if ( $rh_length ) {
-	my @rhs_ids = $grammar_c->rule_rhs($rule_id);
+    if (my $rh_length = $grammar_c->rule_length($rule_id)) {
+	my @rhs_ids = ();
+	for my $ix (0 .. $rh_length-1 ) {
+	    push @rhs_ids, $grammar_c->rule_rhs($rule_id, $ix);
+	} ## end if ( @{$rhs} )
         $text .= q{ }
             . (
             join q{ }, map { $symbols->[$_]->[Marpa::XS::Internal::Symbol::NAME] } @rhs_ids
             );
-    } ## end if ( @{$rhs} )
+    }
     return $text;
 } ## end sub Marpa::XS::brief_rule
 
 sub Marpa::XS::Grammar::brief_original_rule {
-    my ($grammar, $rule) = @_;
-    my $original_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
-        // $rule;
-    return Marpa::XS::brief_rule($grammar, $original_rule);
-} ## end sub Marpa::XS::brief_original_rule
+    my ( $grammar, $rule ) = @_;
+    my $grammar_c        = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules            = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $rule_id          = $rules->[Marpa::XS::Internal::Rule::ID];
+    my $original_rule_id = $grammar_c->rule_original($rule_id);
+    my $original_rule =
+        defined $original_rule_id ? $rules->[$original_rule_id] : $rule;
+    return Marpa::XS::brief_rule( $grammar, $original_rule );
+} ## end sub Marpa::XS::Grammar::brief_original_rule
 
 sub Marpa::XS::Grammar::brief_virtual_rule {
     my ( $grammar, $rule, $dot_position ) = @_;
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $original_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE];
+    my $grammar_c        = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules            = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $symbols          = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $rule_id          = $rules->[Marpa::XS::Internal::Rule::ID];
+    my $original_rule_id = $grammar_c->rule_original($rule_id);
+    my $original_rule    = $rules->[$original_rule_id];
     if ( not defined $original_rule ) {
-        return Marpa::XS::show_dotted_rule( $rule, $dot_position )
+        return $grammar->show_dotted_rule( $rule, $dot_position )
             if defined $dot_position;
         return $grammar->brief_rule($rule);
     }
 
-    my $rule_id          = $rule->[Marpa::XS::Internal::Rule::ID];
-    my $original_rule_id = $original_rule->[Marpa::XS::Internal::Rule::ID];
-    my $original_lhs     = $original_rule->[Marpa::XS::Internal::Rule::LHS];
-    my $chaf_rhs         = $rule->[Marpa::XS::Internal::Rule::RHS];
-    my $original_rhs     = $original_rule->[Marpa::XS::Internal::Rule::RHS];
-    my $chaf_start = $grammar_c->rule_virtual_start($rule_id);
-    my $chaf_end = $grammar_c->rule_virtual_end($rule_id);
+    my $original_lhs_id = $grammar_c->rule_lhs($original_rule_id);
+    my $original_lhs = $symbols->[$original_lhs_id];
+    my $chaf_start   = $grammar_c->rule_virtual_start($rule_id);
+    my $chaf_end     = $grammar_c->rule_virtual_end($rule_id);
 
     if ( not defined $chaf_start ) {
         return "dot at $dot_position, virtual "
@@ -888,8 +839,13 @@ sub Marpa::XS::Grammar::brief_virtual_rule {
 
     my $text .= "(part of $original_rule_id) ";
     $text .= $original_lhs->[Marpa::XS::Internal::Symbol::NAME] . ' ->';
-    my @rhs_names =
-        map { $_->[Marpa::XS::Internal::Symbol::NAME] } @{$original_rhs};
+    my @rhs_names = ();
+    for my $ix ( 0 .. $grammar_c->rule_length($original_rule_id) ) {
+        my $rhs_symbol_id = $grammar_c->rule_rhs( $original_rule_id, $ix );
+        my $rhs_symbol_name =
+            $symbols->[$rhs_symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+        push @rhs_names, $rhs_symbol_name;
+    } ## end for my $ix ( 0 .. $grammar_c->rule_length($original_rule_id...))
 
     my @chaf_symbol_start;
     my @chaf_symbol_end;
@@ -909,7 +865,7 @@ sub Marpa::XS::Grammar::brief_virtual_rule {
     }
 
     $dot_position =
-        $dot_position >= scalar @{$chaf_rhs}
+        $dot_position >= $grammar_c->rule_length($rule_id)
         ? scalar @rhs_names
         : ( $chaf_start + $dot_position );
 
@@ -931,54 +887,23 @@ sub Marpa::XS::Grammar::show_rule {
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-
-    my $stripped = $#{$rule} < Marpa::XS::Internal::Rule::LAST_FIELD;
-    my $rhs      = $rule->[Marpa::XS::Internal::Rule::RHS];
     my @comment  = ();
 
-    if ( not( @{$rhs} ) ) { push @comment, 'empty'; }
-
-    if ($stripped) { push @comment, 'stripped'; }
-
-    ELEMENT:
-    for my $comment_element (
-        [ 1, '!used', Marpa::XS::Internal::Rule::USED, ] )
-    {
-        my ( $reverse, $comment, $offset ) = @{$comment_element};
-        next ELEMENT if not exists $rule->[$offset];
-        my $value = $rule->[$offset];
-        if ($reverse) { $value = !$value }
-        next ELEMENT if not $value;
-        push @comment, $comment;
-    } ## end for my $comment_element ( ( [ 1, '!used', ...]))
-
+    $grammar_c->rule_length($rule_id) == 0 and push @comment, 'empty';
+    $grammar_c->rule_is_used($rule_id) or push @comment, '!used';
     $grammar_c->rule_is_productive($rule_id) or push @comment, 'unproductive';
     $grammar_c->rule_is_accessible($rule_id) or push @comment, 'inaccessible';
+    my $rule_is_virtual_lhs = $grammar_c->rule_is_virtual_lhs($rule_id);
+    $rule_is_virtual_lhs and push @comment, 'vlhs';
+    my $rule_is_virtual_rhs = $grammar_c->rule_is_virtual_rhs($rule_id);
+    $rule_is_virtual_rhs and push @comment, 'vrhs';
+    $grammar_c->rule_is_discard_separation($rule_id)
+        and push @comment, 'discard_sep';
 
-    ELEMENT:
-    for my $comment_element (
-        ( [ 0, 'vlhs',         Marpa::XS::Internal::Rule::VIRTUAL_LHS, ],
-            [ 0, 'vrhs',         Marpa::XS::Internal::Rule::VIRTUAL_RHS, ],
-            [   0, 'discard_sep',
-                Marpa::XS::Internal::Rule::DISCARD_SEPARATION,
-            ],
-        )
-        )
-    {
-        my ( $reverse, $comment, $offset ) = @{$comment_element};
-        next ELEMENT if not exists $rule->[$offset];
-        my $value = $rule->[$offset];
-        if ($reverse) { $value = !$value }
-        next ELEMENT if not $value;
-        push @comment, $comment;
-    } ## end for my $comment_element ( ( [ 1, '!used', ...]))
-
-    if (   $rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS]
-        or $rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS] )
-    {
+    if ( $rule_is_virtual_lhs or $rule_is_virtual_rhs ) {
         push @comment, sprintf 'real=%d',
-            $rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT];
-    } ## end if ( $rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS]...)
+            $grammar_c->real_symbol_count($rule_id);
+    }
 
     my $text = $grammar->brief_rule($rule);
 
@@ -1001,12 +926,15 @@ sub Marpa::XS::Grammar::show_rules {
     return $text;
 } ## end sub Marpa::XS::Grammar::show_rules
 
-sub Marpa::XS::show_dotted_rule {
-    my ( $rule, $dot_position ) = @_;
+sub Marpa::XS::Grammar::show_dotted_rule {
+    my ( $grammar, $rule, $dot_position ) = @_;
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $rule_id   = $rule->[Marpa::XS::Internal::Rule::ID];
+    my $lhs_id    = $grammar_c->rule_lhs($rule_id);
+    my $lhs       = $symbols->[$lhs_id];
 
-    my $text =
-        $rule->[Marpa::XS::Internal::Rule::LHS]
-        ->[Marpa::XS::Internal::Symbol::NAME] . q{ ->};
+    my $text = $lhs->[Marpa::XS::Internal::Symbol::NAME] . q{ ->};
 
     # In the bocage, when we are starting a rule and
     # there is no current symbol, the position may
@@ -1023,9 +951,13 @@ sub Marpa::XS::show_dotted_rule {
         $text .= q{ !};
     }
 
-    my @rhs_names =
-        map { $_->[Marpa::XS::Internal::Symbol::NAME] }
-        @{ $rule->[Marpa::XS::Internal::Rule::RHS] };
+    my @rhs_names = ();
+    for my $ix ( 0 .. $grammar_c->rule_length($rule_id)-1 ) {
+        my $rhs_symbol_id = $grammar_c->rule_rhs( $rule_id, $ix );
+        my $rhs_symbol_name =
+            $symbols->[$rhs_symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+        push @rhs_names, $rhs_symbol_name;
+    } ## end for my $ix ( 0 .. $grammar_c->rule_length($rule_id) )
 
     POSITION: for my $position ( 0 .. scalar @rhs_names ) {
         if ( $position == $dot_position ) {
@@ -1038,24 +970,7 @@ sub Marpa::XS::show_dotted_rule {
 
     return $text;
 
-} ## end sub Marpa::XS::show_dotted_rule
-
-sub Marpa::XS::show_item {
-    my ($item) = @_;
-    my $text = q{};
-    if ( not defined $item ) {
-        $text .= '/* empty */';
-    }
-    else {
-        $text .= Marpa::XS::show_dotted_rule(
-            @{$item}[
-                Marpa::XS::Internal::LR0_item::RULE,
-            Marpa::XS::Internal::LR0_item::POSITION
-            ]
-        );
-    } ## end else [ if ( not defined $item ) ]
-    return $text;
-} ## end sub Marpa::XS::show_item
+} ## end sub Marpa::XS::Grammar::show_dotted_rule
 
 sub Marpa::XS::show_AHFA_item {
     my ( $grammar, $item_id ) = @_;
@@ -1089,7 +1004,7 @@ sub Marpa::XS::show_brief_AHFA_item {
     my $position   = $grammar_c->AHFA_item_position($item_id);
     my $dot_position =
         $position < 0 ? $grammar_c->rule_length($rule_id) : $position;
-    return Marpa::XS::show_dotted_rule( $rule, $dot_position );
+    return $grammar->show_dotted_rule( $rule, $dot_position );
 }
 
 sub Marpa::XS::Grammar::show_new_AHFA {
@@ -1135,8 +1050,8 @@ sub Marpa::XS::Grammar::show_new_AHFA {
             $text .= ' <' . $transition_symbol . '> => ';
 	    my $to_state_id = $transitions{$transition_symbol};
             my @to_descs = ("S$to_state_id");
-	    # There will be only one to item -- this is a Leo completion
 	    my @to_items = $grammar_c->AHFA_state_items($to_state_id);
+	    # There will be only one to-item when this is a Leo completion
 	    my $completed_rule_id    = $grammar_c->AHFA_item_rule($to_items[0]);
 	    my $lhs_id  = $grammar_c->rule_lhs($completed_rule_id);
 	    my $lhs_name =
@@ -1164,60 +1079,15 @@ sub Marpa::XS::Grammar::show_AHFA_items {
     return $text;
 }
 
-sub Marpa::XS::show_NFA_state {
-    my ($state) = @_;
-    my ( $name, $item, $transition, $at_nulling, ) = @{$state}[
-        Marpa::XS::Internal::NFA::NAME,
-        Marpa::XS::Internal::NFA::ITEM,
-        Marpa::XS::Internal::NFA::TRANSITION,
-        Marpa::XS::Internal::NFA::AT_NULLING,
-    ];
-    my $text = $name . ': ';
-    $text .= Marpa::XS::show_item($item) . "\n";
-    my @properties = ();
-    if ($at_nulling) {
-        push @properties, 'at_nulling';
-    }
-    if (@properties) {
-        $text .= ( join q{ }, @properties ) . "\n";
-    }
-
-    for my $symbol_name ( sort keys %{$transition} ) {
-        my $transition_states = $transition->{$symbol_name};
-        $text
-            .= q{ }
-            . ( $symbol_name eq q{} ? 'empty' : '<' . $symbol_name . '>' )
-            . ' => '
-            . join( q{ },
-            map { $_->[Marpa::XS::Internal::NFA::NAME] }
-                @{$transition_states} )
-            . "\n";
-    } ## end for my $symbol_name ( sort keys %{$transition} )
-    return $text;
-} ## end sub Marpa::XS::show_NFA_state
-
-sub Marpa::XS::Grammar::show_NFA {
-    my ($grammar) = @_;
-    my $text = q{};
-
-    return "stripped\n"
-        if not exists $grammar->[Marpa::XS::Internal::Grammar::NFA];
-
-    my $NFA = $grammar->[Marpa::XS::Internal::Grammar::NFA];
-    for my $state ( @{$NFA} ) {
-        $text .= Marpa::XS::show_NFA_state($state);
-    }
-
-    return $text;
-} ## end sub Marpa::XS::Grammar::show_NFA
-
 sub Marpa::XS::brief_AHFA_state {
     my ($state) = @_;
     return 'S' . $state->[Marpa::XS::Internal::AHFA::ID];
 }
 
 sub Marpa::XS::show_AHFA_state {
-    my ( $state, $verbose ) = @_;
+    my ( $grammar, $state, $verbose ) = @_;
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     $verbose //= 1;    # legacy is to be verbose, so default to it
 
     my $text     = q{};
@@ -1231,13 +1101,28 @@ sub Marpa::XS::show_AHFA_state {
     scalar @tags and $text .= q{ } . join '; ', @tags;
     $text .= "\n";
 
-    if ( exists $state->[Marpa::XS::Internal::AHFA::NFA_STATES] ) {
-        my $NFA_states = $state->[Marpa::XS::Internal::AHFA::NFA_STATES];
-        for my $NFA_state ( @{$NFA_states} ) {
-            my $item = $NFA_state->[Marpa::XS::Internal::NFA::ITEM];
-            $text .= Marpa::XS::show_item($item) . "\n";
+    if ( exists $state->[Marpa::XS::Internal::AHFA::ITEMS] ) {
+        my $items = $state->[Marpa::XS::Internal::AHFA::ITEMS];
+        my @items = ();
+        for my $item_id ( @{$items} ) {
+	    my $rule_id = $grammar_c->AHFA_item_rule($item_id);
+	    my $rule = $rules->[$rule_id];
+	    my $position = $grammar_c->AHFA_item_position($item_id);
+	    if ($position < 0) {
+	        $position = $grammar_c->rule_length( $rule_id );
+	    }
+            my $item_text = $grammar->show_dotted_rule( $rule, $position);
+            push @items,
+                [
+                $grammar_c->AHFA_item_rule($item_id),
+                $grammar_c->AHFA_item_postdot($item_id),
+		$item_text
+                ];
         }
-    } ## end if ( exists $state->[Marpa::XS::Internal::AHFA::NFA_STATES...])
+        $text .= join "\n", map { $_->[2] }
+            sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] } @items;
+        $text .= "\n";
+    }
 
     if ($stripped) { $text .= "stripped\n" }
 
@@ -1253,13 +1138,12 @@ sub Marpa::XS::show_AHFA_state {
                     push @ahfa_labels, qq{leo($to_state)};
                     next TO_STATE;
                 }
-                my $to_name = $to_state->[Marpa::XS::Internal::AHFA::NAME];
                 push @ahfa_labels, Marpa::XS::brief_AHFA_state($to_state);
             }    # for my $to_state
             $text .= join '; ', sort @ahfa_labels;
             $text .= "\n";
         } ## end for my $symbol_name ( sort keys %{$transition} )
-    } ## end if ( exists $state->[Marpa::XS::Internal::AHFA::TRANSITION...])
+    }
 
     return $text;
 } ## end sub Marpa::XS::show_AHFA_state
@@ -1269,7 +1153,7 @@ sub Marpa::XS::Grammar::show_AHFA {
     my $text         = q{};
     my $AHFA         = $grammar->[Marpa::XS::Internal::Grammar::AHFA];
     for my $state ( @{$AHFA} ) {
-        $text .= Marpa::XS::show_AHFA_state($state);
+        $text .= Marpa::XS::show_AHFA_state($grammar, $state);
     }
     return $text;
 } ## end sub Marpa::XS::Grammar::show_AHFA
@@ -1323,19 +1207,22 @@ sub message_cb {
 	    "lhs_terminals option is off, but Symbol $name is both an LHS and a terminal"
 	);
     }
-    if ($message_id eq 'loop rule') {
-	return if $grammar->[Marpa::XS::Internal::Grammar::INFINITE_ACTION] eq 'quiet';
-	my $loop_rule_id = $grammar_c->context("rule_id");
-	my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-	my $rule = $rules->[$loop_rule_id];
-        my $warning_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
-            // $rule;
-	print {$trace_fh}
-	    'Cycle found involving rule: ',
-	    $grammar->brief_rule($warning_rule), "\n"
-                or Marpa::XS::exception("Could not print: $ERRNO");
-	return;
-    }
+    if ( $message_id eq 'loop rule' ) {
+        return
+            if $grammar->[Marpa::XS::Internal::Grammar::INFINITE_ACTION] eq
+                'quiet';
+        my $loop_rule_id = $grammar_c->context("rule_id");
+        my $rules        = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+        my $rule         = $rules->[$loop_rule_id];
+        my $original_rule_id = $grammar_c->rule_original($loop_rule_id);
+        my $warning_rule =
+            defined $original_rule_id ? $rules->[$original_rule_id] : $rule;
+        print {$trace_fh}
+            'Cycle found involving rule: ',
+            $grammar->brief_rule($warning_rule), "\n"
+            or Marpa::XS::exception("Could not print: $ERRNO");
+        return;
+    } ## end if ( $message_id eq 'loop rule' )
     if ($message_id eq 'loop rule tally') {
         Marpa::XS::exception('Cycle in grammar, fatal error')
 	    if $grammar->[Marpa::XS::Internal::Grammar::INFINITE_ACTION] eq 'fatal' and 
@@ -1394,71 +1281,25 @@ sub wrap_symbol_cb {
     return;
 }
 
-# This routine to be deleted after development
-sub shadow_rule {
-    my ( $grammar, $new_rule ) = @_;
-    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-
-    my $new_rule_id = $new_rule->[Marpa::XS::Internal::Rule::ID];
-    ## Scope all the variables, even the useful stuff,
-    # so they can't be used later
-    # This "shadowing" code is eventually to be eliminated
-    my $lhs_id  = $grammar_c->rule_lhs($new_rule_id);
-    my @rhs_ids = $grammar_c->rule_rhs($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS] =
-        $grammar_c->rule_is_virtual_lhs($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS] =
-        $grammar_c->rule_is_virtual_rhs($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::DISCARD_SEPARATION] =
-        $grammar_c->rule_is_discard_separation($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT] =
-        $grammar_c->real_symbol_count($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::CYCLE] =
-        $grammar_c->rule_is_loop($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::VIRTUAL_CYCLE] =
-        $grammar_c->rule_is_virtual_loop($new_rule_id);
-    my $original_rule_id = $grammar_c->rule_original($new_rule_id);
-
-    if ( defined $original_rule_id ) {
-        $new_rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE] =
-            $rules->[$original_rule_id];
-    }
-    $new_rule->[Marpa::XS::Internal::Rule::USED] =
-        $grammar_c->rule_is_used($new_rule_id);
-    $new_rule->[Marpa::XS::Internal::Rule::LHS] = $symbols->[$lhs_id];
-    $new_rule->[Marpa::XS::Internal::Rule::RHS] =
-        [ map { $symbols->[$_] } @rhs_ids ];
-
-}
-
-sub shadow_all_rules {
-    my ( $grammar ) = @_;
-    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    for my $rule (@{$rules}) {
-         shadow_rule($grammar, $rule);
-    }
-}
-
 sub wrap_rule_cb {
     my ( $grammar_id, $new_rule_id ) = @_;
     my $grammar   = get_grammar_by_id($grammar_id);
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $new_rule  = bless [], 'Marpa::XS::Internal::Rule';
-    $#$new_rule = Marpa::XS::Internal::Rule::LAST_FIELD;
     my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     $new_rule->[Marpa::XS::Internal::Rule::ID] = $new_rule_id;
     $rules->[$new_rule_id] = $new_rule;
-
-    shadow_rule( $grammar, $new_rule );
 
     my $trace_rules = $grammar->[Marpa::XS::Internal::Grammar::TRACE_RULES];
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
     if ($trace_rules) {
         my $lhs_id  = $grammar_c->rule_lhs($new_rule_id);
-        my @rhs_ids = $grammar_c->rule_rhs($new_rule_id);
+	my $length = $grammar_c->rule_length($new_rule_id);
+        my @rhs_ids = ();
+	for my $ix (0 .. $length-1 ) {
+	    push @rhs_ids, $grammar_c->rule_rhs($new_rule_id, $ix);
+	} ## end if ( @{$rhs} )
         my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
         print {$trace_fh} 'Added rule #', $new_rule_id, ': ',
             $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME], ' -> ',
@@ -1822,419 +1663,88 @@ sub set_start_symbol {
     }
 } ## end sub check_start
 
-sub create_NFA {
-    my $grammar = shift;
-    my ( $rules, $symbols ) = @{$grammar}[
-        Marpa::XS::Internal::Grammar::RULES,
-        Marpa::XS::Internal::Grammar::SYMBOLS,
-    ];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-
-    my $start_symbol_id = $grammar_c->start_symbol();
-    my @start_rule_ids  = $grammar_c->symbol_lhs_rule_ids($start_symbol_id);
-    my $start_alias_id  = $grammar_c->symbol_null_alias($start_symbol_id);
-    if ( defined $start_alias_id ) {
-        push @start_rule_ids,
-            $grammar_c->symbol_lhs_rule_ids($start_alias_id);
-    }
-
-    my $NFA = [];
-    $grammar->[Marpa::XS::Internal::Grammar::NFA] = $NFA;
-
-    my $state_id = 0;
-    my @NFA_by_item;
-
-    # create S0
-    my $s0 = [];
-    @{$s0}[
-        Marpa::XS::Internal::NFA::ID,
-        Marpa::XS::Internal::NFA::NAME,
-        Marpa::XS::Internal::NFA::TRANSITION
-        ]
-        = ( $state_id++, 'S0', {} );
-    push @{$NFA}, $s0;
-
-    # create the other states
-    RULE: for my $rule ( @{$rules} ) {
-        my ( $rule_id, $rhs, $useful ) = @{$rule}[
-            Marpa::XS::Internal::Rule::ID, Marpa::XS::Internal::Rule::RHS,
-            Marpa::XS::Internal::Rule::USED
-        ];
-	next RULE if not $useful;
-        for my $position ( 0 .. scalar @{$rhs} ) {
-            my $new_state = [];
-            @{$new_state}[
-                Marpa::XS::Internal::NFA::ID,
-                Marpa::XS::Internal::NFA::NAME,
-                Marpa::XS::Internal::NFA::ITEM,
-                Marpa::XS::Internal::NFA::TRANSITION
-                ]
-                = ( $state_id, 'S' . $state_id, [ $rule, $position ], {} );
-            $state_id++;
-            push @{$NFA}, $new_state;
-            $NFA_by_item[$rule_id][$position] = $new_state;
-        }    # position
-    }    # rule
-
-    # now add the transitions
-    STATE: for my $state ( @{$NFA} ) {
-        my ( $id, $name, $item, $transition ) = @{$state};
-
-        # First, deal with transitions from state 0.
-        # S0 is the state with no LR(0) item
-        if ( not defined $item ) {
-
-            # From S0, add an empty transition to the every NFA state
-            # corresponding to a start rule with the dot at the beginning
-            # of the RHS.
-            RULE: for my $start_rule_id (@start_rule_ids) {
-                my $start_rule = $rules->[$start_rule_id];
-                next RULE
-                    if not $start_rule->[Marpa::XS::Internal::Rule::USED];
-                push @{ $transition->{q{}} }, $NFA_by_item[$start_rule_id][0];
-            } ## end for my $start_rule_id (@start_rule_ids)
-            next STATE;
-        } ## end if ( not defined $item )
-
-        # transitions from states other than state 0:
-
-        my $rule     = $item->[Marpa::XS::Internal::LR0_item::RULE];
-        my $position = $item->[Marpa::XS::Internal::LR0_item::POSITION];
-        my $rule_id  = $rule->[Marpa::XS::Internal::Rule::ID];
-        my $next_symbol =
-            $rule->[Marpa::XS::Internal::Rule::RHS]->[$position];
-
-        # no transitions if position is after the end of the RHS
-        if ( not defined $next_symbol ) {
-            $state->[Marpa::XS::Internal::NFA::COMPLETE] = 1;
-            next STATE;
-        }
-
-        my $next_symbol_id = $next_symbol->[Marpa::XS::Internal::Symbol::ID];
-
-        if ( $grammar_c->symbol_is_nulling($next_symbol_id) ) {
-            $state->[Marpa::XS::Internal::NFA::AT_NULLING] = 1;
-        }
-
-        # the scanning transition: the transition if the position is at symbol X
-        # in the RHS, via symbol X, to the state corresponding to the same
-        # rule with the position incremented by 1
-        # should I use ID as the key for those hashes, or NAME?
-        push @{ $transition
-                ->{ $next_symbol->[Marpa::XS::Internal::Symbol::NAME] } },
-            $NFA_by_item[$rule_id][ $position + 1 ];
-
-        # the prediction transitions: transitions if the position is at symbol X
-        # in the RHS, via the empty symbol, to all states with X on the LHS and
-        # position 0
-        RULE:
-        for my $predicted_rule_id (
-            $grammar_c->symbol_lhs_rule_ids($next_symbol_id) )
-        {
-
-            my $predicted_rule = $rules->[$predicted_rule_id];
-            next RULE
-                if not $predicted_rule->[Marpa::XS::Internal::Rule::USED];
-            push @{ $transition->{q{}} }, $NFA_by_item[$predicted_rule_id][0];
-        } ## end for my $predicted_rule_id ( $grammar_c->lhs_rule_ids(...))
-    } ## end for my $state ( @{$NFA} )
-
-    return 1;
-} ## end sub create_NFA
-
-# take a list of kernel NFA states, possibly with duplicates, and return
-# a reference to an array of the fully built Aycock-Horspool (AHFA) states.
-# as necessary.  The build is complete, except for transitions, which are
-# left to be set up later.
-sub assign_AHFA_state_set {
-    my $grammar       = shift;
-    my $kernel_states = shift;
-
-    my ( $symbols, $NFA_states, $AHFA_by_name, $AHFA ) = @{$grammar}[
-        Marpa::XS::Internal::Grammar::SYMBOLS,
-        Marpa::XS::Internal::Grammar::NFA,
-        Marpa::XS::Internal::Grammar::AHFA_BY_NAME,
-        Marpa::XS::Internal::Grammar::AHFA
-    ];
-    my $grammar_c = $grammar->[ Marpa::XS::Internal::Grammar::C ];
-
-    # Track if a state has been seen in @NFA_state_seen.
-    # Value is Undefined if never seen.
-    # Value is -1 if seen, but not a result
-    # Value is >=0 if seen and a result.
-    #
-    # If seen and to go into result, the
-    # value is the reset flag, which must be
-    # 0 or 1.
-    my @NFA_state_seen;
-
-    # pre-allocate the array
-    $#NFA_state_seen = @{$NFA_states};
-
-    # The work list is an array of work items.  Each work item
-    # is an NFA state, following by an optional prediction flag.
-    my @work_list = map { [ $_, 0 ] } @{$kernel_states};
-
-    # Use index because we extend this list while processing it.
-    my $work_list_index = -1;
-    WORK_ITEM: while (1) {
-
-        my $work_list_entry = $work_list[ ++$work_list_index ];
-        last WORK_ITEM if not defined $work_list_entry;
-
-        my ( $NFA_state, $reset ) = @{$work_list_entry};
-
-        my $NFA_id = $NFA_state->[Marpa::XS::Internal::NFA::ID];
-        next WORK_ITEM if defined $NFA_state_seen[$NFA_id];
-        $NFA_state_seen[$NFA_id] = -1;
-
-        my $transition = $NFA_state->[Marpa::XS::Internal::NFA::TRANSITION];
-
-        # if we are at a nulling symbol, this NFA state does NOT go into the
-        # result, but all transitions go into the work list.  All the transitions
-        # are assumed to be (and should be) empty transitions.
-        if ( $NFA_state->[Marpa::XS::Internal::NFA::AT_NULLING] ) {
-            push @work_list, map { [ $_, $reset ] }
-                map { @{$_} } values %{$transition};
-            next WORK_ITEM;
-        }
-
-        # If we are here, were have an NFA state NOT at a nulling symbol.
-        # This NFA state goes into the result, and the empty transitions
-        # go into the worklist as reset items.
-        my $empty_transitions = $transition->{q{}};
-        if ($empty_transitions) {
-            push @work_list, map { [ $_, 1 ] } @{$empty_transitions};
-        }
-
-        $reset //= 0;
-        $NFA_state_seen[$NFA_id] = $reset;
-
-    }    # WORK_ITEM
-
-    # this will hold the AHFA state set,
-    # which is the result
-    my @result_states = ();
-
-    RESET: for my $reset ( 0, 1 ) {
-
-        my @NFA_ids = grep {
-            defined $NFA_state_seen[$_]
-                and $NFA_state_seen[$_] == $reset
-        } ( 0 .. $#NFA_state_seen );
-
-        next RESET if not scalar @NFA_ids;
-
-        my $name = join q{,}, @NFA_ids;
-        my $AHFA_state = $AHFA_by_name->{$name};
-
-        # this is a new AHFA state -- create it
-        if ( not $AHFA_state ) {
-            my $id = scalar @{$AHFA};
-
-            my $start_rule;
-            my $lhs_list       = [];
-            my $complete_rules = [];
-            my $AHFA_complete  = 0;
-            my $NFA_state_list = [ @{$NFA_states}[@NFA_ids] ];
-            NFA_STATE: for my $NFA_state ( @{$NFA_state_list} ) {
-                next NFA_STATE
-                    if not $NFA_state->[Marpa::XS::Internal::NFA::COMPLETE];
-                $AHFA_complete = 1;
-                my $item   = $NFA_state->[Marpa::XS::Internal::NFA::ITEM];
-                my $rule   = $item->[Marpa::XS::Internal::LR0_item::RULE];
-                my $lhs    = $rule->[Marpa::XS::Internal::Rule::LHS];
-                my $lhs_id = $lhs->[Marpa::XS::Internal::Symbol::ID];
-
-                $lhs_list->[$lhs_id] = 1;
-                push @{ $complete_rules->[$lhs_id] }, $rule;
-
-                $grammar_c->symbol_is_start($lhs_id) and $start_rule = $rule;
-            } ## end for my $NFA_state ( @{$NFA_state_list} )
-
-            $AHFA_state->[Marpa::XS::Internal::AHFA::ID]   = $id;
-            $AHFA_state->[Marpa::XS::Internal::AHFA::NAME] = $name;
-            $AHFA_state->[Marpa::XS::Internal::AHFA::NFA_STATES] =
-                $NFA_state_list;
-            $AHFA_state->[Marpa::XS::Internal::AHFA::RESET_ORIGIN] = $reset;
-            $AHFA_state->[Marpa::XS::Internal::AHFA::START_RULE] =
-                $start_rule;
-            $AHFA_state->[Marpa::XS::Internal::AHFA::COMPLETE_RULES] =
-                $complete_rules;
-
-            $AHFA_state->[Marpa::XS::Internal::AHFA::COMPLETE_LHS] =
-                [ map { $_->[Marpa::XS::Internal::Symbol::NAME] }
-                    @{$symbols}[ grep { $lhs_list->[$_] }
-                    ( 0 .. $#{$lhs_list} ) ] ];
-
-            push @{$AHFA}, $AHFA_state;
-            $AHFA_by_name->{$name} = $AHFA_state;
-        } ## end if ( not $AHFA_state )
-
-        push @result_states, $AHFA_state;
-
-    } ## end for my $reset ( 0, 1 )
-
-    return \@result_states;
-} ## end sub assign_AHFA_state_set
-
-sub create_AHFA {
-    my $grammar = shift;
-    my ( $symbols, $NFA, $tracing ) = @{$grammar}[
-        Marpa::XS::Internal::Grammar::SYMBOLS,
-        Marpa::XS::Internal::Grammar::NFA,
-        Marpa::XS::Internal::Grammar::TRACING,
-    ];
-    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
-
-    my $trace_fh;
-    if ($tracing) {
-        $trace_fh =
-            $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
-    }
-
-    my $AHFA = $grammar->[Marpa::XS::Internal::Grammar::AHFA] = [];
-    my $NFA_s0 = $NFA->[0];
-
-    # next AHFA state to compute transitions for
-    my $next_state_id = 0;
-
-    my $initial_NFA_states =
-        $NFA_s0->[Marpa::XS::Internal::NFA::TRANSITION]->{q{}};
-    if ( not defined $initial_NFA_states ) {
-        Marpa::XS::exception('Empty NFA, cannot create AHFA');
-    }
-    $grammar->[Marpa::XS::Internal::Grammar::START_STATES] =
-        assign_AHFA_state_set( $grammar, $initial_NFA_states );
-
-    # assign_AHFA_state_set extends this array, which we are
-    # simultaneously going through and adding transitions.
-    # There is no problem with the process of adding transitions
-    # overtaking assign_AHFA_state_set: if we reach a point where
-    # all transitions have been added, and we are at the end of @$AHFA
-    # we are finished.
-    while ( $next_state_id < scalar @{$AHFA} ) {
-
-        # compute the AHFA state transitions from the transitions
-        # of the NFA states of which it is composed
-        my $NFA_to_states_by_symbol = {};
-
-        my $AHFA_state = $AHFA->[ $next_state_id++ ];
-
-        # aggregrate the transitions, by symbol, for every NFA state in this AHFA
-        # state
-        for my $NFA_state (
-            @{ $AHFA_state->[Marpa::XS::Internal::AHFA::NFA_STATES] } )
-        {
-            my $transition =
-                $NFA_state->[Marpa::XS::Internal::NFA::TRANSITION];
-            NFA_TRANSITION:
-            for my $symbol ( sort keys %{$transition} ) {
-                my $to_states = $transition->{$symbol};
-                next NFA_TRANSITION if $symbol eq q{};
-                push @{ $NFA_to_states_by_symbol->{$symbol} }, @{$to_states};
-            }
-        }    # $NFA_state
-
-        # for each transition symbol, create the transition to the AHFA kernel state
-        for my $symbol ( sort
-	    { $symbol_hash->{$a} <=> $symbol_hash->{$b} }
-	    keys %{$NFA_to_states_by_symbol} ) {
-            my $to_states_by_symbol = $NFA_to_states_by_symbol->{$symbol};
-            $AHFA_state->[Marpa::XS::Internal::AHFA::TRANSITION]->{$symbol} =
-                assign_AHFA_state_set( $grammar, $to_states_by_symbol );
-        }
-    } ## end while ( $next_state_id < scalar @{$AHFA} )
-
-    return;
-
-} ## end sub create_AHFA
-
-# Mark the Leo kernel and completion states
-sub mark_leo_states {
+sub shadow_AHFA {
     my $grammar   = shift;
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $AHFA      = $grammar->[Marpa::XS::Internal::Grammar::AHFA];
+    my $AHFA      = $grammar->[Marpa::XS::Internal::Grammar::AHFA] = [];
+    my $symbols      = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $rules      = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $AHFA_state_count = $grammar_c->AHFA_state_count();
 
-    # An Leo completion state will have only one NFA state,
-    # and will contain a completion.
-    STATE: for my $state ( @{$AHFA} ) {
-        my $NFA_states = $state->[Marpa::XS::Internal::AHFA::NFA_STATES];
-        next STATE if scalar @{$NFA_states} != 1;
-        my $left_hand_sides =
-            $state->[Marpa::XS::Internal::AHFA::COMPLETE_LHS];
-        next STATE if not scalar @{$left_hand_sides};
-        my $LR0_item    = $NFA_states->[0]->[Marpa::XS::Internal::NFA::ITEM];
-        my $rule        = $LR0_item->[Marpa::XS::Internal::LR0_item::RULE];
-        my $rhs         = $rule->[Marpa::XS::Internal::Rule::RHS];
-        my $non_nulling = (
-            List::Util::first {
-                not $grammar_c->symbol_is_nulling(
-                    $_->[Marpa::XS::Internal::Symbol::ID] );
-            }
-            reverse @{$rhs}
-        );
+    STATE:
+    for ( my $state_id = 0; $state_id < $AHFA_state_count; $state_id++ ) {
+	my $state = $AHFA->[$state_id] = [];
+        $state->[Marpa::XS::Internal::AHFA::ID] = $state_id;
+	my @items = $grammar_c->AHFA_state_items($state_id);
+        $state->[Marpa::XS::Internal::AHFA::ITEMS] = \@items;
+	my $complete_rules;
+	my @complete_lhs;
+	my $start_rule;
+	ITEM: for my $item_id (@items) {
+	     # not a completion
+	     next ITEM if $grammar_c->AHFA_item_position($item_id) >= 0;
+	     my $rule_id = $grammar_c->AHFA_item_rule($item_id);
+            my $lhs_id = $grammar_c->rule_lhs($rule_id);
+	    my $rule = $rules->[$rule_id];
+	    push @{$complete_rules->[$lhs_id]}, $rule;
+	    $complete_lhs[$lhs_id] = 1;
+	    $grammar_c->symbol_is_start($lhs_id) and $start_rule = $rule;
+	}
+	$state->[Marpa::XS::Internal::AHFA::START_RULE] =
+	    $start_rule;
+	$state->[Marpa::XS::Internal::AHFA::COMPLETE_RULES] =
+	    $complete_rules;
+	$state->[Marpa::XS::Internal::AHFA::COMPLETE_LHS] =
+	    [ map { $_->[Marpa::XS::Internal::Symbol::NAME] }
+		@{$symbols}[ grep { $complete_lhs[$_] }
+		( 0 .. $#complete_lhs ) ] ];
 
-        # In the null parse rules, there will be no non-nulling symbol
-        next STATE if not defined $non_nulling;
-
-        my $non_nulling_id = $non_nulling->[Marpa::XS::Internal::Symbol::ID];
-
-        # Not a Leo completion unless the next non-nulling symbol is on at least
-        # one left hand side.
-        next STATE
-            if not scalar $grammar_c->symbol_lhs_rule_ids($non_nulling_id);
+        $state->[Marpa::XS::Internal::AHFA::RESET_ORIGIN]
+	    = $grammar_c->AHFA_state_is_predict($state_id);
         $state->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] =
-            $rule->[Marpa::XS::Internal::Rule::LHS];
-    } ## end for my $state ( @{$AHFA} )
-
-    AHFA_STATE: for my $AHFA_state ( @{$AHFA} ) {
-        my %symbol_count = ();
-        LR0_ITEM:
-        for my $LR0_item ( map { $_->[Marpa::XS::Internal::NFA::ITEM] }
-            @{ $AHFA_state->[Marpa::XS::Internal::AHFA::NFA_STATES] } )
+            $grammar_c->AHFA_state_is_leo_completion($state_id);
+    }
+    # pass 2, for the transitions
+    for ( my $state_id = 0; $state_id < $AHFA_state_count; $state_id++ ) {
+	my $state = $AHFA->[$state_id];
+        my @raw_transitions = $grammar_c->AHFA_state_transitions($state_id);
+        my %transitions     = ();
+        while ( my ( $symbol_id, $to_state_id ) =
+            splice( @raw_transitions, 0, 2 ) )
         {
-            my $rule = $LR0_item->[Marpa::XS::Internal::LR0_item::RULE];
-            my $position =
-                $LR0_item->[Marpa::XS::Internal::LR0_item::POSITION];
-            my $symbol = $rule->[Marpa::XS::Internal::Rule::RHS]->[$position];
-            next LR0_ITEM if not defined $symbol;
-            $symbol_count{ $symbol->[Marpa::XS::Internal::Symbol::NAME] }++;
-        } ## end for my $LR0_item ( map { $_->[Marpa::XS::Internal::NFA::ITEM...]})
-        my $transitions =
-            $AHFA_state->[Marpa::XS::Internal::AHFA::TRANSITION];
-        SYMBOL:
-        for my $symbol_name (
-            grep { $symbol_count{$_} == 1 }
-            keys %symbol_count
-            )
-        {
-            my $to_states = $transitions->{$symbol_name};
+            my $symbol_name =
+                $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
+            $transitions{$symbol_name} = $to_state_id;
+        }
+        for my $transition_symbol ( sort keys %transitions ) {
+            my $to_state_id = $transitions{$transition_symbol};
+            my @to_states   = ();
 
-	    # There will be no prediction to-state for a leo-completion,
-	    # which means that there will be only one to-state.
-            # Since there is only one to-state, @leo_lhs
-            # will have only one entry -- this will be the
-            # lhs of the only rule in the Leo completion
-            # item
-            my @leo_lhs =
-                map  { $_->[Marpa::XS::Internal::Symbol::NAME] }
-                grep {defined}
-                map  { $_->[Marpa::XS::Internal::AHFA::LEO_COMPLETION] }
-                @{$to_states};
-            $transitions->{$symbol_name} = [ @leo_lhs, @{$to_states} ];
-        } ## end for my $symbol_name ( grep { $symbol_count{$_} == 1 }...)
-    } ## end for my $AHFA_state ( @{$AHFA} )
+            # There will be only one to-item if this is a Leo completion
+            my @to_items = $grammar_c->AHFA_state_items($to_state_id);
+            my $completed_rule_id =
+                $grammar_c->AHFA_item_rule( $to_items[0] );
+            my $lhs_id = $grammar_c->rule_lhs($completed_rule_id);
+            my $lhs_name =
+                $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME];
+            $grammar_c->AHFA_state_is_leo_completion($to_state_id)
+                and push @to_states, $lhs_name;
+            push @to_states, $AHFA->[$to_state_id];
+            my $empty_transition_state =
+                $grammar_c->AHFA_state_empty_transition($to_state_id);
+            $empty_transition_state >= 0
+                and push @to_states, $AHFA->[$empty_transition_state];
+            $state->[Marpa::XS::Internal::AHFA::TRANSITION]
+                ->{$transition_symbol} = \@to_states;
+        }
+    }
 
-    return;
-} ## end sub mark_leo_states
+    my @start_states = ( 0 );
+    my $prediction_start_state = $grammar_c->AHFA_state_empty_transition(0);
+    $prediction_start_state >= 0 and push @start_states, $prediction_start_state;
+    $grammar->[Marpa::XS::Internal::Grammar::START_STATES]
+	= [ map { $AHFA->[$_] } @start_states ];
 
-# For efficiency, steps in the CHAF evaluation
-# work on a the-last-is-the-rest principle --
-# productions
-# with a CHAF head always return reference to an array
-# of values, of which the last value is (in turn)
-# a reference to an array with the "rest" of the values.
-# An empty array signals that there are no more.
+}
 
 1;

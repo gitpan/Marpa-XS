@@ -14,8 +14,6 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# Engine Synopsis
-
 use 5.010;
 use strict;
 use warnings;
@@ -95,16 +93,17 @@ sub My_Actions::do_multiply {
 sub My_Actions::first_arg { shift; return shift; }
 
 my $recce = Marpa::XS::Recognizer->new(
-    { grammar => $grammar, trace_terminals => 2, mode => 'stream' } );
+    { grammar => $grammar, interactive => 1, trace_terminals => 2 } );
 
 my $token_ix = 0;
 
-my ( $current_earleme, $expected_tokens ) =
-    $recce->tokens( \@tokens, \$token_ix );
-
-if ( $token_ix <= $#tokens ) {
-    $progress_report = $recce->show_progress( 0, $current_earleme );
+TOKEN: for my $token_and_value (@tokens) {
+    last TOKEN if not defined $recce->read( @{$token_and_value} );
 }
+
+my $current_earleme = $recce->current_earleme();
+
+$progress_report = $recce->show_progress( 0, $current_earleme );
 
 # Marpa::XS::Display::End
 

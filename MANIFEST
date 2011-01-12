@@ -23,6 +23,7 @@ MANIFEST
 META.yml
 Makefile.PL
 README
+TODO
 author.t/.gitignore
 author.t/Makefile
 author.t/accept_tidy
@@ -36,6 +37,8 @@ author.t/perltidyrc
 author.t/pod.t
 author.t/spelling_exceptions.list
 author.t/tidy1
+config/Marpa/XS/Build_Me.pm
+config/Marpa/XS/Config.pm
 devlib/ppshim/Marpa.pm
 devlib/ppshim/Marpa/Test.pm
 devlib/xsshim/Marpa.pm
@@ -104,10 +107,8 @@ inc/proof/ah2002_notes.lyx
 inc/proof/ah_to_leo.lyx
 inc/proof/proof.lyx
 lib/Marpa/XS.pm
-config/Marpa/XS/Build_Me.pm
 lib/Marpa/XS/Callback.pm
 lib/Marpa/XS/Callback_PP.pm
-config/Marpa/XS/Config.pm
 lib/Marpa/XS/Display.pm
 lib/Marpa/XS/Grammar.pm
 lib/Marpa/XS/Grammar_PP.pm
@@ -144,11 +145,11 @@ libmarpa/dist/m4/ltoptions.m4
 libmarpa/dist/m4/ltsugar.m4
 libmarpa/dist/m4/ltversion.m4
 libmarpa/dist/m4/lt~obsolete.m4
-libmarpa/dist/missing
 libmarpa/dist/marpa.c
 libmarpa/dist/marpa.h
 libmarpa/dist/marpa_obs.c
 libmarpa/dist/marpa_obs.h
+libmarpa/dist/missing
 libmarpa/dist/standalone.c
 libmarpa/orig/gnu/obstack.c
 libmarpa/orig/gnu/obstack.h
@@ -200,6 +201,7 @@ t/base/null_infinite4.t
 t/base/null_value.t
 t/base/pascal.t
 t/base/perl.t
+t/base/rabend.t
 t/base/randal.t
 t/base/rewrite.t
 t/base/sequence.t
@@ -239,6 +241,7 @@ t/pp/null_infinite4.t
 t/pp/null_value.t
 t/pp/pascal.t
 t/pp/perl.t
+t/pp/rabend.t
 t/pp/randal.t
 t/pp/rewrite.t
 t/pp/sequence.t
@@ -279,6 +282,7 @@ t/xs/null_infinite4.t
 t/xs/null_value.t
 t/xs/pascal.t
 t/xs/perl.t
+t/xs/rabend.t
 t/xs/randal.t
 t/xs/rewrite.t
 t/xs/sequence.t

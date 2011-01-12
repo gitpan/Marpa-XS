@@ -14,8 +14,6 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# Engine Synopsis
-
 use 5.010;
 use strict;
 use warnings;
@@ -62,7 +60,9 @@ my @tokens = (
     [ 'Number',   7 ],
 );
 
-$recce->tokens( \@tokens );
+for my $token_and_value (@tokens) {
+    $recce->read( @{$token_and_value} );
+}
 
 sub My_Actions::do_add {
     my ( undef, $t1, undef, $t2 ) = @_;

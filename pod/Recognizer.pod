@@ -25,16 +25,11 @@ partial: 1
 normalize-whitespace: 1
 
     my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
-
-    my @tokens = (
-        [ 'Number', 42 ],
-        [ 'Multiply', ],
-        [ 'Number', 1 ],
-        [ 'Add', ],
-        [ 'Number', 7 ],
-    );
-
-    $recce->tokens( \@tokens );
+    $recce->read( 'Number', 42 );
+    $recce->read( 'Multiply', );
+    $recce->read( 'Number', 1 );
+    $recce->read( 'Add', );
+    $recce->read( 'Number', 7 );
 
 =for Marpa::XS::Display::End
 
@@ -43,54 +38,38 @@ normalize-whitespace: 1
 The L<C<Marpa::XS::Recognizer::new> constructor|/new>
 creates a recognizer object from a
 precomputed Marpa grammar object.
-The L<C<Marpa::XS::Recognizer::tokens>|/tokens>
-method recognizes tokens.
+The L<C<Marpa::XS::Recognizer::read>|/read> call
+reads input.
 
-Pedantically, recognition and evaluation are distinct things.
-Recognition is determining whether there is a parse.
-Evaluation is determining the value of a parse.
-The
-L<Marpa::XS::Recognizer> handles both recognition and evaluation.
+In Marpa, recognition is the phase that reads input.
+Evaluation is the phase that produces the parse results.
+L<Marpa::XS::Recognizer> objects
+handle both recognition and evaluation.
 
 =head2 Location
 
-In traditional parsing, location is position in a token stream.
-This document will assume
-that Marpa is using the traditional, token-stream,
-model of the input,
-unless it states otherwise.
+By default, Marpa treats its input as a token stream.
+Each 
+L<C<Marpa::XS::Recognizer::read>|/read>
+adds a token at the current location,
+then advances the current location by one.
+For the first 
+L<C<Marpa::XS::Recognizer::read>|/read> call,
+the current location is 0.
+Where confusion is possible, the current location
+is also called B<current parse location>.
+Marpa internally tracks location in terms of earlemes.
+The B<current earleme> is always exactly the same as
+the B<current location>.
+
+In almost all compilers, parser generators, and textbooks,
+the input model described is the token-stream method.
+In this document, it will always be assumed that the default,
+token stream,
+model of input is the one being used.
 Marpa supports other input models.
-
-The B<current parse location>, or B<current earleme>,
-is the location at which the next input is expected.
-Intuitively, the current earleme can be thought of as
-the recognizer's current position.
-Alternative input models,
-and the reasons for the term I<earleme> itself,
-are discussed in L<the
+and these are described in L<the
 document on alternative input models|Marpa::XS::Advanced::Models>.
-
-=head2 Exhaustion
-
-Recognition may reach a point where the recognizer is exhausted.
-A recognizer is B<exhausted> if there is no parse at the current location,
-and if no possible additional input could
-produce parses at any subsequent location.
-If a recognizer is not exhausted, it is B<active>.
-
-The evaluators look for a parse
-from the parse start location
-to the parse end location.
-By default, the parse start location is the beginning of the input.
-By default, the parse end location is the end of the input.
-In other words, the default is to parse the entire input.
-
-When an evaluator is called using the default parse end location,
-the evaluator will find no parses
-in an exhausted recognizer.
-It may be possible for an exhausted recognizer to produce a valid parse
-if the parse end location is set
-to a location before the end of input.
 
 =head1 CONSTRUCTOR
 
@@ -103,32 +82,31 @@ and the hash value is the value of the argument.
 The C<new> method either returns a new recognizer object or throws an exception.
 The named arguments are described L<in a section below|/"NAMED ARGUMENTS">.
 
+=head1 ACCESSORS
+
+=head2 current_earleme
+
+Returns the current location.
+Rarely used, since
+the current location is easily tracked by
+incrementing a counter after every
+L<C<Marpa::XS::Recognizer::read>|/read> call.
+
+=head2 expected_terminals
+
+Returns a reference to a list of strings.
+The strings will be the names of the terminals which are
+acceptable at the current location.
+The C<expected_terminals> call is the only way
+to find out which terminals are acceptable at
+location 0.
+Since this is usually not necessary,
+and since, for current locatons after location 0,
+the list of of expected terminals is returned by
+the L<C<Marpa::XS::Recognizer::read>|/read> call,
+C<expected_terminals> rarely needs to be used.
+
 =head1 MUTATORS
-
-=head2 end_input
-
-Indicates that input is finished.
-Calling C<end_input> is not necessary
-or useful
-in the recognizer's
-C<default> mode.
-In C<stream> mode,
-the C<end_input> method is needed to indicate the end of input.
-
-The C<end_input> method takes no arguments.
-The C<end_input> method returns a Perl true value on success.
-On failure, it throws an exception.
-
-Calling C<end_input> multiple times on the same recognizer object
-is harmless,
-but useless.
-The second and subsequent calls will
-return a Perl true,
-but will have no effect.
-Once C<end_input> has been called,
-calls to C<tokens> on the same recognizer object
-will cause an
-exception to be thrown.
 
 =head2 set
 
@@ -141,106 +119,88 @@ Details of the named arguments are L<below|/"NAMED ARGUMENTS">.
 
 =head2 strip
 
-The recognizer generates a considerable amount of internal data
-while building tables.
-These internal data are
-no longer needed when input is finished
-and the recognizer's tables are complete.
-
-The C<strip> method deletes much of the recognizer's internal data,
-but leaves the tables
-and other data needed
+In XS mode, this call is a no-op.
+In Pure Perl mode, when called after
+input is finished,
+this call cleans up internal data
+not needed
 for the evaluation phase.
+
+In Pure Perl mode,
+A considerable amount of data is only used while building
+the recognizer's tables, and is not needed once they are complete.
 Stripping a recognizer greatly reduces the amount of memory it uses.
 Attempting to strip a recognizer before input is finished
 will cause an exception.
 
-=head2 tokens
+=head2 read
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
 partial: 1
 normalize-whitespace: 1
 
-    my @tokens = (
-        [ 'Number', 42 ],
-        [ 'Multiply', ],
-        [ 'Number', 1 ],
-        [ 'Add', ],
-        [ 'Number', 7 ],
-    );
-
-    $recce->tokens( \@tokens );
+    $recce->read( 'Number', 42 );
+    $recce->read( 'Multiply', );
+    $recce->read( 'Number', 1 );
+    $recce->read( 'Add', );
+    $recce->read( 'Number', 7 );
 
 =for Marpa::XS::Display::End
 
+The C<read> method takes two arguments:
+a B<token name> and a B<token value>.
+The token name is required.
+It must be the name of a valid terminal symbol.
+The token value is optional.
+It defaults to a Perl C<undef>
+when not specified.
+For details about terminal symbols,
+see L<Marpa::XS::Grammar/"Terminals">.
 
-The C<tokens> method takes two arguments.
-The first is a reference to an array of token descriptors.
-The second, optional, argument is a B<reference> to an index into that array,
-used when the call is B<interactive>.
+If the parser accepted the token,
+the C<read> method returns
+a reference to an array of strings which
+lists the terminals
+that will be accepted by the 
+next call to C<read>.
+The strings are the terminal names.
+Applications can use this list
+to change the input "on the fly".
 
-Tokens descriptors are also references to arrays.
-The elements in each token descriptor are, in order:
+If the parser rejected the token, C<read> throws
+an exception, unless the recognizer is in interactive
+mode.
+If the parser rejected the token
+in interactive mode, C<read> returns a Perl C<undef>.
 
-=over
+The C<read> method implements
+the "token stream" interface.
+This is the standard model for input to compilers and parsers.
+The token stream model is all that most users will be interested in,
+at least at first.
+Marpa, however, allows non-traditional models of the input.
+The adventurous will find these described
+in L<a separate
+document|Marpa::XS::Advanced::Models>.
 
-=item * Token name
-
-Required.
-Must be the name of a valid terminal symbol.
-For details about terminal symbols, see L<Marpa::XS::Grammar/"Terminals">.
-
-=item * Token value
-
-Optional.
-Can be any Perl scalar.
-If omitted, the token value is a Perl C<undef>.
-
-=item * Token length
-
-Optional, and
-not used in the traditional, token-stream, model of the input.
-Token length is
-described in L<the document on alternative input
-models|Marpa::XS::Advanced::Models>.
-
-=item * Token offset
-
-Optional, and
-not used in the traditional, token-stream, model of the input.
-Token offset is
-described in L<the document on alternative input
-models|Marpa::XS::Advanced::Models>.
-
-=back
-
-In scalar context, if the recognizer remains active,
-the C<tokens> method returns the number of the current earleme.
-In array context, if the recognizer remains active,
-the C<tokens> method returns an array of two elements.
-The first element of the returned array is the number of the current earleme.
-The second element is a reference to a list of expected tokens.
-
-The list of expected tokens returned by the C<tokens> method is used
-for prediction-driven lexing.
-It is an array of strings.
-The strings are the names of the symbols that are
-valid as token names at the current parse location.
+The list of expected tokens returned by the C<read> method can be used
+for "Ruby Slippers" parsing.
+In Ruby Slippers parsing, when the parser does not accept its input,
+the application can change it on the fly.
+This is called Ruby Slippers parsing, because all the parser has to do is
+wish, and whatever it wishes for happens.
 For detail on how to use the list of expected tokens,
 see L<the section on interactive
-input|/"INTERACTIVE INPUT">.
+input|/"RUBY SLIPPERS PARSING">.
 
-When a call to the C<tokens> method in scalar context
-exhausts the recognizer,
-the C<tokens> method returns C<undef>.
-When a call to the C<tokens> method in array context
-exhausts the recognizer,
-the C<tokens> method returns the empty array.
+It is possible for the list of expected tokens to be empty.
+When this happens in the default input model, the recognizer
+is said to be B<exhausted>.
 
 =head2 value
 
-The value mutator evaluates and returns a parse result.
+The C<value> mutator evaluates and returns a parse result.
 It is described in L<its own section|/"EVALUATION">.
 
 =head1 ACCESSOR
@@ -252,21 +212,6 @@ Otherwise, returns a Perl false.
 Not often needed, but in special sitations a lexer may find this
 the most convenient way
 to determine if a symbol is a terminal.
-
-=head2 status
-
-The return value of the status method is that
-same as that of the L</"tokens"> method.
-For more details, see
-L<the description of C<tokens> method|/"tokens">.
-
-The C<status> method
-can be used to check the status of the recognizer
-without calling the C<tokens> method.
-The C<tokens> method is the only way to
-get the list of expected tokens
-at earleme 0,
-before the first call of the C<tokens> method.
 
 =head1 TRACE ACCESSORS
 
@@ -308,19 +253,18 @@ normalize-whitespace: 1
 Returns a string describing the progress of the parse.
 With no arguments,
 the string contains reports for
-the last completed earleme, which is typically the one
-of most interest.
+the current location.
 With a non-negative argument I<N>,
-the string contains reports for earleme I<N>.
+the string contains reports for location I<N>.
 
 With two numeric arguments, I<N> and I<M>, the arguments are interpreted
-as a range of earlemes and the returned string contains
-reports for all earlemes from I<N> to I<M>.
+as a range of location and the returned string contains
+reports for all locations from I<N> to I<M>.
 The first argument must be non-negative.
 If the second argument is a negative integer,
-"-I<M>", it indicates the I<M>th earleme from the last.
+"-I<M>", it indicates the I<M>th location from the last.
 In other words,
--1 is the last earleme, -2 the next to last, etc.
+-1 is the last location, -2 the next to last, etc.
 The call C<< $recce->show_progress(0, -1) >>
 will print progress reports for the entire parse.
 
@@ -330,7 +274,9 @@ debugging application grammars.
 It can also be used to track the
 progress of a parse or
 to investigate how a parse works.
-Details are in
+A much fuller description,
+with an example,
+is in
 L<the document on debugging Marpa
 grammars|Marpa::XS::Debug>.
 
@@ -342,28 +288,16 @@ The C<grammar> named argument is required.  Its
 value must be
 a precomputed Marpa grammar object.
 
-=head2 mode
+=head2 interactive
 
-The C<mode> named argument is optional.
-If present, it must be a string, either
-"C<default>" or "C<stream>".
-
-In C<stream> mode, the C<tokens> method may be called
-repeatedly.
-To indicate that input is finished, it
-is necessary to
-call the C<end_input> method.
-
-In C<default> mode,
-only one call
-to the C<tokens> method is allowed for
-each recognizer object.
-The input is automatically finished after that
-one call.
-In C<default> mode,
-the C<end_input> method is not useful. 
-As the name indicates,
-C<default> mode is the default.
+A boolean.  Unset by default.
+When set,
+the L<C<Marpa::XS::Recognizer::read>|/read> call
+return a Perl C<undef> when a token is rejected.
+The default is for
+L<C<Marpa::XS::Recognizer::read>|/read> to throw
+an exception when the token name provided is not
+one that the parser will accept.
 
 =head2 ranking_method
 
@@ -376,9 +310,8 @@ to control the order in which parse results are returned by
 specifying ranking actions which assign values to rules and tokens.
 
 The default is for parse results to be returned in arbitrary order.
-For details, see L<the section on ranking in the document
-on
-semantics|Marpa::XS::Semantics/"Ranking">.
+For details, see L<the section on parse order in the semantics
+document|Marpa::XS::Semantics/"PARSE ORDER">.
 
 =head2 too_many_earley_items
 
@@ -438,7 +371,7 @@ Marpa traces terminals as they are accepted or rejected
 by the recognizer.
 At a trace level of 2 or higher,
 Marpa traces the terminals expected at every
-earleme.
+location.
 Practical grammars often expect
 a large number of different
 terminals at many locations,
@@ -452,155 +385,90 @@ Warnings are written to the trace file handle.
 By default, the recognizer's warnings are on.
 Usually, an application will want to leave them on.
 
-=head1 INTERACTIVE INPUT
+=head1 RUBY SLIPPERS PARSING
 
 =for Marpa::XS::Display
 name: Engine Synopsis Interactive Parse
 partial: 1
 normalize-whitespace: 1
 
-    RECCE_RESPONSE: for ( my $token_ix = 0;; ) {
+    $recce =
+        Marpa::XS::Recognizer->new( { grammar => $grammar, interactive => 1 } );
 
-        my ( $current_earleme, $expected_tokens ) =
-            $recce->tokens( \@tokens, \$token_ix );
+    my @tokens = (
+        [ 'Number', 42 ],
+        ['Multiply'], [ 'Number', 1 ],
+        ['Add'],      [ 'Number', 7 ],
+    );
 
-        last RECCE_RESPONSE if $token_ix > $#tokens;
-
-        fix_things( \@tokens, $expected_tokens )
+    TOKEN: for ( my $token_ix = 0; $token_ix <= $#tokens; $token_ix++ ) {
+        defined $recce->read( @{ $tokens[$token_ix] } )
+            or fix_things( $recce, \@tokens )
             or die q{Don't know how to fix things};
-
-    } ## end for ( my $token_ix = 0;; )
+    }
 
 =for Marpa::XS::Display::End
 
-Marpa allows prediction-driven
-lexing.
-In other words,
-Marpa can tell the lexer
+Marpa tells the application
 which symbols are acceptable as tokens at the next location
 in the parse.
 This can be very useful.
+The application can use this information to change the
+input so that it is acceptable to the parser.
 
-Interactive input takes place, like all input,
-via the C<tokens> method.
-If a call of the C<tokens> method
-passes a second argument,
-that call of
-the C<tokens> method
-is B<interactive>.
-Interactive calls to the C<tokens> method
-are allowed only on recognizers that
-are in C<stream> mode.
+An application does not have to anticipate problems.
+If a 
+L<C<Marpa::XS::Recognizer::read>|/read> call fails,
+Marpa can simply retry it, changing the input.
 
-In interactive input, the first argument is a reference to a B<token descriptor array>,
-and the second argument is a reference to a B<token descriptor index>.
-The C<tokens> method will read token descriptors starting at the token
-descriptor index.
-Token descriptors
-before the token descriptor index are ignored.
-
-An B<unexpected token descriptor> is a token descriptor
-whose token name is not the name of one of the terminal
-symbols expected at that point in the input.
-The token represented by an unexpected token descriptor
-is an B<unexpected token>.
-In non-interactive calls to the C<tokens> method,
-an unexpected token descriptor causes an exception to be thrown.
-
-In interactive calls,
-the C<tokens> method returns
-leaving the 
-token descriptor index pointing to
-the first unexpected token descriptor.
-If there were no unexpected token descriptors,
-the token descriptor index will be set
-to one past the end of the token descriptor array.
-
-The behavior of the token descriptor index is designed to
-facilitate loops like the one in the example above.
-In that loop, the token descriptor index is initialized
-to zero, and is never directly modified after that.
-The loop ends when the token descriptor index points past
-the end of the token descriptor array.
-
-The return values for interactive calls to C<tokens> are the same
-as the return values for non-interactive calls.
-Interactive calls to C<tokens> can be made in scalar context,
-but most often applications will want
-to use the list of expected tokens,
-which is only returned in array context.
-
-=head2 Mixing tokens Calls
-
-Recognizers in C<stream> mode
-are very flexible.
-Both interactive and
-non-interactive
-C<tokens> method calls can be made
-to the same recognizer.
-A single recognizer
-can read input
-from any number of token descriptor arrays.
-Between calls to C<tokens>,
-the application is allowed to edit the token descriptor array,
-and to change the token descriptor index.
-
-This flexiblity is possible because the recognizer is stateless
-with respect to token descriptor arrays
-and their token descriptor indexes.
-The C<tokens> method does not keep track
-of which token descriptor arrays
-it has seen.
-It does not keep track of which token descriptors it has already read.
-It does not keep track of where the token descriptor indexes
-have been in the past.
-Statelessness means that,
-regardless of what
-an application does with its token descriptor arrays,
-it is impossible to make them
-inconsistent with the recognizer's internal data.
+By default, when a token is rejected, Marpa throws an exception.
+But if an application is doing Ruby Slippers parsing,
+it may be more convenient to set the recognizer's
+C<interactive> option.
+When the 
+C<interactive> option is set,
+if a token is rejected, the
+L<C<Marpa::XS::Recognizer::read>|/read> call returns a
+Perl C<undef>.
+The list of acceptable tokens will be that returned by the
+previous 
+L<C<Marpa::XS::Recognizer::read>|/read> call.
+The list of acceptable tokens may be explicitly
+requested with the
+L<C<Marpa::XS::Recognizer::expected_terminals>|/expected_terminals> call.
 
 =head2 An Example
 
 Marpa's HTML parser, L<Marpa::HTML>, is
-an example of how this flexibility can help
+an example of how Ruby Slippers parsing can help
 with a non-trivial, real-life application.
-When an interactive C<tokens> call returns due to
-an invalid token name,
-L<Marpa::HTML>
-tries to fix things in two ways.
+When L<Marpa::HTML> rejects a token,
+it tries to fix things using two techniques.
+In the first technique,
+L<Marpa::HTML> sometimes
+changes the token next in the input stream
+to match the parser's expectations.
 
-First, it looks at the expected tokens list
-for the name of a token
-that will work as a "virtual" token.
-If L<Marpa::HTML> finds
-an acceptable virtual token name,
-it will create a token descriptor for it "on the fly".
-In effect, 
-L<Marpa::HTML> supplies
-tokens that the parser wants
-but which are missing in the physical input.
-L<Marpa::HTML>
-inserts the virtual tokens into the input
-using non-interactive
-C<tokens> method calls.
-After inserting the virtual tokens,
-L<Marpa::HTML>
-loops back to the main, interactive,
-C<tokens> call,
-resuming the original input at the point where it left off.
+For HTML start and end tags,
+L<Marpa::HTML> uses the second technique:
+"virtual" tokens.
+A major complexity of liberal HTML parsing
+is dealing with omitted start and end tags.
+L<Marpa::HTML> handles with these by parsing with a grammar
+that takes a simple view of the world -- it assumes,
+contrary to fact,
+that start and end tags are always present.
+Ruby Slippers parsing is then used to make the grammar's
+simplistic view of the world come true.
 
-Second,
-under some circumstances
-L<Marpa::HTML> will change the next token descriptor in the
-token descriptor array to fit the parser's expectations.
+When a token is rejected,
 L<Marpa::HTML>
-then loops back to the main interactive call to C<tokens>.
-When
-the main interactive call to C<tokens>
-resumes,
-the token descriptor index is unchanged, but
-points to an altered token descriptor.
+looks at the expected tokens list.
+If it sees that a start or end tag is wanted,
+L<Marpa::HTML> creates a "virtual" tag.
+L<Marpa::HTML> then resumes input where it left off.
+This very simple solution to a difficult problem is made
+possible by the Ruby Slippers feature of the Marpa parse engine.
 
 =head1 EVALUATION
 
@@ -688,19 +556,6 @@ an ambiguous parse.
 C<max_parses> is also useful to
 limit CPU usage and output length when testing
 and debugging.
-
-=head2 ranking_method
-
-The value must be a string:
-either "C<none>" or "C<constant>".
-When the value is "C<none>", Marpa returns the parse results
-in arbitrary order.
-When the value is "C<constant>", Marpa allows the user
-to control the order in which parse results are returned by
-specifying ranking actions.
-The default is for parse results to be returned in arbitrary order.
-For details, see L<the section on parse order in the semantics
-document|Marpa::XS::Semantics/"PARSE ORDER">.
 
 =head2 trace_actions
 

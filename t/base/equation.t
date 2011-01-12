@@ -19,7 +19,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 14;
 
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
@@ -136,10 +136,8 @@ Marpa::XS::Test::is( ${$actual_ref},
 2: E['] -> E /* vlhs real=1 */
 END_RULES
 
-SKIP: { skip 'Not using XS', 2 if not $Marpa::XS::USING_XS ;
-
-# does not include transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Ambiguous Equation New AHFA Items' );
+if ($Marpa::XS::USING_XS ) {
+    Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Ambiguous Equation New AHFA Items' );
 * S0:
 E['] -> . E
  <E> => S2; leo(E['])
@@ -161,6 +159,9 @@ E -> E Op . E
 * S6: leo-c
 E -> E Op E .
 EOS
+}
+
+SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 $actual_ref = save_stdout();
 
@@ -189,12 +190,12 @@ EOS
 
 } ## SKIP of XS tests
 
-$actual_ref = save_stdout();
-
-print $grammar->show_NFA()
-    or die "print failed: $ERRNO";
-
-Marpa::XS::Test::is( ${$actual_ref}, <<'END_NFA', 'Ambiguous Equation NFA' );
+if ($Marpa::XS::USING_PP) {
+    $actual_ref = save_stdout();
+    print $grammar->show_NFA()
+        or die "print failed: $ERRNO";
+    Marpa::XS::Test::is( ${$actual_ref},
+        <<'END_NFA', 'Ambiguous Equation NFA' );
 S0: /* empty */
  empty => S7
 S1: E -> . E Op E
@@ -214,6 +215,7 @@ S7: E['] -> . E
  <E> => S8
 S8: E['] -> E .
 END_NFA
+}
 
 $actual_ref = save_stdout();
 

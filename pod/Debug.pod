@@ -254,12 +254,12 @@ If a parse is at all large, you'll often need to be selective.
 Of most interest is the progress report for the "current"
 Earley set.
 In our example that's earleme 3.
-You can find out the current earleme from
-the return value of either the
-L<C<tokens> method|Marpa::XS::Recognizer/"tokens">
-or the
-L<C<status> method|Marpa::XS::Recognizer/"status">.
-But it may be easier to simply call
+You can find out the current earleme either from
+the return value of the
+L<C<read> method|Marpa::XS::Recognizer/"read">
+or from the
+L<C<current_earleme> method|Marpa::XS::Recognizer/"current_earleme">.
+But you can also simply call
 L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
 without arguments.
 By default,
@@ -473,9 +473,10 @@ name: Debug Sequence Example Progress Report
 partial: 1
 normalize-whitespace: 1
 
-    PREDICTING @0 0: Document -> Stuff[Seq:1-*]
-    PREDICTING @0 1: Stuff[Seq:1-*] -> Stuff
-    PREDICTING @0 2: Stuff[Seq:1-*] -> Stuff[Seq:1-*] Stuff
+    PREDICTING @0 1: Document -> Document[Subseq:0:1]
+    PREDICTING @0 2: Document[Subseq:0:1] -> Stuff
+    PREDICTING @0 3: Document[Subseq:0:1] -> Document[Subseq:0:1] Stuff
+    PREDICTING @0 4: Document['] -> Document
 
 =for Marpa::XS::Display::End
 
@@ -747,11 +748,11 @@ perltidy: '-dcsc -sil=0'
     $grammar->precompute();
 
     my @tokens = (
-        [ 'Number', 42 ],
+        [ 'Number',   42 ],
         [ 'Multiply', q{*} ],
-        [ 'Number', 1 ],
-        [ 'Add', q{+} ],
-        [ 'Number', 7 ],
+        [ 'Number',   1 ],
+        [ 'Add',      q{+} ],
+        [ 'Number',   7 ],
     );
 
     sub My_Actions::do_add {
@@ -767,16 +768,17 @@ perltidy: '-dcsc -sil=0'
     sub My_Actions::first_arg { shift; return shift; }
 
     my $recce = Marpa::XS::Recognizer->new(
-        { grammar => $grammar, trace_terminals => 2, mode => 'stream' } );
+        { grammar => $grammar, interactive => 1, trace_terminals => 2 } );
 
     my $token_ix = 0;
 
-    my ( $current_earleme, $expected_tokens ) =
-        $recce->tokens( \@tokens, \$token_ix );
-
-    if ( $token_ix <= $#tokens ) {
-        $progress_report = $recce->show_progress( 0, $current_earleme );
+    TOKEN: for my $token_and_value (@tokens) {
+        last TOKEN if not defined $recce->read( @{$token_and_value} );
     }
+
+    my $current_earleme = $recce->current_earleme();
+
+    $progress_report = $recce->show_progress( 0, $current_earleme );
 
 =for Marpa::XS::Display::End
 

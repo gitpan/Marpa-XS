@@ -21,7 +21,7 @@ Marpa::XS - Future XS extension of Marpa
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
-perltidy: '-dcsc -sil=0'
+normalize-whitespace: 1
 
     my $grammar = Marpa::XS::Grammar->new(
         {   start   => 'Expression',
@@ -44,15 +44,11 @@ perltidy: '-dcsc -sil=0'
 
     my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-    my @tokens = (
-        [ 'Number', 42 ],
-        [ 'Multiply', ],
-        [ 'Number', 1 ],
-        [ 'Add', ],
-        [ 'Number', 7 ],
-    );
-
-    $recce->tokens( \@tokens );
+    $recce->read( 'Number', 42 );
+    $recce->read( 'Multiply', );
+    $recce->read( 'Number', 1 );
+    $recce->read( 'Add', );
+    $recce->read( 'Number', 7 );
 
     sub My_Actions::do_add {
         my ( undef, $t1, undef, $t2 ) = @_;
@@ -327,51 +323,42 @@ the required argument: "C<grammar>".
 The value of the 
 C<grammar> 
 named argument must be a precomputed Marpa
-grammar for the
-recognizer to use in building its tables.
+grammar.
 
-=head2 Marpa::XS::Recognizer::tokens
+=head2 Marpa::XS::Recognizer::read
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
 partial: 1
 normalize-whitespace: 1
 
-    my @tokens = (
-        [ 'Number', 42 ],
-        [ 'Multiply', ],
-        [ 'Number', 1 ],
-        [ 'Add', ],
-        [ 'Number', 7 ],
-    );
-
-    $recce->tokens( \@tokens );
+    $recce->read( 'Number', 42 );
+    $recce->read( 'Multiply', );
+    $recce->read( 'Number', 1 );
+    $recce->read( 'Add', );
+    $recce->read( 'Number', 7 );
 
 =for Marpa::XS::Display::End
 
-C<Marpa::XS::Recognizer::tokens> reads the input to be recognized.
-Its first (and in our example, only)
-argument is a reference to an array of B<token descriptors>.
-Each token descriptor is an array reference.
-
-The first element of a token descriptor is a string containing the
-B<token name>.
+The C<Marpa::XS::Recognizer::read> method takes two arguments,
+a B<token name> and a B<token value>.
 The token name must be the name
 of a valid terminal symbol in the grammar.
 By default all symbols are valid as terminal symbols,
 unless a grammar contains empty rules.
 
-The grammars in our examples do not contain empty
+The grammars in the examples in this document
+do not contain empty
 rules,
-and therefore we are free to use any symbol in the
+and therefore are free to use any symbol in the
 grammar as a token name.
 For more on terminals,
 including how to explicitly mark terminal symbols
 when the grammar contains empty rules,
 see L<Marpa::XS::Grammar/"Terminals">.
 
-The second element of a token descriptor is the B<token value>.
-A token value must be a Perl scalar, but otherwise its form
+The B<token value>
+must be a Perl scalar, but otherwise its form
 and semantics
 are entirely up to the application.
 If the token value is omitted,
@@ -581,7 +568,7 @@ to return the value for every one of the parse results.
 
 =for Marpa::XS::Display
 name: Engine Synopsis Ambiguous Parse
-perltidy: '-dcsc -sil=0'
+normalize-whitespace: 1
 
     my $ambiguous_grammar = Marpa::XS::Grammar->new(
         {   start   => 'E',
@@ -600,7 +587,11 @@ perltidy: '-dcsc -sil=0'
     my $ambiguous_recce =
         Marpa::XS::Recognizer->new( { grammar => $ambiguous_grammar } );
 
-    $ambiguous_recce->tokens( \@tokens );
+    $ambiguous_recce->read( 'Number', 42 );
+    $ambiguous_recce->read( 'Multiply', );
+    $ambiguous_recce->read( 'Number', 1 );
+    $ambiguous_recce->read( 'Add', );
+    $ambiguous_recce->read( 'Number', 7 );
 
     my @values = ();
     while ( defined( my $ambiguous_value_ref = $ambiguous_recce->value() ) ) {

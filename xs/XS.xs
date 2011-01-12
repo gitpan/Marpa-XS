@@ -23,32 +23,14 @@
 #undef G_LOG_DOMAIN
 #define G_LOG_DOMAIN "Marpa"
 
-typedef struct marpa_r Recognizer;
-typedef struct marpa_earley_item Earley_Item;
 typedef struct marpa_g Grammar;
-typedef struct marpa_rule Rule;
-
-/* "cookie" structures are private to the
- * XS logic
- */
 typedef struct {
-     Recognizer *recce;
+     struct marpa_r *r;
      SV *g_sv;
-} Recce_C;
+} Recce;
 
-static const char grammar_class_name[] = "Marpa::XS::Grammar";
 static const char grammar_c_class_name[] = "Marpa::XS::Internal::G_C";
-static const char symbol_class_name[] = "Marpa::XS::Internal::Symbol";
-static const char rule_class_name[] = "Marpa::XS::Internal::Rule";
-static const char recognizer_class_name[] = "Marpa::XS::Recognizer";
 static const char recce_c_class_name[] = "Marpa::XS::Internal::R_C";
-static const char earley_item_class_name[] = "Marpa::XS::Internal::Earley_Item";
-
-static inline Grammar* grammar_sv2c (SV *g_sv)
-{
-    IV tmp = SvIV((SV*)SvRV(g_sv));
-    return INT2PTR(Grammar *, tmp);
-}
 
 static void
 xs_message_callback(Grammar *g, Marpa_Message_ID id)
@@ -110,21 +92,6 @@ xs_symbol_callback(Grammar *g, Marpa_Symbol_ID id)
     }
 }
 
-static inline SV* recce_wrap( Recognizer* recce, SV* g_sv)
-{
-    Recce_C *recce_c;
-    HV * const stash = gv_stashpv(recce_c_class_name, GV_ADD);
-    SV* sv = newSV(sizeof(*recce_c));
-    SV *rv = newRV_noinc(sv);
-    SvPOK_only(sv);
-    sv_bless(rv, stash);
-    recce_c = (Recce_C*)SvPVX(sv);
-    recce_c->g_sv = g_sv;
-    SvREFCNT_inc(g_sv);
-    recce_c->recce = recce;
-    return rv;
-}
-
 MODULE = Marpa::XS        PACKAGE = Marpa::XS
 
 PROTOTYPES: DISABLE
@@ -181,7 +148,7 @@ CODE:
        if (sv) {
        SvREFCNT_dec(sv); }
     }
-    marpa_g_destroy( grammar );
+    marpa_g_free( grammar );
 
  # Note the Perl callback closure
  # is, in the libmarpa context, the *ARGUMENT* of the callback,
@@ -575,30 +542,17 @@ CODE:
 OUTPUT:
     RETVAL
 
-void
-rule_rhs( g, rule_id )
+Marpa_Symbol_ID
+rule_rhs( g, rule_id, ix )
     Grammar *g;
     Marpa_Rule_ID rule_id;
-PREINIT:
-    int i;
-    gsize length;
-    Marpa_Symbol_ID* rhs;
-PPCODE:
-    length = marpa_rule_length(g, rule_id);
-    if (length < 0) {
-       XSRETURN_UNDEF;
-    }
-    if (length == 0) {
-       XSRETURN_EMPTY;
-    }
-    rhs = marpa_rule_rhs_peek( g, rule_id );
-    if (rhs == NULL) {
-       XSRETURN_UNDEF;
-    }
-    EXTEND(SP, length);
-    for (i = 0; i < length; i++) {
-	PUSHs( sv_2mortal( newSViv(rhs[i]) ) );
-    }
+    unsigned int ix;
+CODE:
+    RETVAL = marpa_rule_rh_symbol(g, rule_id, ix);
+    if (RETVAL < -1) { croak("Invalid call rule_rhs(%d, %u)", rule_id, ix); }
+    if (RETVAL == -1) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
 
 int
 rule_length( g, rule_id )
@@ -893,7 +847,7 @@ PREINIT:
     union marpa_context_value* value;
     const char *string;
 PPCODE:
-    value = marpa_context_value_look(g, key);
+    value = marpa_g_context_value(g, key);
     if (!value) {
 	XSRETURN_UNDEF;
     }
@@ -911,7 +865,7 @@ PPCODE:
 char *error( g )
     Grammar *g;
 CODE:
-    RETVAL = (gchar*)marpa_error(g);
+    RETVAL = (gchar*)marpa_g_error(g);
 OUTPUT:
     RETVAL
 
@@ -923,61 +877,63 @@ PPCODE:
 
 MODULE = Marpa::XS        PACKAGE = Marpa::XS::Internal::R_C
 
-Recce_C *
+void
 new( class, g_sv )
     char * class;
     SV *g_sv;
 PREINIT:
-    Recognizer *recce;
-    SV *rv;
+    Grammar *g;
+    IV tmp;
+    SV *sv;
+    Recce *wrapper;
+    struct marpa_r* r;
 PPCODE:
-    Newxz( recce, 1, Recognizer );
-    marpa_r_init( recce );
     if (! sv_isa(g_sv, grammar_c_class_name)) {
-        g_debug("Recognizer_C->new grammar arg is not in class %s",
+        g_debug("Marpa::Recognizer::new grammar arg is not in class %s",
             grammar_c_class_name);
     }
-    rv = recce_wrap(recce, g_sv);
-    sv_2mortal(rv);
-    XPUSHs(rv);
+    tmp = SvIV((SV*)SvRV(g_sv));
+    g = INT2PTR(Grammar *, tmp);
+    r = marpa_r_new(g);
+    if (!r) { XSRETURN_UNDEF; }
+    Newx( wrapper, 1, Recce );
+    wrapper->r = r;
+    wrapper->g_sv = g_sv;
+    SvREFCNT_inc(g_sv);
+    sv = sv_newmortal();
+    sv_setref_pv(sv, recce_c_class_name, (void*)wrapper);
+    XPUSHs(sv);
 
 void
-DESTROY( recce_c )
-    Recce_C *recce_c;
+DESTROY( wrapper )
+    Recce *wrapper;
 PREINIT:
     SV *g_sv;
-    Recognizer *recce;
+    struct marpa_r *r;
 CODE:
-    g_sv = recce_c->g_sv;
-    recce = recce_c->recce;
-    marpa_r_destroy( recce );
+    g_sv = wrapper->g_sv;
+    r = wrapper->r;
+    marpa_r_free( r );
     SvREFCNT_dec(g_sv);
-    Safefree( recce );
-
-MODULE = Marpa::XS  PACKAGE = Marpa::XS::Internal::Earley_Item_C
-
-# Constructor
-
-Earley_Item *
-new( class, recce_c )
-    char * class;
-    Recce_C * recce_c;
-PREINIT:
-    Earley_Item* item;
-    SV* sv;
-PPCODE:
-    {
-    item = marpa_earley_item_new( );
-    sv = sv_newmortal();
-    sv_setref_pv(sv, "Marpa::XS::Internal::Earley_Item_C", (void*)item);
-    XPUSHs(sv);
-    }
+    Safefree( wrapper );
 
 void
-DESTROY( item )
-    Earley_Item *item;
-CODE:
-    marpa_earley_item_free( item );
+too_many_earley_items_set( wrapper, too_many_earley_items )
+    Recce *wrapper;
+    unsigned int too_many_earley_items;
+PPCODE:
+    { gboolean result = marpa_too_many_earley_items_set(wrapper->r, too_many_earley_items);
+    if (result) XSRETURN_YES;
+    }
+    XSRETURN_NO;
+
+void
+too_many_earley_items( wrapper )
+    Recce *wrapper;
+PPCODE:
+    { guint too_many_earley_items = marpa_too_many_earley_items( wrapper->r );
+    XPUSHs( sv_2mortal( newSViv(too_many_earley_items) ) );
+    }
 
 BOOT:
     gperl_handle_logs_for(G_LOG_DOMAIN);

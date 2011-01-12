@@ -164,8 +164,9 @@ sub Marpa::XS::Recognizer::show_recce_and_node {
 
     my $text = "show_recce_and_node:\n";
 
-    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
-    my $rules   = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $grammar   = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
 
     my $name = $and_node->[Marpa::XS::Internal::And_Node::TAG];
     my $id   = $and_node->[Marpa::XS::Internal::And_Node::ID];
@@ -178,10 +179,11 @@ sub Marpa::XS::Recognizer::show_recce_and_node {
 
     my @rhs = ();
 
-    my $rule          = $rules->[$rule_id];
-    my $original_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
-        // $rule;
-    my $is_virtual_rule = $rule != $original_rule;
+    my $rule             = $rules->[$rule_id];
+    my $original_rule_id = $grammar_c->rule_original($rule_id);
+    my $original_rule =
+        defined $original_rule_id ? $rules->[$original_rule_id] : $rule;
+    my $is_virtual_rule = $rule_id != $original_rule_id;
 
     my $or_nodes = $recce->[Marpa::XS::Internal::Recognizer::OR_NODES];
 
@@ -213,7 +215,7 @@ sub Marpa::XS::Recognizer::show_recce_and_node {
             $text
                 .= '    rule '
                 . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
-                . Marpa::XS::show_dotted_rule( $rule, $position + 1 )
+                . $grammar->show_dotted_rule( $rule, $position + 1 )
                 . "\n    "
                 . $grammar->brief_virtual_rule( $rule, $position + 1 )
                 . "\n";
@@ -247,6 +249,7 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
     $verbose //= 0;
 
     my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c     = $recce->[Marpa::XS::Internal::Grammar::C];
     my $rules       = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     my $rule_id     = $or_node->[Marpa::XS::Internal::Or_Node::RULE_ID];
     my $position    = $or_node->[Marpa::XS::Internal::Or_Node::POSITION];
@@ -255,10 +258,11 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
 
     my $text = "show_recce_or_node o$or_node_id:\n";
 
-    my $rule          = $rules->[$rule_id];
-    my $original_rule = $rule->[Marpa::XS::Internal::Rule::ORIGINAL_RULE]
-        // $rule;
-    my $is_virtual_rule = $rule != $original_rule;
+    my $rule             = $rules->[$rule_id];
+    my $original_rule_id = $grammar_c->rule_original($rule_id);
+    my $original_rule =
+        defined $original_rule_id ? $rules->[$original_rule_id] : $rule;
+    my $is_virtual_rule = $rule_id != $original_rule_id;
 
     my $and_nodes = $recce->[Marpa::XS::Internal::Recognizer::AND_NODES];
 
@@ -290,7 +294,7 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
             $text
                 .= '    rule '
                 . $rule->[Marpa::XS::Internal::Rule::ID] . ': '
-                . Marpa::XS::show_dotted_rule( $rule, $position + 1 )
+                . $grammar->show_dotted_rule( $rule, $position + 1 )
                 . "\n    "
                 . $grammar->brief_virtual_rule( $rule, $position + 1 )
                 . "\n";
@@ -572,13 +576,13 @@ sub Marpa::XS::Internal::Recognizer::resolve_semantics {
 } ## end sub Marpa::XS::Internal::Recognizer::resolve_semantics
 
 sub Marpa::XS::Internal::Recognizer::set_actions {
-    my ($recce) = @_;
-    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
-
-    my ( $rules, $default_action, ) = @{$grammar}[
-        Marpa::XS::Internal::Grammar::RULES,
-        Marpa::XS::Internal::Grammar::DEFAULT_ACTION,
-    ];
+    my ($recce)   = @_;
+    my $grammar   = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    my $symbols   = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $default_action =
+        $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_ACTION];
 
     my $evaluator_rules = [];
 
@@ -594,13 +598,13 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
 
     RULE: for my $rule ( @{$rules} ) {
 
-        next RULE if not $rule->[Marpa::XS::Internal::Rule::USED];
-
         my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
+        next RULE if not $grammar_c->rule_is_used($rule_id);
+
         my $ops = $evaluator_rules->[$rule_id] = [];
 
-        my $virtual_rhs = $rule->[Marpa::XS::Internal::Rule::VIRTUAL_RHS];
-        my $virtual_lhs = $rule->[Marpa::XS::Internal::Rule::VIRTUAL_LHS];
+        my $virtual_rhs = $grammar_c->rule_is_virtual_rhs($rule_id);
+        my $virtual_lhs = $grammar_c->rule_is_virtual_lhs($rule_id);
 
         if ($virtual_lhs) {
             push @{$ops},
@@ -609,7 +613,7 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
                 ? Marpa::XS::Internal::Op::VIRTUAL_KERNEL
                 : Marpa::XS::Internal::Op::VIRTUAL_TAIL
                 ),
-                $rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT];
+                $grammar_c->real_symbol_count($rule_id);
             next RULE;
         } ## end if ($virtual_lhs)
 
@@ -618,16 +622,14 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
         if ($virtual_rhs) {
             push @{$ops},
                 (
-                $rule->[Marpa::XS::Internal::Rule::DISCARD_SEPARATION]
+                $grammar_c->rule_is_discard_separation($rule_id)
                 ? Marpa::XS::Internal::Op::VIRTUAL_HEAD_NO_SEP
                 : Marpa::XS::Internal::Op::VIRTUAL_HEAD
                 ),
-                $rule->[Marpa::XS::Internal::Rule::REAL_SYMBOL_COUNT];
+                $grammar_c->real_symbol_count($rule_id);
         } ## end if ($virtual_rhs)
             # assignment instead of comparison is deliberate
-        elsif ( my $argc =
-            scalar @{ $rule->[Marpa::XS::Internal::Rule::RHS] } )
-        {
+        elsif ( my $argc = $grammar_c->rule_length($rule_id) ) {
             push @{$ops}, Marpa::XS::Internal::Op::ARGC, $argc;
         }
 
@@ -647,23 +649,17 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
         # If we can't resolve
         # the LHS as a closure name, it's not
         # a fatal error.
-        if ( my $action =
-            $rule->[Marpa::XS::Internal::Rule::LHS]
-            ->[Marpa::XS::Internal::Symbol::NAME] )
-        {
-            if ($action !~ /[\]] \z/xms
-                and defined(
-                    my $closure =
-                        Marpa::XS::Internal::Recognizer::resolve_semantics(
-                        $recce, $action
-                        )
-                )
-                )
-            {
-                push @{$ops}, Marpa::XS::Internal::Op::CALL, $closure;
-                next RULE;
-            } ## end if ( $action !~ /[\]] \z/xms and defined( my $closure...)[)
-        } ## end if ( my $action = $rule->[Marpa::XS::Internal::Rule::LHS...])
+	FIND_CLOSURE_BY_LHS: {
+	    my $lhs_id = $grammar_c->rule_lhs($rule_id);
+	    my $action = $symbols->[$lhs_id]->[Marpa::XS::Internal::Symbol::NAME];
+	    last FIND_CLOSURE_BY_LHS if substr($action, -1) eq ']';
+	    my $closure =
+		Marpa::XS::Internal::Recognizer::resolve_semantics( $recce,
+		$action );
+	    last FIND_CLOSURE_BY_LHS if not defined $closure;
+	    push @{$ops}, Marpa::XS::Internal::Op::CALL, $closure;
+	    next RULE;
+	} ## end FIND_CLOSURE_BY_LHS:
 
         if ( defined $default_action_closure ) {
             push @{$ops}, Marpa::XS::Internal::Op::CALL,
@@ -727,7 +723,7 @@ sub do_rank_all {
         my $ranking_action =
             $rule->[Marpa::XS::Internal::Rule::RANKING_ACTION];
 	my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-        my $cycle_rule = $rule->[Marpa::XS::Internal::Rule::CYCLE];
+        my $cycle_rule = $grammar_c->rule_is_loop($rule_id);
 
         Marpa::XS::exception(
             "Rule which cycles has an explicit ranking action\n",
@@ -753,25 +749,24 @@ sub do_rank_all {
 
         next RULE if not $ranking_closure;
 
-        # If the RHS is empty ...
-        # Empty rules are never in cycles -- they are either
-        # unused (because of the CHAF rewrite) or the special
-        # null start rule.
-        if ( not scalar @{ $rule->[Marpa::XS::Internal::Rule::RHS] } ) {
-            Marpa::XS::exception(
-                "Ranking closure '$ranking_action' not found")
-                if not defined $ranking_closure;
+	# If the RHS is empty ...
+	# Empty rules are never in cycles -- they are either
+	# unused (because of the CHAF rewrite) or the special
+	# null start rule.
+	if ( $grammar_c->rule_length($rule_id) == 0 ) {
+	    Marpa::XS::exception("Ranking closure '$ranking_action' not found")
+		if not defined $ranking_closure;
 
-            my $lhs_id = $rule ->[Marpa::XS::Internal::Rule::LHS]->[Marpa::XS::Internal::Symbol::ID];
-            my $lhs_null_alias = $symbols->[$grammar_c->symbol_null_alias($lhs_id)];
-            $ranking_closures_by_symbol{ $lhs_null_alias->[Marpa::XS::Internal::Symbol::NAME] } =
-                $ranking_closure;
-        } ## end if ( not scalar @{ $rule->[Marpa::XS::Internal::Rule::RHS...]})
+	    my $lhs_id = $grammar_c->rule_lhs($rule_id);
+	    my $lhs_null_alias =
+		$symbols->[ $grammar_c->symbol_null_alias($lhs_id) ];
+	    $ranking_closures_by_symbol{ $lhs_null_alias
+		    ->[Marpa::XS::Internal::Symbol::NAME] } = $ranking_closure;
+	} ## end if ( $grammar_c->rule_length($rule_id) == 0 )
 
-        next RULE if not $rule->[Marpa::XS::Internal::Rule::USED];
+        next RULE if not $grammar_c->rule_is_used($rule_id);
 
-        $ranking_closures_by_rule[ $rule->[Marpa::XS::Internal::Rule::ID] ] =
-            $ranking_closure;
+        $ranking_closures_by_rule[$rule_id] = $ranking_closure;
 
     } ## end for my $rule ( @{$rules} )
 
@@ -1336,17 +1331,18 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
 # null parse is special case
 sub Marpa::XS::Internal::Recognizer::do_null_parse {
     my ( $recce, $start_rule ) = @_;
-
-    my $start_symbol = $start_rule->[Marpa::XS::Internal::Rule::LHS];
-    my $start_symbol_id = $start_symbol->[Marpa::XS::Internal::Symbol::ID];
+    my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c     = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    my $start_rule_id   = $start_rule->[Marpa::XS::Internal::Rule::ID];
+    my $start_symbol_id = $grammar_c->rule_lhs($start_rule_id);
+    my $start_symbol = $symbols->[$start_symbol_id];
 
     # Cannot increment the null parse
     return if $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]++;
     my $null_values = $recce->[Marpa::XS::Internal::Recognizer::NULL_VALUES];
     my $evaluator_rules =
         $recce->[Marpa::XS::Internal::Recognizer::EVALUATOR_RULES];
-
-    my $start_rule_id   = $start_rule->[Marpa::XS::Internal::Rule::ID];
 
     my $and_node = [];
     $#{$and_node} = Marpa::XS::Internal::And_Node::LAST_FIELD;
@@ -1521,8 +1517,10 @@ sub Marpa::XS::Recognizer::value {
         return Marpa::XS::Internal::Recognizer::do_null_parse( $recce,
             $start_rule )
             if $grammar_c->symbol_is_nulling(
-            $start_rule->[Marpa::XS::Internal::Rule::LHS]
-                ->[Marpa::XS::Internal::Symbol::ID] );
+                    $grammar_c->rule_lhs(
+                        $start_rule->[Marpa::XS::Internal::Rule::ID]
+                    )
+            );
 
         @task_list = ();
         push @task_list, [Marpa::XS::Internal::Task::INITIALIZE];
@@ -1576,7 +1574,7 @@ sub Marpa::XS::Recognizer::value {
             # Start or-node cannot cycle
             $start_or_node->[Marpa::XS::Internal::Or_Node::CYCLE] = 0;
             $start_or_node->[Marpa::XS::Internal::Or_Node::POSITION] =
-                scalar @{ $start_rule->[Marpa::XS::Internal::Rule::RHS] };
+	        $grammar_c->rule_length($start_rule_id);
 
             # No source or-node for the start or-node
             $start_or_node->[Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE] =
@@ -2073,7 +2071,7 @@ sub Marpa::XS::Recognizer::value {
                 $work_set =
                     $first_item->[Marpa::XS::Internal::Earley_Item::SET];
                 $work_node_origin =
-                    $first_item->[Marpa::XS::Internal::Earley_Item::PARENT];
+                    $first_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
             }
 
             my $work_rule_id =
@@ -2081,10 +2079,8 @@ sub Marpa::XS::Recognizer::value {
             my $work_rule = $rules->[$work_rule_id];
             my $work_position =
                 $work_or_node->[Marpa::XS::Internal::Or_Node::POSITION] - 1;
-            my $work_symbol =
-                $work_rule->[Marpa::XS::Internal::Rule::RHS]
-                ->[$work_position];
-            my $work_symbol_id = $work_symbol->[Marpa::XS::Internal::Symbol::ID];
+            my $work_symbol_id = $grammar_c->rule_rhs($work_rule_id, $work_position);
+            my $work_symbol = $symbols->[$work_symbol_id];
 
             # Rewrite this, & retroport to the Pure Perl version
             for my $item ( @{$or_node_items} ) {
@@ -2103,9 +2099,10 @@ sub Marpa::XS::Recognizer::value {
                     my ( $leo_item, $cause, $token_name, $token_value ) =
                         @{$leo_link};
 
-                    my ( $next_leo_item, $leo_base_item ) =
-                        @{ $leo_item->[Marpa::XS::Internal::Leo_Item::LINKS]
-                            ->[0] };
+                    my $next_leo_item = $leo_item
+                        ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+                    my $leo_base_item =
+                        $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
 
                     my $next_links = [];
                     if ($token_name) {
@@ -2144,14 +2141,14 @@ sub Marpa::XS::Recognizer::value {
                         } ## end if ( not $next_leo_item )
 
                         #<<< perltidy cycles as of version 20090616
-                        my $state = $leo_item->[
-                            Marpa::XS::Internal::Leo_Item::LEO_ACTUAL_STATE ];
+                        my $base_to_state = $leo_item->[
+                            Marpa::XS::Internal::Leo_Item::BASE_TO_STATE ];
                         #>>>
                         my $origin = $next_leo_item
                             ->[Marpa::XS::Internal::Leo_Item::SET];
                         my $name = sprintf
                             'S%d@%d-%d',
-                            $state->[Marpa::XS::Internal::AHFA::ID],
+                            $base_to_state->[Marpa::XS::Internal::AHFA::ID],
                             $origin,
                             $or_sapling_set;
 
@@ -2162,17 +2159,16 @@ sub Marpa::XS::Recognizer::value {
 
                             # say STDERR join " ", __FILE__, __LINE__, "adding new leo item $name";
 
-                            $target_item =
-                                Marpa::XS::Internal::Earley_Item->new($recce);
+                            $target_item = [];
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::NAME] =
                                 $name;
                             $target_item
-                                ->[Marpa::XS::Internal::Earley_Item::PARENT] =
+                                ->[Marpa::XS::Internal::Earley_Item::ORIGIN] =
                                 $origin;
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::STATE] =
-                                $state;
+                                $base_to_state;
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] =
                                 [];
@@ -2192,11 +2188,10 @@ sub Marpa::XS::Recognizer::value {
                             @{$next_links};
 
                         $leo_item = $next_leo_item;
-
-                        ( $next_leo_item, $leo_base_item ) =
-                            @{ $leo_item
-                                ->[Marpa::XS::Internal::Leo_Item::LINKS]->[0]
-                            };
+			$next_leo_item = $leo_item
+			    ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+			$leo_base_item =
+			    $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
 
                         $next_links = [ [ $leo_base_item, $target_item ] ];
 
@@ -2299,8 +2294,7 @@ sub Marpa::XS::Recognizer::value {
                         # thanks to the CHAF rewrite
                         $predecessor_or_node
                             ->[Marpa::XS::Internal::Or_Node::CYCLE] =
-                            $work_rule
-                            ->[Marpa::XS::Internal::Rule::VIRTUAL_CYCLE]
+                               $grammar_c->rule_is_virtual_loop($work_rule_id)
                             && $cause_earleme != $work_node_origin;
                         $predecessor_or_node
                             ->[Marpa::XS::Internal::Or_Node::POSITION] =
@@ -2396,13 +2390,12 @@ sub Marpa::XS::Recognizer::value {
                             # thanks to the CHAF rewrite
                             $cause_or_node
                                 ->[Marpa::XS::Internal::Or_Node::CYCLE] =
-                                $cause_rule
-                                ->[Marpa::XS::Internal::Rule::VIRTUAL_CYCLE]
+                                $grammar_c->rule_is_virtual_loop(
+                                $cause_rule_id)
                                 && $cause_earleme != $work_set;
                             $cause_or_node
                                 ->[Marpa::XS::Internal::Or_Node::POSITION] =
-                                scalar @{ $cause_rule
-                                    ->[Marpa::XS::Internal::Rule::RHS] };
+                                $grammar_c->rule_length($cause_rule_id);
                             $cause_or_node
                                 ->[Marpa::XS::Internal::Or_Node::ITEMS] =
                                 { $cause
@@ -2474,10 +2467,9 @@ sub Marpa::XS::Recognizer::value {
                     $work_rule_id;
 
                 $and_node->[Marpa::XS::Internal::And_Node::VALUE_OPS] =
-                    $work_position
-                    == $#{ $work_rule->[Marpa::XS::Internal::Rule::RHS] }
-                    ? $evaluator_rules
-                    ->[ $work_rule->[Marpa::XS::Internal::Rule::ID] ]
+                    $work_position + 1
+                    == $grammar_c->rule_length($work_rule_id)
+                    ? $evaluator_rules->[$work_rule_id]
                     : undef;
 
                 $and_node->[Marpa::XS::Internal::And_Node::POSITION] =

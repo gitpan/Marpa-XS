@@ -14,8 +14,6 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# Engine Synopsis
-
 use 5.010;
 use strict;
 use warnings;
@@ -315,40 +313,40 @@ S2@0-1 [p=S0@0-0; c=S3@0-1]
 Earley Set 2
 S6@0-2 [p=S4@0-1; s=AssignOp; t=\'=']
 S7@2-2
-L11@0-2; actual="Expression"->11; [c=S6@0-2]
+L11:1@0-2; "Expression"; [c=S6@0-2]
 Earley Set 3
 S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
-S11@0-3 [l=L11@0-2; c=S5@2-3]
+S11@0-3 [l=L11:1@0-2; c=S5@2-3]
 S4@2-3 [p=S7@2-2; c=S5@2-3]
 S3@0-3 [p=S1@0-0; c=S11@0-3]
 S2@0-3 [p=S0@0-0; c=S3@0-3]
 Earley Set 4
 S8@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L11@0-4; actual="Expression"->12; [l=L11@0-2; c=S8@2-4]
+L12:1@0-4; "Expression"; [l=L11:1@0-2; c=S8@2-4]
 Earley Set 5
 S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
-S11@0-5 [l=L11@0-4; c=S5@4-5]
+S11@0-5 [l=L12:1@0-4; c=S5@4-5]
 S4@4-5 [p=S7@4-4; c=S5@4-5]
 S3@0-5 [p=S1@0-0; c=S11@0-5]
 S2@0-5 [p=S0@0-0; c=S3@0-5]
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L11@0-6; actual="Expression"->13; [l=L11@0-4; c=S9@4-6]
+L13:1@0-6; "Expression"; [l=L12:1@0-4; c=S9@4-6]
 Earley Set 7
 S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
-S11@0-7 [l=L11@0-6; c=S5@6-7]
+S11@0-7 [l=L13:1@0-6; c=S5@6-7]
 S4@6-7 [p=S7@6-6; c=S5@6-7]
 S3@0-7 [p=S1@0-0; c=S11@0-7]
 S2@0-7 [p=S0@0-0; c=S3@0-7]
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L11@0-8; actual="Expression"->14; [l=L11@0-6; c=S10@6-8]
+L14:1@0-8; "Expression"; [l=L13:1@0-6; c=S10@6-8]
 Earley Set 9
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
-S11@0-9 [l=L11@0-8; c=S5@8-9]
+S11@0-9 [l=L14:1@0-8; c=S5@8-9]
 S4@8-9 [p=S7@8-8; c=S5@8-9]
 S3@0-9 [p=S1@0-0; c=S11@0-9]
 S2@0-9 [p=S0@0-0; c=S3@0-9]
@@ -385,37 +383,37 @@ S2@0-1 [p=S0@0-0; c=S3@0-1]
 Earley Set 2
 S6@0-2 [p=S4@0-1; s=AssignOp; t=\'=']
 S7@2-2
-L11@0-2; actual="Expression"->11; [c=S6@0-2]
+L11:1@0-2; "Expression"; [c=S6@0-2]
 Earley Set 3
 S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
-S11@0-3 [l=L11@0-2; c=S5@2-3]
+S11@0-3 [l=L11:1@0-2; c=S5@2-3]
 S4@2-3 [p=S7@2-2; c=S5@2-3]
 S3@0-3 [p=S1@0-0; c=S11@0-3]
 S2@0-3 [p=S0@0-0; c=S3@0-3]
 Earley Set 4
 S8@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L11@0-4; actual="Expression"->12; [l=L11@0-2; c=S8@2-4]
+L12:1@0-4; "Expression"; [l=L11:1@0-2; c=S8@2-4]
 Earley Set 5
 S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
-S11@0-5 [l=L11@0-4; c=S5@4-5]
+S11@0-5 [l=L12:1@0-4; c=S5@4-5]
 S4@4-5 [p=S7@4-4; c=S5@4-5]
 S3@0-5 [p=S1@0-0; c=S11@0-5]
 S2@0-5 [p=S0@0-0; c=S3@0-5]
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L11@0-6; actual="Expression"->13; [l=L11@0-4; c=S9@4-6]
+L13:1@0-6; "Expression"; [l=L12:1@0-4; c=S9@4-6]
 Earley Set 7
 S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
-S11@0-7 [l=L11@0-6; c=S5@6-7]
+S11@0-7 [l=L13:1@0-6; c=S5@6-7]
 S4@6-7 [p=S7@6-6; c=S5@6-7]
 S3@0-7 [p=S1@0-0; c=S11@0-7]
 S2@0-7 [p=S0@0-0; c=S3@0-7]
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L11@0-8; actual="Expression"->14; [l=L11@0-6; c=S10@6-8]
+L14:1@0-8; "Expression"; [l=L13:1@0-6; c=S10@6-8]
 Earley Set 9
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 S11@0-9 [p=S6@0-2; c=S12@2-9]

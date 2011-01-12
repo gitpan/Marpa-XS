@@ -20,8 +20,8 @@ use warnings;
 
 # force perl-only version to be tested
 package Marpa::XS;
-our $FORCE_PP;
-$Marpa::XS::FORCE_PP = 1;
+our $USE_PP;
+$Marpa::XS::USE_PP = 1;
 
 package main;
 

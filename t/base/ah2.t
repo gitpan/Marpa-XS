@@ -22,7 +22,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 33;
+use Test::More tests => 32;
 use Marpa::XS::Test;
 
 BEGIN {
@@ -112,9 +112,8 @@ Marpa::XS::Test::is(
     'Aycock/Horspool Accessible Symbols'
 );
 
-SKIP: { skip 'Not using XS', 2 if not $Marpa::XS::USING_XS ;
-
-Marpa::XS::Test::is( $grammar->show_AHFA_items(), <<'EOS', 'Aycock/Horspool AHFA Items' );
+if ($Marpa::XS::USING_XS ) {
+    Marpa::XS::Test::is( $grammar->show_AHFA_items(), <<'EOS', 'Aycock/Horspool AHFA Items' );
 AHFA item 0: sort = 9; postdot = "a"
     A -> . a
 AHFA item 1: sort = 14; completion
@@ -168,6 +167,9 @@ AHFA item 24: sort = 24; completion
 AHFA item 25: sort = 25; completion
     S['][] -> .
 EOS
+}
+
+SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
 
 # excluding transitions
 Marpa::XS::Test::is( $grammar->show_new_AHFA, <<'EOS', 'Aycock/Horspool New AHFA States' );
@@ -253,7 +255,8 @@ EOS
 
 }
 
-Marpa::XS::Test::is( $grammar->show_NFA, <<'EOS', 'Aycock/Horspool NFA' );
+if ($Marpa::XS::USING_PP ) {
+    Marpa::XS::Test::is( $grammar->show_NFA, <<'EOS', 'Aycock/Horspool NFA' );
 S0: /* empty */
  empty => S33 S35
 S1: A -> . a
@@ -337,6 +340,7 @@ S33: S['] -> . S
 S34: S['] -> S .
 S35: S['][] -> .
 EOS
+}
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'EOS', 'Aycock/Horspool AHFA' );
 * S0:
@@ -435,7 +439,7 @@ S4@1-1
 S2@0-1 [p=S0@0-0; c=S3@0-1] [p=S0@0-0; c=S6@0-1]
 S6@0-1 [p=S1@0-0; c=S3@0-1] [p=S1@0-0; c=S7@0-1]
 S7@0-1 [p=S1@0-0; c=S3@0-1]
-L9@0-1; actual="S[R0:1]"->9; [c=S3@0-1]
+L9:6@0-1; "S[R0:1]"; [c=S3@0-1]
 END_OF_SET1
 Earley Set 2
 S5@1-2 [p=S4@1-1; s=a; t=\'a']
@@ -443,12 +447,12 @@ S8@0-2 [p=S3@0-1; c=S5@1-2]
 S11@1-2 [p=S4@1-1; c=S5@1-2]
 S12@2-2
 S7@0-2 [p=S1@0-0; c=S8@0-2]
-S9@0-2 [l=L9@0-1; c=S11@1-2] [l=L9@0-1; c=S7@1-2]
+S9@0-2 [l=L9:6@0-1; c=S11@1-2] [l=L9:6@0-1; c=S7@1-2]
 S10@0-2 [p=S3@0-1; c=S11@1-2]
 S7@1-2 [p=S4@1-1; c=S11@1-2]
 S6@0-2 [p=S1@0-0; c=S7@0-2] [p=S1@0-0; c=S10@0-2]
 S2@0-2 [p=S0@0-0; c=S9@0-2] [p=S0@0-0; c=S6@0-2]
-L9@0-2; actual="S[R0:2]"->10; [l=L9@0-1; c=S11@1-2]
+L10:7@0-2; "S[R0:2]"; [l=L9:6@0-1; c=S11@1-2]
 END_OF_SET2
 Earley Set 3
 S5@2-3 [p=S12@2-2; s=a; t=\'a']
@@ -457,14 +461,14 @@ S13@2-3 [p=S12@2-2; c=S5@2-3]
 S14@3-3
 S10@0-3 [p=S3@0-1; c=S8@1-3]
 S7@1-3 [p=S4@1-1; c=S8@1-3]
-S9@0-3 [l=L9@0-2; c=S13@2-3] [l=L9@0-1; c=S7@1-3]
+S9@0-3 [l=L10:7@0-2; c=S13@2-3] [l=L9:6@0-1; c=S7@1-3]
 S6@0-3 [p=S1@0-0; c=S10@0-3]
 S2@0-3 [p=S0@0-0; c=S9@0-3] [p=S0@0-0; c=S6@0-3]
-L9@0-3; actual="A"->8; [l=L9@0-2; c=S13@2-3]
+L8:1@0-3; "A"; [l=L10:7@0-2; c=S13@2-3]
 END_OF_SET3
 Earley Set 4
 S5@3-4 [p=S14@3-3; s=a; t=\'a']
-S9@0-4 [l=L9@0-3; c=S5@3-4]
+S9@0-4 [l=L8:1@0-3; c=S5@3-4]
 S2@0-4 [p=S0@0-0; c=S9@0-4]
 END_OF_SET4
 
@@ -478,16 +482,9 @@ EARLEME: for my $earleme ( 0 .. $input_length + 1 ) {
             . ( join q{}, @set[ 0 .. $furthest ] ),
         "Aycock/Horspool Parse Status at earleme $earleme"
     );
-    given ($earleme) {
-        when ($input_length) {
-            $recce->end_input();
-        }
-        when ( $input_length + 1 ) {break}
-        default {
-            defined $recce->tokens( [ [ 'a', 'a', 1 ] ], )
-                or Marpa::XS::exception('Parsing exhausted');
-        }
-    } ## end given
+    next EARLEME if $earleme == $input_length;
+    last EARLEME if $earleme > $input_length;
+    $recce->read( 'a', 'a' );
 } ## end for my $earleme ( 0 .. $input_length + 1 )
 
 my @expected = map {

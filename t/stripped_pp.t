@@ -21,12 +21,12 @@ use Test::More tests => 8;
 use Marpa::XS::Test;
 
 package Marpa::XS;
-our $FORCE_PP;
+our $USE_PP;
 
 BEGIN {
 
     # force perl-only version to be tested
-    $Marpa::XS::FORCE_PP = 1;
+    $Marpa::XS::USE_PP = 1;
     Test::More::use_ok('Marpa::XS');
 }
 

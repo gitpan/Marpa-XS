@@ -54,7 +54,7 @@ I do see in the algorithm.
 Perhaps it was wrong of me to hope Marpa would be a late Picasso,
 instead of a Hieronymous Bosch.
 
-=head1 THE SOURCES OF THE MARPA ALGORITHM
+=head1 The Sources of the Marpa Algorithm
 
 =over
 
@@ -93,7 +93,7 @@ and Aycock and Horspool seem unaware of Leo.
 
 =back
 
-=head1 ABOUT THE REST OF THIS DOCUMENT
+=head1 About the Rest of this Document
 
 The rest of this document is fragmented,
 highly technical material.
@@ -103,7 +103,7 @@ to keep the sections short without
 assuming a lot of
 familiarity with the literature on Earley parsing.
 
-=head1 COMBINING LEO 1991 and AYCOCK-HORSPOOL 2002
+=head1 Combining Leo 1991 and Aycock-Horspool 2002
 
 The algorithm described in
 L<Aycock-Horspool 2002
@@ -221,7 +221,7 @@ could be combined
 to
 get the best of both.
 
-=head1 MARPA'S CHANGES TO THE LEO ALGORITHM
+=head1 Marpa's Changes To The Leo Algorithm
 
 L<Leo 1991
 |Marpa::XS::Advanced::Bibliography/"Leo 1991">
@@ -258,7 +258,7 @@ the logic in the recognition phase
 never needs to follow
 long chains of Leo items.
 
-=head1 LEO SEMANTICS: INDIRECT AND LAZY
+=head1 Leo Semantics: Indirect and Lazy
 
 Leo's hints about semantic processing,
 while brief, were insightful.
@@ -311,7 +311,7 @@ all the parse
 results are demanded --
 is of limited practical interest.
 
-=head1 IMPROVEMENTS TO THE AYCOCK-HORSPOOL RECOGNITION ENGINE
+=head1 Improvements to the Aycock-Horspool Recognition Engine
 
 Marpa takes the recognition engine as
 described by Aycock and Horspool
@@ -332,7 +332,7 @@ The next two sections
 describe the advantages of separating completion
 and scanning.
 
-=head1 PREDICTION-DRIVEN LEXING
+=head1 Prediction-Driven Lexing
 
 Prediction-driven lexing involves lookahead,
 but it is lookahead of an especially powerful kind.
@@ -450,7 +450,7 @@ is far more specific than the knowledge
 that even the most sophisticated lexer can
 derive from looking at its internal state.
 
-=head1 RUBY SLIPPERS PARSING
+=head1 Ruby Slippers Parsing
 
 I expected that more efficient lexing would be the main
 benefit of prediction-driven lexing.
@@ -497,7 +497,7 @@ For more about Ruby Slippers Parsing, see
 my blog post on the subject:
 L<http://blogs.perl.org/users/jeffrey_kegler/2010/06/parsing-with-ruby-slippers.html>.
 
-=head1 EARLEMES
+=head1 Earlemes
 
 Marpa allows ambiguous lexing,
 including the recognition of lexemes
@@ -542,7 +542,7 @@ to traditional lexing.
 But distance in earlemes could also be defined as equivalent to string length,
 measured either in bytes or Unicode graphemes.
 
-=head1 CHOMSKY-HORSPOOL-AYCOCK FORM
+=head1 Chomsky-Horspool-Aycock Form
 
 Marpa's internal rewriting
 of the grammar
@@ -561,23 +561,31 @@ NNF also allows complete and easy mapping of the semantics of the
 original grammar to its NNF rewrite, so that NNF and the whole
 rewrite process can be made invisible to the user.
 
+To deal with the splitting of RHS proper nullables into two symbols,
+one non-nullable and one nulling,
+NNF creats new rules covering all possible RHS combinations
+of non-nullable and nulling symbols.
+The NNF B<factoring> is exponential in the theoretical worst case,
+and I believe it would create efficiency issues in practice as well.
+For example,
+a language in which whitespace is significant but optional
+can easily cause an NNF size explosion.
+
+A result due to Chomsky shows that any grammar can be rewritten
+as a grammar with at most two symbols on the right hand side.
+Relaxing Chomsky's rewrite to allow right hand sides with any number of symbols,
+but at most two proper nullables,
+produces a rewrite I call CHAF (Chomsky-Horspool-Aycock Form).
+
+CHAF changes the worst case to linear, and in practical cases lowers
+the multiplier.
 A problem with NNF is that the rewritten grammar is
 exponentially larger than the original in the worst
 case.
 I think
 cases will arise in practice
 where the NNF size explosion is a real problem.
-For example,
-any language in which whitespace is significant but optional
-can cause an NNF size explosion.
 
-Marpa's solution is Chomsky-Horspool-Aycock Form (CHAF).
-This is
-Aycock and Horspool's NNF, but with the further restriction that
-no more than two nullable symbols may appear in any production.
-(The idea that any context-free grammar can
-be rewritten into productions of at most a small fixed size appears to
-originate, like so much else, with Noam Chomsky.)
 The shortened CHAF production maps back
 to the original grammar so that like NNF,
 the CHAF rewrite can be
@@ -586,7 +594,7 @@ With CHAF, the theoretical worst
 behavior is linear, and in those difficult cases likely to arise
 in practice the multiplier is much smaller.
 
-=head1 CONSTRUCTING THE AHFA
+=head1 Constructing the AHFA
 
 The Aycock-Horspool algorithm requires the grammar to be
 converted into what their paper calls a "split E<epsilon>-DFA".
@@ -610,7 +618,7 @@ An actual algorithm
 to create an AHFA from an arbitrary grammar
 needed to be developed as part of the Marpa project.
 
-=head1 TWO PROBLEMS I DID NOT HAVE TO SOLVE
+=head1 Two Problems I did not Have to Solve
 
 This document is devoted to what is new with Marpa.
 It is not intended to describe the work of others.
@@ -646,7 +654,7 @@ the Marpa project owes to the work of others.
 But I hope these two examples
 are useful in putting things in perspective.
 
-=head1 ITERATING AND EVALUATING PARSES
+=head1 Iterating and Evaluating Parses
 
 The rest of this document will deal with my algorithm
 for iterating and evaluating the Marpa parses,
@@ -705,7 +713,7 @@ they identify
 the search for "better ways
 to reconstruct derivations" as an "area of future work."
 
-=head1 APPLICABLE DOTTED RULES
+=head1 Applicable Dotted Rules
 
 A key concept behind Marpa's
 3rd Generation Evaluator is that of an B<applicable dotted
@@ -792,7 +800,7 @@ Instead,
 Generation 3 parse bocage or-nodes correspond one-on-one
 to dotted rules.
 
-=head1 PREVIOUS WORK: PARSE FORESTS
+=head1 Previous Work: Parse Forests
 
 Parse forests and their terminology are very
 standard in the literature on ambiguous parsing.
@@ -836,7 +844,7 @@ A parse tree can be generated from a parse forest
 by traversing the forest and selecting one child and-node
 at every or-node.
 
-=head1 THE PARSE BOCAGE
+=head1 The Parse Bocage
 
 Marpa's representation of parse results is considerably
 more complicated than a parse forest,
@@ -883,7 +891,7 @@ in the and-nodes of the bocage.
 
 =back
 
-=head1 LINKS IN THE PARSE BOCAGE
+=head1 Links in the Parse Bocage
 
 The system of links used in Marpa is based on
 that devised by
@@ -922,7 +930,7 @@ to process,
 it makes sense to leave the grammar the way it is found
 in the Earley items.
 
-=head1 THE ITERATION STACK
+=head1 The Iteration Stack
 
 A crucial change for Generation 3 of Marpa's Evaluator
 was the introduction of the B<iteration nodes>,
@@ -967,7 +975,7 @@ is created from the iteration stack
 by transforming every iteration node into the and-node
 that is its current choice.
 
-=head1 PARSE BOCAGE: ABOUT THE TERM
+=head1 Parse Bocage: About the Term
 
 The term "bocage" comes from
 the bocage forests of Normandy and Brittany.

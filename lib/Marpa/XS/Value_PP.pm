@@ -2070,7 +2070,7 @@ sub Marpa::XS::Recognizer::value {
                 $work_set =
                     $first_item->[Marpa::XS::Internal::Earley_Item::SET];
                 $work_node_origin =
-                    $first_item->[Marpa::XS::Internal::Earley_Item::PARENT];
+                    $first_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
             }
 
             my $work_rule_id =
@@ -2082,6 +2082,7 @@ sub Marpa::XS::Recognizer::value {
                 $work_rule->[Marpa::XS::Internal::Rule::RHS]
                 ->[$work_position];
 
+            # Rewrite this, & retroport to the Pure Perl version
             for my $item ( @{$or_node_items} ) {
 
                 my $or_sapling_set = $work_set;
@@ -2093,12 +2094,15 @@ sub Marpa::XS::Recognizer::value {
                 # If this is a Leo completion, translate the Leo links
                 for my $leo_link ( @{$leo_links} ) {
 
+                    # say STDERR join " ", __FILE__, __LINE__, "=== translating leo links ===";
+
                     my ( $leo_item, $cause, $token_name, $token_value ) =
                         @{$leo_link};
 
-                    my ( $next_leo_item, $leo_base_item ) =
-                        @{ $leo_item->[Marpa::XS::Internal::Leo_Item::LINKS]
-                            ->[0] };
+                    my $next_leo_item = $leo_item
+                        ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+                    my $leo_base_item =
+                        $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
 
                     my $next_links = [];
                     if ($token_name) {
@@ -2116,48 +2120,55 @@ sub Marpa::XS::Recognizer::value {
 
                         if ( not $next_leo_item ) {
 
-                            push @{
-                                $item->[
-                                    Marpa::XS::Internal::Earley_Item::LINKS
-                                ]
-                                },
-                                @{$next_links};
+                            # die join " ", __FILE__, __LINE__, "next link cnt", (scalar @{$next_links})
+                                # if scalar @{$next_links} != 1;
 
-                            #<<< cycles on perltidy version 20090616
+                            #<<< perltidy cycles as of version 20090616
+                            push @{ $item
+                                    ->[Marpa::XS::Internal::Earley_Item::LINKS
+                                    ] },
+                                @{$next_links};
+                            #<<<
+
                             # Now that the Leo links are translated, remove them
-                            $item->[
-                                Marpa::XS::Internal::Earley_Item::LEO_LINKS ]
-                                = undef;
+                            #<<< perltidy cycles as of version 20090616
+                            $item
+                                ->[Marpa::XS::Internal::Earley_Item::LEO_LINKS
+                                ] = undef;
                             #>>>
                             last LEO_ITEM;
 
                         } ## end if ( not $next_leo_item )
 
-                        #<<< cycles on perltidy 20090616
-                        my $state =
-                            $leo_item
-                            ->[Marpa::XS::Internal::Leo_Item::LEO_ACTUAL_STATE
-                            ];
+                        #<<< perltidy cycles as of version 20090616
+                        my $base_to_state = $leo_item->[
+                            Marpa::XS::Internal::Leo_Item::BASE_TO_STATE ];
                         #>>>
                         my $origin = $next_leo_item
                             ->[Marpa::XS::Internal::Leo_Item::SET];
                         my $name = sprintf
                             'S%d@%d-%d',
-                            $state->[Marpa::XS::Internal::AHFA::ID],
+                            $base_to_state->[Marpa::XS::Internal::AHFA::ID],
                             $origin,
                             $or_sapling_set;
+
+                        # say STDERR join " ", __FILE__, __LINE__, "next leo item is name $name";
+
                         my $target_item = $earley_hash->{$name};
                         if ( not defined $target_item ) {
+
+                            # say STDERR join " ", __FILE__, __LINE__, "adding new leo item $name";
+
                             $target_item = [];
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::NAME] =
                                 $name;
                             $target_item
-                                ->[Marpa::XS::Internal::Earley_Item::PARENT] =
+                                ->[Marpa::XS::Internal::Earley_Item::ORIGIN] =
                                 $origin;
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::STATE] =
-                                $state;
+                                $base_to_state;
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] =
                                 [];
@@ -2169,16 +2180,18 @@ sub Marpa::XS::Recognizer::value {
                                 $target_item;
                         } ## end if ( not defined $target_item )
 
+                        # die join " ", __FILE__, __LINE__, "next link cnt", (scalar @{$next_links})
+                            # if scalar @{$next_links} != 1;
+
                         push @{ $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] },
                             @{$next_links};
 
                         $leo_item = $next_leo_item;
-
-                        ( $next_leo_item, $leo_base_item ) =
-                            @{ $leo_item
-                                ->[Marpa::XS::Internal::Leo_Item::LINKS]->[0]
-                            };
+			$next_leo_item = $leo_item
+			    ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+			$leo_base_item =
+			    $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
 
                         $next_links = [ [ $leo_base_item, $target_item ] ];
 

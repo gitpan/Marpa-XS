@@ -308,5 +308,10 @@ sub ACTION_clean {
     File::Path::rmtree( $libmarpa_dir, { keep_root => 1 } );
 
     $self->SUPER::ACTION_clean;
-} ## end sub ACTION_dist
+}
 
+sub ACTION_test {
+    my $self = shift;
+    local $ENV{PERL_DL_NONLAZY} = 1;
+    $self->SUPER::ACTION_test;
+}
