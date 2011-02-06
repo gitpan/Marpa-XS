@@ -119,6 +119,7 @@ lib/Marpa/XS/Offset.pm
 lib/Marpa/XS/Perl.pm
 lib/Marpa/XS/Recognizer.pm
 lib/Marpa/XS/Recognizer_PP.pm
+lib/Marpa/XS/Slot.pm
 lib/Marpa/XS/Test.pm
 lib/Marpa/XS/Test/Util.pm
 lib/Marpa/XS/Test/capture-stderr
@@ -127,6 +128,7 @@ lib/Marpa/XS/Value_PP.pm
 libmarpa/dev/Makefile
 libmarpa/dev/README
 libmarpa/dev/copyright_page_license.w
+libmarpa/dev/cwebmac.tex
 libmarpa/dev/marpa.w
 libmarpa/dist/Makefile.am
 libmarpa/dist/Makefile.in
@@ -150,7 +152,6 @@ libmarpa/dist/marpa.h
 libmarpa/dist/marpa_obs.c
 libmarpa/dist/marpa_obs.h
 libmarpa/dist/missing
-libmarpa/dist/standalone.c
 libmarpa/orig/gnu/obstack.c
 libmarpa/orig/gnu/obstack.h
 pod/Advanced/Algorithm.pod

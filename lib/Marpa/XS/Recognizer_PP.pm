@@ -28,6 +28,13 @@ use integer;
 
 use English qw( -no_match_vars );
 
+use Marpa::XS::Offset qw(
+    :package=Marpa::XS::Internal::Earley_Set
+    ITEMS { The Earley items for this set. }
+    HASH { Hash by origin & state.  To prevent dups. }
+    POSTDOT { Index by postdot symbol. }
+);
+
 # Elements of the EARLEY ITEM structure
 # Note that these are Earley items as modified by Aycock & Horspool,
 # with AHFA states instead of
@@ -40,9 +47,7 @@ use Marpa::XS::Offset qw(
 
     :package=Marpa::XS::Internal::Earley_Item
 
-    C { A C structure }
-
-    NAME { Unique string describing Earley item. }
+    ID { ID of Earley item.  Unique within recognizer. }
     STATE { The AHFA state. }
     LINKS { A list of the links from the completer step. }
 
@@ -54,12 +59,8 @@ use Marpa::XS::Offset qw(
     Each different "factoring" can contribute a Leo
     link. }
 
-    =LAST_EVALUATOR_FIELD
-
     ORIGIN { The number of the Earley set with the parent item(s) }
     SET { The set this item is in. For debugging. }
-
-    =LAST_FIELD
 
 );
 
@@ -89,6 +90,7 @@ use Marpa::XS::Offset qw(
 
     GRAMMAR { the grammar used }
     EARLEY_SETS { the array of the Earley sets }
+    NEXT_EARLEY_ITEM_ID { ID of the next Earley item to be created. }
     FURTHEST_EARLEME { last earley set with something in it }
     LAST_COMPLETED_EARLEME { the current earleme }
     FINISHED
@@ -127,15 +129,6 @@ use Marpa::XS::Offset qw(
 
     { This is the end of the list of fields which
     must be reinitialized when evaluation is reset }
-
-    =LAST_EVALUATOR_FIELD
-
-    EARLEY_HASH { Hash of the Earley items by Earley set.
-    Used to prevent duplicates.  It is a hash by name
-    to Earley item. }
-
-    POSTDOT { An array. Indexed by AHFA state id.
-    of hashes by symbol name to Earley item and to-states }
 
     TOO_MANY_EARLEY_ITEMS
     TRACE_EARLEY_SETS
@@ -205,6 +198,7 @@ sub Marpa::XS::Recognizer::new {
     $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] = 'none';
     $recce->[Marpa::XS::Internal::Recognizer::USE_LEO]        = 1;
     $recce->[Marpa::XS::Internal::Recognizer::MAX_PARSES]     = 0;
+    $recce->[Marpa::XS::Internal::Recognizer::NEXT_EARLEY_ITEM_ID]     = 0;
     $recce->reset_evaluation();
 
     $recce->set(@arg_hashes);
@@ -247,10 +241,10 @@ sub Marpa::XS::Recognizer::new {
     my $AHFA        = $grammar->[Marpa::XS::Internal::Grammar::AHFA];
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
 
-    my $earley_set;
+    my @earley_items = ();
 
     my $start_states = $grammar->[Marpa::XS::Internal::Grammar::START_STATES];
-    my $postdot      = {};
+    my %postdot      = ();
 
     for my $state ( @{$start_states} ) {
         my $state_id = $state->[Marpa::XS::Internal::AHFA::ID];
@@ -259,36 +253,34 @@ sub Marpa::XS::Recognizer::new {
             $state_id, 0, 0;
 
         my $item = [];
-        $item->[Marpa::XS::Internal::Earley_Item::NAME]   = $name;
+        $item->[Marpa::XS::Internal::Earley_Item::ID] =
+            $recce->[Marpa::XS::Internal::Recognizer::NEXT_EARLEY_ITEM_ID]++;
         $item->[Marpa::XS::Internal::Earley_Item::STATE]  = $state;
         $item->[Marpa::XS::Internal::Earley_Item::ORIGIN] = 0;
         $item->[Marpa::XS::Internal::Earley_Item::LINKS]  = [];
         $item->[Marpa::XS::Internal::Earley_Item::SET]    = 0;
 
-        push @{$earley_set}, $item;
+        push @earley_items, $item;
 
         while ( my ( $transition_symbol, $to_states ) =
             each %{ $state->[Marpa::XS::Internal::AHFA::TRANSITION] } )
         {
             my @to_states = grep {ref} @{$to_states};
-            push @{ $postdot->{0}->{$transition_symbol} }, $item;
+            push @{ $postdot{$transition_symbol} }, $item;
         } ## end while ( my ( $transition_symbol, $to_states ) = each %{...})
 
     } ## end for my $state ( @{$start_states} )
 
-    $recce->[Marpa::XS::Internal::Recognizer::EARLEY_HASH] = {};
-
     $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR]     = $grammar;
+    my $earley_set = [];
+    $earley_set->[Marpa::XS::Internal::Earley_Set::POSTDOT] = \%postdot;
+    $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS] = \@earley_items;
     $recce->[Marpa::XS::Internal::Recognizer::EARLEY_SETS] = [$earley_set];
 
     $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME]       = 0;
     $recce->[Marpa::XS::Internal::Recognizer::LAST_COMPLETED_EARLEME] = 0;
 
-    $recce->[Marpa::XS::Internal::Recognizer::POSTDOT] = $postdot;
-
-    my @terminals_expected =
-        grep { $terminal_names->{$_} }
-        keys %{ $postdot->{0} };
+    my @terminals_expected = grep { $terminal_names->{$_} } keys %postdot;
     $recce->[Marpa::XS::Internal::Recognizer::EXPECTED_TERMINALS] =
         \@terminals_expected;
 
@@ -524,7 +516,7 @@ sub Marpa::XS::Recognizer::earley_set_size {
     return if not defined $last_completed_earleme;
     my $earley_set = $recce->[EARLEY_SETS]->[$last_completed_earleme];
     return if not defined $earley_set;
-    return scalar @{$earley_set};
+    return scalar @{ $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS] };
 } ## end sub Marpa::XS::Recognizer::earley_set_size
 
 sub Marpa::XS::Recognizer::check_terminal {
@@ -554,13 +546,8 @@ sub Marpa::XS::Recognizer::status {
 
 } ## end sub Marpa::XS::Recognizer::status
 
-sub Marpa::XS::Recognizer::strip {
-    my ($recce) = @_;
-    Marpa::XS::exception('Cannot strip recognizer before input is finished')
-        if not $recce->[Marpa::XS::Internal::Recognizer::FINISHED];
-    $#{$recce} = Marpa::XS::Internal::Recognizer::LAST_EVALUATOR_FIELD;
-    return 1;
-} ## end sub Marpa::XS::Recognizer::strip
+# Now useless and deprecated
+sub Marpa::XS::Recognizer::strip { return 1; }
 
 # Viewing methods, for debugging
 
@@ -570,7 +557,7 @@ sub Marpa::XS::show_link_choice {
     my @pieces = ();
     if ($predecessor) {
         push @pieces,
-            'p=' . $predecessor->[Marpa::XS::Internal::Earley_Item::NAME];
+            'p=' .  Marpa::XS::Internal::Earley_Item::name($predecessor);
     }
     if ( not defined $cause ) {
         push @pieces, "s=$token_name";
@@ -580,7 +567,7 @@ sub Marpa::XS::show_link_choice {
     } ## end if ( not defined $cause )
     else {
         push @pieces,
-            'c=' . $link->[1]->[Marpa::XS::Internal::Earley_Item::NAME];
+            'c=' .  Marpa::XS::Internal::Earley_Item::name($link->[1]);
     }
     return '[' . ( join '; ', @pieces ) . ']';
 } ## end sub Marpa::XS::show_link_choice
@@ -595,7 +582,7 @@ sub Marpa::XS::show_leo_link_choice {
     }
     if ($cause) {
         push @link_texts,
-            'c=' . $cause->[Marpa::XS::Internal::Earley_Item::NAME];
+            'c=' .  Marpa::XS::Internal::Earley_Item::name($cause);
     }
     else {
         my $token_dump = Data::Dumper->new( [$value_ref] )->Terse(1)->Dump;
@@ -605,12 +592,21 @@ sub Marpa::XS::show_leo_link_choice {
     return '[' . ( join '; ', @link_texts ) . ']';
 } ## end sub Marpa::XS::show_leo_link_choice
 
+sub Marpa::XS::Internal::Earley_Item::name {
+    my ($item) = @_;
+    return sprintf 'S%d@%d-%d',
+        $item->[Marpa::XS::Internal::Earley_Item::STATE]
+        ->[Marpa::XS::Internal::AHFA::ID],
+        $item->[Marpa::XS::Internal::Earley_Item::ORIGIN],
+        $item->[Marpa::XS::Internal::Earley_Item::SET];
+} ## end sub Marpa::XS::Internal::Earley_Item::name
+
 sub Marpa::XS::show_earley_item {
     my ($item)    = @_;
     my $links     = $item->[Marpa::XS::Internal::Earley_Item::LINKS];
     my $leo_links = $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
 
-    my $text = $item->[Marpa::XS::Internal::Earley_Item::NAME];
+    my $text = Marpa::XS::Internal::Earley_Item::name($item);
 
     if ( defined $links and @{$links} ) {
         for my $link ( @{$links} ) {
@@ -653,7 +649,7 @@ sub Marpa::XS::show_leo_item {
     }
     if ($base) {
         push @link_texts,
-            'c=' . $base->[Marpa::XS::Internal::Earley_Item::NAME];
+            'c=' .  Marpa::XS::Internal::Earley_Item::name($base);
     }
     $text .= ' [' . ( join '; ', @link_texts ) . ']';
     return $text;
@@ -662,7 +658,8 @@ sub Marpa::XS::show_leo_item {
 sub Marpa::XS::show_earley_set {
     my ($earley_set) = @_;
     my $text = q{};
-    for my $earley_item ( @{$earley_set} ) {
+    my $items = $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS];
+    for my $earley_item ( @{$items} ) {
         $text .= Marpa::XS::show_earley_item($earley_item) . "\n";
     }
     return $text;
@@ -699,14 +696,16 @@ sub Marpa::XS::show_postdot_set {
 } ## end sub Marpa::XS::show_postdot_set
 
 sub Marpa::XS::show_earley_set_list {
-    my ( $earley_set_list, $postdot_set_list ) = @_;
+    my ( $earley_set_list ) = @_;
     my $text             = q{};
     my $earley_set_count = @{$earley_set_list};
     LIST: for my $ix ( 0 .. $earley_set_count - 1 ) {
         my $set = $earley_set_list->[$ix];
         next LIST if not defined $set;
         $text .= "Earley Set $ix\n" . Marpa::XS::show_earley_set($set);
-        my $postdot_set = $postdot_set_list->{$ix};
+        my $postdot_set =
+            $earley_set_list->[$ix]
+            ->[Marpa::XS::Internal::Earley_Set::POSTDOT];
         next LIST if not defined $postdot_set;
         $text .= Marpa::XS::show_postdot_set($postdot_set);
     } ## end for my $ix ( 0 .. $earley_set_count - 1 )
@@ -719,12 +718,10 @@ sub Marpa::XS::Recognizer::show_earley_sets {
         // 'stripped';
     my $furthest_earleme = $recce->[FURTHEST_EARLEME];
     my $earley_set_list  = $recce->[EARLEY_SETS];
-    my $postdot_set_list     = $recce->[POSTDOT];
-
     return
           "Last Completed: $last_completed_earleme; "
         . "Furthest: $furthest_earleme\n"
-        . Marpa::XS::show_earley_set_list( $earley_set_list, $postdot_set_list );
+        . Marpa::XS::show_earley_set_list( $earley_set_list );
 
 } ## end sub Marpa::XS::Recognizer::show_earley_sets
 
@@ -763,8 +760,8 @@ sub Marpa::XS::Recognizer::show_progress {
     }
     my $text = q{};
     for my $ix ( $start_ix .. $end_ix ) {
-        my $earley_set = $earley_set_list->[$ix];
-        my $reports    = report_progress($earley_set);
+        my $items = $earley_set_list->[$ix]->[Marpa::XS::Internal::Earley_Set::ITEMS];
+        my $reports    = report_progress($items);
         my @sort_data;
         for my $report ( @{$reports} ) {
             my $rule_id =
@@ -821,7 +818,7 @@ sub Marpa::XS::Recognizer::show_progress {
 } ## end sub Marpa::XS::Recognizer::show_progress
 
 sub report_progress {
-    my ($earley_set) = @_;
+    my ($earley_items) = @_;
 
     # Reports must be unique by a key
     # composted of original rule, rule position, and
@@ -829,7 +826,7 @@ sub report_progress {
     # quarantee that.
     my %progress_report_hash = ();
 
-    for my $earley_item ( @{$earley_set} ) {
+    for my $earley_item ( @{$earley_items} ) {
         my $AHFA_state =
             $earley_item->[Marpa::XS::Internal::Earley_Item::STATE];
         my $origin = $earley_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
@@ -840,7 +837,7 @@ sub report_progress {
         my $NFA_states = $AHFA_state->[Marpa::XS::Internal::AHFA::NFA_STATES];
         if ( not $NFA_states ) {
             Marpa::XS::exception(
-                'Cannot progress of Marpa::XS::Recognizer: it is stripped');
+                'Cannot report progress of Marpa::XS::Recognizer: it is stripped');
         }
         NFA_STATE: for my $NFA_state ( @{$NFA_states} ) {
             my $LR0_item   = $NFA_state->[Marpa::XS::Internal::NFA::ITEM];
@@ -907,8 +904,6 @@ sub Marpa::XS::Recognizer::alternative {
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_TERMINALS];
     my $warnings = $recce->[Marpa::XS::Internal::Recognizer::WARNINGS];
 
-    my $earley_hash = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_HASH];
-
     Marpa::XS::exception('Attempt to read token after parsing is finished')
         if $recce->[Marpa::XS::Internal::Recognizer::FINISHED];
 
@@ -926,8 +921,9 @@ sub Marpa::XS::Recognizer::alternative {
     my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
 
-    my $postdot      = $recce->[Marpa::XS::Internal::Recognizer::POSTDOT];
-    my $postdot_here = $postdot->{$current_earleme};
+    my $postdot_here =
+        $earley_set_list->[$current_earleme]
+        ->[Marpa::XS::Internal::Earley_Set::POSTDOT];
 
     if ( not defined $symbol_name or not $terminal_names->{$symbol_name} ) {
         my $problem =
@@ -973,7 +969,13 @@ sub Marpa::XS::Recognizer::alternative {
         "  Token starts at $current_earleme, and its length is $length\n"
     ) if $end_earleme & Marpa::XS::Internal::Recognizer::EARLEME_MASK;
 
-    my $accepted = 0;    # for trace_terminals
+    my $accepted  = 0;                            # for trace_terminals
+    my $target_ix = $current_earleme + $length;
+    my $target_earley_set = $earley_set_list->[$target_ix] //= [];
+    my $target_earley_items =
+        $target_earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS] //= [];
+    my $target_hash =
+        $target_earley_set->[Marpa::XS::Internal::Earley_Set::HASH] //= {};
 
     EARLEY_ITEM: for my $postdot_item ( @{$postdot_data} ) {
 
@@ -997,32 +999,19 @@ sub Marpa::XS::Recognizer::alternative {
 
         $accepted++;
 
-        # Create the kernel item and its link.
-        my $target_ix = $current_earleme + $length;
-        if ( $target_ix
-            > $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME] )
-        {
-            $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME] =
-                $target_ix;
-        }
-
-        my $target_set = ( $earley_set_list->[$target_ix] //= [] );
         TO_STATE: for my $to_state ( @to_states ) {
             my $reset = $to_state->[Marpa::XS::Internal::AHFA::RESET_ORIGIN];
             my $new_origin = $reset ? $target_ix : $origin;
             my $to_state_id = $to_state->[Marpa::XS::Internal::AHFA::ID];
-            my $name        = sprintf
-                'S%d@%d-%d',
-                $to_state_id, $new_origin, $target_ix;
-
-            my $target_item = $earley_hash->{$name};
+	    my $hash_key = join ':', $to_state_id, $new_origin;
+            my $target_item = $target_hash->{$hash_key};
             if ( defined $target_item ) {
                 next TO_STATE if $reset;
                 if (not $postdot_item_is_leo
                     and
-                    $postdot_item->[Marpa::XS::Internal::Earley_Item::NAME] ~~
+                    $postdot_item->[Marpa::XS::Internal::Earley_Item::ID] ~~
                     [   map {
-                            $_->[0]->[Marpa::XS::Internal::Earley_Item::NAME]
+                            $_->[0]->[Marpa::XS::Internal::Earley_Item::ID]
                             } @{
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS]
@@ -1038,8 +1027,8 @@ sub Marpa::XS::Recognizer::alternative {
             else {
 
                 $target_item = [];
-                $target_item->[Marpa::XS::Internal::Earley_Item::NAME] =
-                    $name;
+		$target_item->[Marpa::XS::Internal::Earley_Item::ID] =
+		    $recce->[Marpa::XS::Internal::Recognizer::NEXT_EARLEY_ITEM_ID]++;
                 $target_item->[Marpa::XS::Internal::Earley_Item::STATE] =
                     $to_state;
                 $target_item->[Marpa::XS::Internal::Earley_Item::ORIGIN] =
@@ -1049,8 +1038,8 @@ sub Marpa::XS::Recognizer::alternative {
                 $target_item->[Marpa::XS::Internal::Earley_Item::LINKS] = [];
                 $target_item->[Marpa::XS::Internal::Earley_Item::SET] =
                     $target_ix;
-                $earley_hash->{$name} = $target_item;
-                push @{$target_set}, $target_item;
+                $target_hash->{$hash_key} = $target_item;
+                push @{$target_earley_items}, $target_item;
 
             }
 
@@ -1070,6 +1059,14 @@ sub Marpa::XS::Recognizer::alternative {
         }    # for my $to_state
 
     }
+
+    if (    $accepted
+        and $target_ix
+        > $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME] )
+    {
+        $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME] =
+            $target_ix;
+    } ## end if ( $accepted and $target_ix > $recce->[...])
 
     if ($trace_terminals) {
         my $verb = $accepted ? 'Accepted' : 'Rejected';
@@ -1280,10 +1277,8 @@ sub Marpa::XS::Recognizer::earleme_complete {
     my $earley_set_list =
         $recce->[Marpa::XS::Internal::Recognizer::EARLEY_SETS];
 
-    my $earley_hash = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_HASH];
     my $terminal_names =
         $grammar->[Marpa::XS::Internal::Grammar::TERMINAL_NAMES];
-    my $postdot  = $recce->[Marpa::XS::Internal::Recognizer::POSTDOT];
     my $too_many_earley_items =
         $recce->[Marpa::XS::Internal::Recognizer::TOO_MANY_EARLEY_ITEMS];
     my $trace_earley_sets =
@@ -1294,14 +1289,19 @@ sub Marpa::XS::Recognizer::earleme_complete {
     my $earleme_to_complete =
         ++$recce->[Marpa::XS::Internal::Recognizer::LAST_COMPLETED_EARLEME];
 
-    $earley_set_list->[$earleme_to_complete] //= [];
-    my $earley_set = $earley_set_list->[$earleme_to_complete];
+    my $earley_set = $earley_set_list->[$earleme_to_complete] //= [];
+    my $earley_items =
+        $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS] //= [];
+    my $earley_hash = $earley_set->[Marpa::XS::Internal::Earley_Set::HASH] //=
+        {};
+    my $postdot_here =
+        $earley_set->[Marpa::XS::Internal::Earley_Set::POSTDOT] //= {};
 
     # Important: more earley sets can be added in the loop
     my $earley_set_ix = -1;
     EARLEY_ITEM: while (1) {
 
-        my $earley_item = $earley_set->[ ++$earley_set_ix ];
+        my $earley_item = $earley_items->[ ++$earley_set_ix ];
         last EARLEY_ITEM if not defined $earley_item;
 
         my ( $state, $parent ) = @{$earley_item}[
@@ -1313,7 +1313,9 @@ sub Marpa::XS::Recognizer::earleme_complete {
         next EARLEY_ITEM if $earleme_to_complete == $parent;
 
 	LHS_SYMBOL: for my $lhs_symbol ( @{ $state->[Marpa::XS::Internal::AHFA::COMPLETE_LHS] } ) {
-	my $postdot_data = $postdot->{$parent}->{$lhs_symbol};
+	my $postdot_data =
+	    $earley_set_list->[$parent]
+	    ->[Marpa::XS::Internal::Earley_Set::POSTDOT]->{$lhs_symbol};
 	next LHS_SYMBOL if not defined $postdot_data;
         PARENT_ITEM:
         for my $postdot_item ( @{$postdot_data} )
@@ -1352,11 +1354,12 @@ sub Marpa::XS::Recognizer::earleme_complete {
                 my $name = sprintf
                     'S%d@%d-%d',
                     $transition_state_id, $origin, $earleme_to_complete;
-                my $target_item = $earley_hash->{$name};
+		my $hash_key = join ':', $transition_state_id, $origin;
+                my $target_item = $earley_hash->{$hash_key};
                 if ( not defined $target_item ) {
                     $target_item = [];
-                    $target_item->[Marpa::XS::Internal::Earley_Item::NAME] =
-                        $name;
+		    $target_item->[Marpa::XS::Internal::Earley_Item::ID] =
+			$recce->[Marpa::XS::Internal::Recognizer::NEXT_EARLEY_ITEM_ID]++;
                     $target_item->[Marpa::XS::Internal::Earley_Item::STATE] =
                         $transition_state;
                     $target_item->[Marpa::XS::Internal::Earley_Item::ORIGIN] =
@@ -1367,8 +1370,8 @@ sub Marpa::XS::Recognizer::earleme_complete {
                         [];
                     $target_item->[Marpa::XS::Internal::Earley_Item::SET] =
                         $earleme_to_complete;
-                    $earley_hash->{$name} = $target_item;
-                    push @{$earley_set}, $target_item;
+                    $earley_hash->{$hash_key} = $target_item;
+                    push @{$earley_items}, $target_item;
                 }    # unless defined $target_item
                 next TRANSITION_STATE if $reset;
                 if ($postdot_item_is_leo) {
@@ -1389,7 +1392,7 @@ sub Marpa::XS::Recognizer::earleme_complete {
     }    # EARLEY_ITEM
 
     if ( $too_many_earley_items >= 0
-        and ( my $item_count = scalar @{$earley_set} )
+        and ( my $item_count = scalar @{$earley_items} )
         >= $too_many_earley_items )
     {
         if ( $recce->[Marpa::XS::Internal::Recognizer::WARNINGS] ) {
@@ -1423,8 +1426,7 @@ sub Marpa::XS::Recognizer::earleme_complete {
             or Marpa::XS::exception("Cannot print: $ERRNO");
     } ## end if ($trace_earley_sets)
 
-    my $postdot_here = $postdot->{$earleme_to_complete} = {};
-    for my $earley_item ( @{$earley_set} ) {
+    for my $earley_item ( @{$earley_items} ) {
         my $state  = $earley_item->[Marpa::XS::Internal::Earley_Item::STATE];
         my $parent = $earley_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
         for my $postdot_symbol_name (
@@ -1432,7 +1434,7 @@ sub Marpa::XS::Recognizer::earleme_complete {
         {
             push @{ $postdot_here->{$postdot_symbol_name} }, $earley_item;
         }
-    } ## end for my $earley_item ( @{$earley_set} )
+    } ## end for my $earley_item ( @{$earley_items} )
 
     my @leo_worklist = ();
     if ( $recce->[Marpa::XS::Internal::Recognizer::USE_LEO] ) {
@@ -1476,7 +1478,9 @@ sub Marpa::XS::Recognizer::earleme_complete {
         my $prediction = $leo_origin == $earleme_to_complete;
 
 
-	my $predecessor_postdot = $postdot->{$leo_origin}->{$leo_lhs};
+	my $predecessor_postdot =
+	    $earley_set_list->[$leo_origin]
+	    ->[Marpa::XS::Internal::Earley_Set::POSTDOT]->{$leo_lhs};
 	my $postdot_item = $predecessor_postdot->[0];
         my $predecessor_leo_item = ref $postdot_item eq $LEO_CLASS ? $postdot_item : undef;
 
@@ -1515,9 +1519,7 @@ sub Marpa::XS::Recognizer::earleme_complete {
     }
 
     my @terminals_expected =
-        grep { $terminal_names->{$_} }
-        keys %{ $recce->[Marpa::XS::Internal::Recognizer::POSTDOT]
-            ->{$earleme_to_complete} };
+        grep { $terminal_names->{$_} } keys %{$postdot_here};
     $recce->[Marpa::XS::Internal::Recognizer::EXPECTED_TERMINALS] =
         \@terminals_expected;
 

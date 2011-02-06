@@ -64,6 +64,7 @@ if ( $Marpa::XS::USE_XS ) {
     require Marpa::XS::Recognizer;
     require Marpa::XS::Value;
     require Marpa::XS::Callback;
+    require Marpa::XS::Slot;
 
     return 1;
 }

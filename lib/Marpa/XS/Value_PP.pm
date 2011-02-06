@@ -1463,7 +1463,6 @@ sub Marpa::XS::Recognizer::value {
 
     my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
     my $earley_sets = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_SETS];
-    my $earley_hash = $recce->[Marpa::XS::Internal::Recognizer::EARLEY_HASH];
 
     my $furthest_earleme =
         $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME];
@@ -1502,14 +1501,17 @@ sub Marpa::XS::Recognizer::value {
     else {
         my $start_state;
 
-        EARLEY_ITEM: for my $item ( @{$earley_set} ) {
+        EARLEY_ITEM:
+        for my $item (
+            @{ $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS] } )
+        {
             $start_state = $item->[Marpa::XS::Internal::Earley_Item::STATE];
             $start_rule =
                 $start_state->[Marpa::XS::Internal::AHFA::START_RULE];
             next EARLEY_ITEM if not $start_rule;
             $start_item = $item;
             last EARLEY_ITEM;
-        } ## end for my $item ( @{$earley_set} )
+        } ## end for my $item ( @{ $earley_set->[...]})
 
         return if not $start_rule;
 
@@ -1565,7 +1567,7 @@ sub Marpa::XS::Recognizer::value {
             }
             $start_or_node->[Marpa::XS::Internal::Or_Node::ID] = 0;
             $start_or_node->[Marpa::XS::Internal::Or_Node::ITEMS] =
-                { $start_item->[Marpa::XS::Internal::Earley_Item::NAME] =>
+                { $start_item->[Marpa::XS::Internal::Earley_Item::ID] =>
                     $start_item };
             $start_or_node->[Marpa::XS::Internal::Or_Node::RULE_ID] =
                 $start_rule_id;
@@ -2082,7 +2084,6 @@ sub Marpa::XS::Recognizer::value {
                 $work_rule->[Marpa::XS::Internal::Rule::RHS]
                 ->[$work_position];
 
-            # Rewrite this, & retroport to the Pure Perl version
             for my $item ( @{$or_node_items} ) {
 
                 my $or_sapling_set = $work_set;
@@ -2151,18 +2152,21 @@ sub Marpa::XS::Recognizer::value {
                             $base_to_state->[Marpa::XS::Internal::AHFA::ID],
                             $origin,
                             $or_sapling_set;
+			my $hash_key = join ':', 
+                            $base_to_state->[Marpa::XS::Internal::AHFA::ID],
+			    $origin;
+			my $earley_hash =
+			    $earley_sets->[$or_sapling_set]
+			    ->[Marpa::XS::Internal::Earley_Set::HASH];
 
-                        # say STDERR join " ", __FILE__, __LINE__, "next leo item is name $name";
-
-                        my $target_item = $earley_hash->{$name};
+                        my $target_item = $earley_hash->{$hash_key};
                         if ( not defined $target_item ) {
-
-                            # say STDERR join " ", __FILE__, __LINE__, "adding new leo item $name";
-
                             $target_item = [];
                             $target_item
-                                ->[Marpa::XS::Internal::Earley_Item::NAME] =
-                                $name;
+                                ->[Marpa::XS::Internal::Earley_Item::ID] =
+                                $recce->[
+                                Marpa::XS::Internal::Recognizer::NEXT_EARLEY_ITEM_ID
+                                ]++;
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::ORIGIN] =
                                 $origin;
@@ -2175,13 +2179,11 @@ sub Marpa::XS::Recognizer::value {
                             $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::SET] =
                                 $or_sapling_set;
-                            $earley_hash->{$name} = $target_item;
-                            push @{ $earley_sets->[$or_sapling_set] },
-                                $target_item;
+                            $earley_hash->{$hash_key} = $target_item;
+                            push @{ $earley_sets->[$or_sapling_set]
+                                    ->[Marpa::XS::Internal::Earley_Set::ITEMS]
+                                }, $target_item;
                         } ## end if ( not defined $target_item )
-
-                        # die join " ", __FILE__, __LINE__, "next link cnt", (scalar @{$next_links})
-                            # if scalar @{$next_links} != 1;
 
                         push @{ $target_item
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] },
@@ -2273,7 +2275,7 @@ sub Marpa::XS::Recognizer::value {
                             $predecessor_or_node
                                 ->[Marpa::XS::Internal::Or_Node::ITEMS]
                                 ->{ $predecessor
-                                    ->[Marpa::XS::Internal::Earley_Item::NAME]
+                                    ->[Marpa::XS::Internal::Earley_Item::ID]
                                 } = $predecessor;
 
                             last FIND_PREDECESSOR;
@@ -2304,7 +2306,7 @@ sub Marpa::XS::Recognizer::value {
                         $predecessor_or_node
                             ->[Marpa::XS::Internal::Or_Node::ITEMS] =
                             { $predecessor
-                                ->[Marpa::XS::Internal::Earley_Item::NAME] =>
+                                ->[Marpa::XS::Internal::Earley_Item::ID] =>
                                 $predecessor };
                         $predecessor_or_node
                             ->[Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE] =
@@ -2371,7 +2373,7 @@ sub Marpa::XS::Recognizer::value {
                                 $cause_or_node
                                     ->[Marpa::XS::Internal::Or_Node::ITEMS]->{
                                     $cause->[
-                                        Marpa::XS::Internal::Earley_Item::NAME
+                                        Marpa::XS::Internal::Earley_Item::ID
                                     ]
                                     }
                                     = $cause;
@@ -2403,7 +2405,7 @@ sub Marpa::XS::Recognizer::value {
                             $cause_or_node
                                 ->[Marpa::XS::Internal::Or_Node::ITEMS] =
                                 { $cause
-                                    ->[Marpa::XS::Internal::Earley_Item::NAME]
+                                    ->[Marpa::XS::Internal::Earley_Item::ID]
                                     => $cause };
                             $cause_or_node->[
                                 Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE]

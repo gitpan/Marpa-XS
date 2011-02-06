@@ -22,7 +22,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 32;
+use Test::More tests => 38;
 use Marpa::XS::Test;
 
 BEGIN {
@@ -482,6 +482,18 @@ EARLEME: for my $earleme ( 0 .. $input_length + 1 ) {
             . ( join q{}, @set[ 0 .. $furthest ] ),
         "Aycock/Horspool Parse Status at earleme $earleme"
     );
+    SKIP: {
+        skip "not using XS", 1 if not $Marpa::XS::USING_XS;
+        TODO: {
+            local $TODO = "Development in progress";
+            Marpa::XS::Test::is(
+                $recce->new_show_earley_sets(1),
+                "Last Completed: $last_completed; Furthest: $furthest\n"
+                    . ( join q{}, @set[ 0 .. $furthest ] ),
+                "Aycock/Horspool Parse Status at earleme $earleme"
+            );
+        } ## end TODO:
+    } ## end SKIP:
     next EARLEME if $earleme == $input_length;
     last EARLEME if $earleme > $input_length;
     $recce->read( 'a', 'a' );

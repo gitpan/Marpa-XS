@@ -13,15 +13,40 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-## Makefile.am -- Process this file with automake to produce Makefile.in
+package Marpa::XS::Internal::Slot;
 
-AM_CFLAGS = $(WARNING_CFLAGS)
-ACLOCAL_AMFLAGS = -I m4
-EXTRA_DIST = README
-noinst_LTLIBRARIES = libmarpa.la
-libmarpa_la_SOURCES = marpa_obs.c marpa.c
-libmarpa_la_LIBADD = $(LIBOBJS)
-libmarpa_la_CFLAGS = $(GLIB_CFLAGS) $(WARNING_CFLAGS)
-include_HEADERS = marpa.h marpa_obs.h
+use 5.010;
+use strict;
+use warnings;
+use integer;
 
+use Marpa::XS::Offset qw(
+    :package=Marpa::XS::Internal::Slot
+    VALUES
+    FREE_LIST
+);
 
+sub new {
+    my ($class) = @_;
+    my $self = [];
+    $self->[VALUES] = [undef];
+    $self->[FREE_LIST] = [];
+    bless $self, $class;
+}
+
+sub slot {
+   my ($self, $value) = @_;
+   return 0 if not defined $value;
+   if (my $slot = pop @{$self->[FREE_LIST]}) {
+       $self->[VALUES]->[$slot] = $value;
+       return $slot;
+   }
+   return -1 + push @{$self->[VALUES]}, $value;
+}
+
+sub value {
+   my ($self, $slot) = @_;
+   return $self->[VALUES]->[$slot];
+}
+
+1;

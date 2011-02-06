@@ -33,9 +33,9 @@ static const char grammar_c_class_name[] = "Marpa::XS::Internal::G_C";
 static const char recce_c_class_name[] = "Marpa::XS::Internal::R_C";
 
 static void
-xs_message_callback(Grammar *g, Marpa_Message_ID id)
+xs_g_message_callback(Grammar *g, Marpa_Message_ID id)
 {
-    SV* cb = marpa_message_callback_arg(g);
+    SV* cb = marpa_g_message_callback_arg(g);
     if (!cb) return;
     if (!SvOK(cb)) return;
     {
@@ -44,6 +44,26 @@ xs_message_callback(Grammar *g, Marpa_Message_ID id)
     SAVETMPS;
     PUSHMARK(SP);
     XPUSHs(sv_2mortal(newSViv( marpa_grammar_id(g))));
+    XPUSHs(sv_2mortal(newSVpv(id, 0)));
+    PUTBACK;
+    call_sv(cb, G_DISCARD);
+    FREETMPS;
+    LEAVE;
+    }
+}
+
+static void
+xs_r_message_callback(struct marpa_r *r, Marpa_Message_ID id)
+{
+    SV* cb = marpa_r_message_callback_arg(r);
+    if (!cb) return;
+    if (!SvOK(cb)) return;
+    {
+    dSP;
+    ENTER;
+    SAVETMPS;
+    PUSHMARK(SP);
+    XPUSHs(sv_2mortal(newSViv( marpa_r_id(r))));
     XPUSHs(sv_2mortal(newSVpv(id, 0)));
     PUTBACK;
     call_sv(cb, G_DISCARD);
@@ -118,7 +138,7 @@ PREINIT:
     SV *sv;
 PPCODE:
     grammar = marpa_g_new();
-    marpa_message_callback_set( grammar, &xs_message_callback );
+    marpa_g_message_callback_set( grammar, &xs_g_message_callback );
     marpa_rule_callback_set( grammar, &xs_rule_callback );
     marpa_symbol_callback_set( grammar, &xs_symbol_callback );
     sv = sv_newmortal();
@@ -130,8 +150,8 @@ DESTROY( grammar )
     Grammar *grammar;
 CODE:
     {
-       SV *sv = marpa_message_callback_arg(grammar);
-	marpa_message_callback_arg_set( grammar, NULL );
+       SV *sv = marpa_g_message_callback_arg(grammar);
+	marpa_g_message_callback_arg_set( grammar, NULL );
        if (sv) {
        SvREFCNT_dec(sv);
        }
@@ -161,11 +181,10 @@ message_callback_set( g, sv )
     SV *sv;
 PPCODE:
     {
-       SV *old_sv = marpa_message_callback_arg(g);
-       if (old_sv) {
-       SvREFCNT_dec(old_sv); }
+       SV *old_sv = marpa_g_message_callback_arg(g);
+       if (old_sv) { SvREFCNT_dec(old_sv); }
     }
-    marpa_message_callback_arg_set( g, sv );
+    marpa_g_message_callback_arg_set( g, sv );
     SvREFCNT_inc(sv);
 
 void
@@ -896,6 +915,7 @@ PPCODE:
     g = INT2PTR(Grammar *, tmp);
     r = marpa_r_new(g);
     if (!r) { XSRETURN_UNDEF; }
+    marpa_r_message_callback_set( r, &xs_r_message_callback );
     Newx( wrapper, 1, Recce );
     wrapper->r = r;
     wrapper->g_sv = g_sv;
@@ -913,16 +933,71 @@ PREINIT:
 CODE:
     g_sv = wrapper->g_sv;
     r = wrapper->r;
+    {
+       SV *sv = marpa_r_message_callback_arg(r);
+	marpa_r_message_callback_arg_set( r, NULL );
+       if (sv) { SvREFCNT_dec(sv); }
+    }
     marpa_r_free( r );
     SvREFCNT_dec(g_sv);
     Safefree( wrapper );
+
+ # Note the Perl callback closure
+ # is, in the libmarpa context, the *ARGUMENT* of the callback,
+ # not the callback itself.
+ # The libmarpa callback is a wrapper
+ # that calls the Perl closure.
+void
+message_callback_set( wrapper, sv )
+    Recce *wrapper;
+    SV *sv;
+PPCODE:
+    {
+       struct marpa_r* r = wrapper->r;
+       SV *old_sv = marpa_r_message_callback_arg(r);
+       if (old_sv) {
+       SvREFCNT_dec(old_sv); }
+	marpa_r_message_callback_arg_set( r, sv );
+	SvREFCNT_inc(sv);
+    }
+
+char *error( wrapper )
+    Recce *wrapper;
+CODE:
+    RETVAL = (gchar*)marpa_r_error(wrapper->r);
+OUTPUT:
+    RETVAL
+
+void
+start_input( wrapper )
+    Recce *wrapper;
+PPCODE:
+    { gboolean result = marpa_start_input(wrapper->r);
+    if (result) XSRETURN_YES;
+    }
+    XSRETURN_NO;
+
+ # current earleme on success -- return that directly
+ # -1 means rejected -- return that directly
+ # return other failures as undef
+void
+alternative( wrapper, symbol_id, slot, length )
+    Recce *wrapper;
+    Marpa_Symbol_ID symbol_id;
+    int slot;
+    int length;
+PPCODE:
+    { gint result = marpa_alternative(wrapper->r, symbol_id, GINT_TO_POINTER(slot), length);
+    if (result <= -2) { XSRETURN_UNDEF; }
+    XPUSHs( sv_2mortal( newSViv(result) ) );
+    }
 
 void
 too_many_earley_items_set( wrapper, too_many_earley_items )
     Recce *wrapper;
     unsigned int too_many_earley_items;
 PPCODE:
-    { gboolean result = marpa_too_many_earley_items_set(wrapper->r, too_many_earley_items);
+    { gboolean result = marpa_earley_item_warning_threshold_set(wrapper->r, too_many_earley_items);
     if (result) XSRETURN_YES;
     }
     XSRETURN_NO;
@@ -931,8 +1006,43 @@ void
 too_many_earley_items( wrapper )
     Recce *wrapper;
 PPCODE:
-    { guint too_many_earley_items = marpa_too_many_earley_items( wrapper->r );
+    { guint too_many_earley_items = marpa_earley_item_warning_threshold( wrapper->r );
     XPUSHs( sv_2mortal( newSViv(too_many_earley_items) ) );
+    }
+
+ # In scalar context, returns the count
+void
+earley_items( wrapper, earleme )
+    Recce *wrapper;
+    Marpa_Earleme earleme;
+PPCODE:
+    { struct marpa_r* r = wrapper->r;
+    gint count = marpa_earley_item_count(r, earleme);
+    if (count < 0) { croak("Invalid earleme %d: %s", earleme, marpa_r_error(r)); }
+    if (GIMME == G_ARRAY) {
+        guint item_ix;
+	struct marpa_earley_item* earley_items;
+        EXTEND(SP, count*2);
+	Newx( earley_items, count, struct marpa_earley_item );
+	marpa_earley_items(r, earleme, earley_items);
+        for (item_ix = 0; item_ix < count; item_ix++) {
+            PUSHs( sv_2mortal( newSViv(earley_items[item_ix].state) ) );
+            PUSHs( sv_2mortal( newSViv(earley_items[item_ix].origin) ) );
+        }
+	Safefree( earley_items );
+    } else {
+        XPUSHs( sv_2mortal( newSViv(count) ) );
+    }
+    }
+
+void
+earleme_complete( wrapper )
+    Recce *wrapper;
+PPCODE:
+    { struct marpa_r* r = wrapper->r;
+        Marpa_Earleme result = earleme_complete(r);
+	if (result < 0) { XSRETURN_UNDEF; }
+	XPUSHs( sv_2mortal( newSViv(result) ) );
     }
 
 BOOT:

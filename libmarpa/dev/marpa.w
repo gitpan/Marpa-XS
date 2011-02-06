@@ -47,13 +47,10 @@
 \def\marpa_sub#1{{\bf #1}: }
 
 @s not_eq normal @q unreserve a C++ keyword @>
-@s gboolean int
-@s gpointer int
 @s gconstpointer int
-@s guint int
-@s Marpa_Rule_ID int
-@s Marpa_Symbol_ID int
-@s GArray int
+@s gpointer int
+@s gint int
+@s gboolean int
 
 @** Introduction.
 
@@ -124,17 +121,39 @@ of object |obj|.
 It is an external equivalent of |obj_fld_get|.
 The returned value is owned by the caller.
 
-@*0 Abbreviations.
-@ The intent is that all names will be composed of fully spelled out
-English words, except as documented in this section.
-While development is underway, this section is necessarily very
-incomplete and sometimes also inaccurate.
-@ The following abbreviations are used in Marpa's variable names:
-
-\li g for Grammar
-\li r for Recognizer
-\li recce for Recognizer
-\li alloc for Allocate
+@*0 Abbreviations and Vocabulary.
+@ Unexplained abbreviations and non-standard vocabulary
+pose unnecessary challenges.
+Particular obstacles to those who are not native speakers
+of English, they are annoying to the natives as well.
+This section is intended to document all abbreviations,
+and all non-standard vocabulary.
+By non-standard vocabulary, I mean any words that I use
+in a sense
+that cannot be looked up in either a general dictionary,
+or one of the standard technical reference works.
+@ Not included are:
+\li Terms for concepts explained at length in the text.
+\li Terms which can be found in a general dictionary,
+\li Terms which can be found in the standard technical reference works.
+@ While development is underway, this section will be often
+incomplete and sometimes inaccurate.
+\li alloc: Allocate.
+\li assign: Find something, creating it when necessary.
+\li bv: Bit Vector.
+\li cmp: Compare.
+Usually as |_cmp|, the suffix or "verb" of a function name.
+\li g: Grammar.
+\li ix: An Index.
+\li own: Usually as |own_|, the prefix of a function name.  Not inline.
+Used when there are two versions of a function, one inlineable, one not.
+So called because another way of saying that is function was not compiled
+inline with another function is to say that it was compiled "on its own".
+\li p: A Pointer.  Often as |_p|, as the end of a variable name.
+\li pp: A Pointer to pointer.  Often as |_p|, as the end of a variable name.
+\li r: Recognizer.
+\li recce: Recognizer.  Originally military slang for a
+reconnaissance.
 
 @*0 Development Plans.
 
@@ -147,6 +166,12 @@ and then deleted as development proceeds.
 @*1 Short Term To Do List.
 
 @*1 Long Term To Do List.
+
+@*1 Revisit List.
+
+@ Use of GSequence should be revisited, and in particular the
+reliance on undocumented behaviors of |g_sequence_search|.
+See the section on GSequence.
 
 @*1 Development Note: Marpa layers.
 
@@ -311,12 +336,10 @@ Add a comment in the place where the destructor must eventually
 be called, as a reminder.
 This will usually be in the Recognizer or Grammar destructor.
 
-{\hbadness=10000 \raggedright \noindent \li
-Add whatever mutators are needed,
+\li Add whatever mutators are needed,
 initially as un-inlined externals.
 At the end of development, it should be possible to
 eliminate the external versions of these.
-\tolerance=9999\par}
 
 \li Now that there are a full set of initializers,
 destructors and mutators,
@@ -402,16 +425,12 @@ GLIB_VAR const guint marpa_binary_age;@#
         @|  && MARPA_MICRO_VERSION >= (micro)))
         @]@#
 #define MARPA_CAT(a, b) @[ a ## b @]
-@<Inlining macros@>@/
 @<Public defines@>@/
 @<Incomplete public structures@>@/
 @<Public typedefs@>@/@\
 @<Callback typedefs@>@/
 @<Public structures@>@/
 @<Public function prototypes@>@/
-#if MARPA_CAN_INLINE || defined MARPA_STANDALONE
-@<Public inline function definitions@>@/
-#endif
 
 @ Marpa Global Setup
 
@@ -419,6 +438,71 @@ Marpa does no global initialization at the moment.
 I'll try to keep it that way.
 If I can't, I will need to deal with the issue
 of thread safety.
+
+@*1 Complexity.
+Considerable attention is paid to time and,
+where it is a serious issue, space complexity.
+Complexity is considered from three points of view.
+{\bf Practical worst-case complexity} is the complexity of the
+actual implementation, in the worst-case.
+{\bf Practical average complexity} is the complexity of the
+actual implementation under what are expected to be normal
+circumstances.
+Average complexity is of most interest to the typical user,
+but worst-case considerations should not be ignored ---
+in some applications,
+one case of poor performance
+can outweigh any number of
+of excellent "average case" results.
+@ Finally, there is {\bf theoretical complexity}.
+This is the complexity I would claim in a write-up of the
+Marpa algorithm for a Theory of Computation article.
+Most of the time, this is the same as practical worst-case complexity.
+Often, however, for theoretical complexity I consider
+myself entitled to claim
+the time complexity for a 
+better algorithm, even thought that is not the one
+used in the actual implementation.
+@ Sorting is a good example of under what circumstances
+I take the liberty of claiming a time complexity I did not
+implement.
+In many places in |libmarpa|,
+for sorting,
+the most reasonable practical
+implementation (sometimes the only reasonable practical implementation)
+is an $O(n^2)$ sort.
+When average list size is small, for example,
+a hand-optimized insertion sort is often clearly superior
+to all other alternatives.
+Where average list size is larger,
+a call to |g_qsort| is the appropriate response.
+|g_qsort| is the result of considerable thought and experience,
+the GNU project has decided to base it on quicksort,
+and I do not care to second-guess them on this.
+But quicksort and insertion sorts are both, theoretically, $O(n^2)$.
+@ Clearly, in both cases, I could drop in a merge sort and achieve
+a theoretical $O(n \log n)$ worst case.
+Often just as clear is that is all cases likely to occur in practice,
+the merge sort would be inferior.
+@ When I claim a complexity from a theoretical choice of algorithm,
+rather than the actually implemented one, the following will always be
+the case:
+\li The existence of the theoretical algorithm must be generally accepted.
+\li The complexity I claim for it must be generally accepted.
+\li It must be clear that there are no obstacles to using the theoretical algorithm
+whose solution is not straightforward.
+@ I am a big believer in theory.
+Often practical considerations didn't clearly indicate a choice of
+algorithm .
+In those circumstances, I usually
+allowed theoretical superiority to be the deciding factor.
+@ But there were cases
+where the theoretically superior choice
+was clearly going to be inferior in practice.
+Sorting was one of them.
+It would be possible to
+go through |libmarpa| and replace all sorts with a merge sort.
+But a slower library would be the result.
 
 @** Grammar Objects.
 @<Incomplete public structures@> = struct marpa_g;
@@ -466,18 +550,16 @@ gint marpa_grammar_id(struct marpa_g* g) { return g->id; }
 gint marpa_grammar_id(struct marpa_g* g);
 
 @*0 The Grammar's Symbol List.
-\rightskip 0pt plus 3em
 This lists the symbols for the grammar,
 with their
 |Marpa_Symbol_ID| as the index.
 
-\rightskip 0pt
 @<Widely aligned grammar elements@> = GArray* symbols;
 @ @<Initialize grammar elements@> =
-g->symbols = g_array_new(FALSE, FALSE, sizeof(struct marpa_symbol *));
+g->symbols = g_array_new(FALSE, FALSE, sizeof(struct symbol *));
 @ @<Destroy grammar elements@> =
 {  Marpa_Symbol_ID id; for (id = 0; id < (Marpa_Symbol_ID)g->symbols->len; id++)
-{ symbol_free(symbol_id2p(g, id)); } }
+{ symbol_free(Symbol_by_ID(g, id)); } }
 g_array_free(g->symbols, TRUE);
 
 @ The trace accessor returns the GArray.
@@ -490,21 +572,10 @@ GArray *marpa_g_symbols_peek(struct marpa_g* g)
 GArray *marpa_g_symbols_peek(struct marpa_g* g);
 
 @ Symbol count accesor.
-@<Function definitions@> =
-static inline gint symbol_count(struct marpa_g* g) {
-   return g->symbols->len;
-}
-@ @<Private function prototypes@> =
-static inline gint symbol_count(struct marpa_g* g);
+@d Symbol_Count_of_G(g) ((g)->symbols->len)
 
-@ Internal accessor to find a symbol by its id.
-@<Function definitions@> =
-static inline struct marpa_symbol*
-symbol_id2p(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return g_array_index(g->symbols, struct marpa_symbol*, id); }
-@ @<Private function prototypes@> =
-static inline struct marpa_symbol*
-symbol_id2p(struct marpa_g* g, Marpa_Symbol_ID id);
+@ Symbol by ID.
+@d Symbol_by_ID(g, id) (g_array_index((g)->symbols, struct symbol*, (id)))
 
 @ Adds the symbol to the list of symbols kept by the Grammar
 object.
@@ -513,7 +584,7 @@ static inline
 void g_symbol_add(
     struct marpa_g *g,
     Marpa_Symbol_ID symbol_id,
-    struct marpa_symbol*symbol)
+    struct symbol*symbol)
 {
     g_array_insert_val(g->symbols, (unsigned)symbol_id, symbol);
 }
@@ -529,6 +600,7 @@ static inline gint symbol_is_valid(
 struct marpa_g *g, Marpa_Symbol_ID symbol_id);
 
 @*0 The Grammar's Rule List.
+\rightskip 0pt plus 3em
 This lists the rules for the grammar,
 with their |Marpa_Rule_ID| as the index.
 @<Widely aligned grammar elements@> = GArray* rules;
@@ -834,37 +906,44 @@ Marpa_Error_ID marpa_g_error(const struct marpa_g* g);
 @<Public typedefs@> =
 typedef gint Marpa_Symbol_ID;
 @ @<Private structures@> =
-struct marpa_symbol {
+struct symbol {
     @<Widely aligned symbol elements@>@/
     @<Int aligned symbol elements@>@/
     @<Bit aligned symbol elements@>@/
 };
 
 @ @<Function definitions@> =
-static inline
-struct marpa_symbol* symbol_new(struct marpa_g *g)
-{ struct marpa_symbol* symbol = g_malloc(sizeof(struct marpa_symbol));
-    @<Initialize symbol elements@>@/
-    { Marpa_Symbol_ID id = symbol->id;
-    g_symbol_add(g, id, symbol); }
-   return symbol;
+static inline struct symbol *
+symbol_new (struct marpa_g *g)
+{
+  struct symbol *symbol = g_malloc (sizeof (struct symbol));
+  @<Initialize symbol elements @>@/
+  {
+    Marpa_Symbol_ID id = symbol->id;
+    g_symbol_add (g, id, symbol);
+  }
+  return symbol;
 }
-Marpa_Symbol_ID marpa_symbol_new(struct marpa_g *g)
-{ Marpa_Symbol_ID id = symbol_new(g)->id;
-symbol_callback(g, id);
-return id; }
+
+Marpa_Symbol_ID
+marpa_symbol_new (struct marpa_g * g)
+{
+  Marpa_Symbol_ID id = symbol_new (g)->id;
+  symbol_callback (g, id);
+  return id;
+}
 
 @ @<Private function prototypes@> =
 static inline
-struct marpa_symbol* symbol_new(struct marpa_g *g);
+struct symbol* symbol_new(struct marpa_g *g);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_symbol_new(struct marpa_g *g);
 
 @ @<Function definitions@> =
-static inline void symbol_free(struct marpa_symbol* symbol)
+static inline void symbol_free(struct symbol* symbol)
 { @<Free symbol elements@>@; g_free(symbol); }
 @ @<Private function prototypes@> =
-static inline void symbol_free(struct marpa_symbol* symbol);
+static inline void symbol_free(struct symbol* symbol);
 
 @ Symbol ID: This is the unique identifier for the symbol.
 @<Int aligned symbol elements@> = Marpa_Symbol_ID id;
@@ -888,15 +967,15 @@ and must not be freed or modified.
 GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 { @<Return |NULL| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-return symbol_id2p(g, symbol_id)->lhs; }
+return Symbol_by_ID(g, symbol_id)->lhs; }
 @ @<Public function prototypes@> =
 GArray *marpa_symbol_lhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 @ @<Function definitions@> = static inline
-void symbol_lhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id)
+void symbol_lhs_add(struct symbol*symbol, Marpa_Rule_ID rule_id)
 { g_array_append_val(symbol->lhs, rule_id); }
 void
 marpa_symbol_lhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id)
-{ symbol_lhs_add(symbol_id2p(g, symbol_id), rule_id); }
+{ symbol_lhs_add(Symbol_by_ID(g, symbol_id), rule_id); }
 @ @<Private function prototypes@> =
 void
 marpa_symbol_lhs_add(struct marpa_g*g, Marpa_Symbol_ID symbol_id, Marpa_Rule_ID rule_id);
@@ -917,14 +996,14 @@ and must not be freed or modified.
 GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 { @<Return |NULL| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-return symbol_id2p(g, symbol_id)->rhs; }
+return Symbol_by_ID(g, symbol_id)->rhs; }
 @ @<Public function prototypes@> =
 GArray *marpa_symbol_rhs_peek(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 @ @<Function definitions@> = static inline
-void symbol_rhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id)
+void symbol_rhs_add(struct symbol*symbol, Marpa_Rule_ID rule_id)
 { g_array_append_val(symbol->rhs, rule_id); }
 @ @<Private function prototypes@> = static inline
-void symbol_rhs_add(struct marpa_symbol*symbol, Marpa_Rule_ID rule_id);
+void symbol_rhs_add(struct symbol*symbol, Marpa_Rule_ID rule_id);
 
 @ Symbol Is Accessible Boolean
 @<Bit aligned symbol elements@> = unsigned int is_accessible:1;
@@ -940,14 +1019,14 @@ must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->is_accessible; }
+{ return Symbol_by_ID(g, id)->is_accessible; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_accessible_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_accessible = value; }
+{ Symbol_by_ID(g, id)->is_accessible = value; }
 @ @<Public function prototypes@> =
 /* static inline */
 void marpa_symbol_is_accessible_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
@@ -966,7 +1045,7 @@ must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_symbol_is_counted(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->is_counted; }
+{ return Symbol_by_ID(g, id)->is_counted; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_counted(struct marpa_g* g, Marpa_Symbol_ID id);
 
@@ -984,14 +1063,14 @@ must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->is_nullable; }
+{ return Symbol_by_ID(g, id)->is_nullable; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_nullable_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_nullable = value; }
+{ Symbol_by_ID(g, id)->is_nullable = value; }
 @ @<Public function prototypes@> =
 void marpa_symbol_is_nullable_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
@@ -1011,14 +1090,14 @@ The internal accessor would be trivial, so there is none.
 gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 { @<Return |-1| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-return symbol_id2p(g, symbol_id)->is_nulling; }
+return Symbol_by_ID(g, symbol_id)->is_nulling; }
 @ @<Public function prototypes@> =
 gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_nulling_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_nulling = value; }
+{ Symbol_by_ID(g, id)->is_nulling = value; }
 @ @<Public function prototypes@> = 
 void marpa_symbol_is_nulling_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
@@ -1034,16 +1113,18 @@ the prototype of this function
 must be changed.
 \par
 The internal accessor would be trivial, so there is none.
+@d Symbol_is_Terminal(symbol) ((symbol)->is_terminal)
+@d Symbol_is_Terminal_by_ID(g, id) (Symbol_is_Terminal(Symbol_by_ID((g), (id))))
 @<Function definitions@> =
 gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->is_terminal; }
+{ return Symbol_is_Terminal_by_ID(g, id); }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_terminal_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_terminal = value; }
+{ Symbol_is_Terminal_by_ID(g, id) = value; }
 @ @<Public function prototypes@> =
 void marpa_symbol_is_terminal_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
@@ -1062,14 +1143,14 @@ must be changed.
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id)
-{ return symbol_id2p(g, id)->is_productive; }
+{ return Symbol_by_ID(g, id)->is_productive; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id);
 @ The external mutator is temporary, for development.
 @<Function definitions@> =
 void marpa_symbol_is_productive_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ symbol_id2p(g, id)->is_productive = value ? 1 : 0; }
+{ Symbol_by_ID(g, id)->is_productive = value ? 1 : 0; }
 @ @<Public function prototypes@> =
 void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
@@ -1080,16 +1161,16 @@ void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gbool
 The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 static inline
-gint symbol_is_start(struct marpa_symbol* symbol)
+gint symbol_is_start(struct symbol* symbol)
 { return symbol->is_start; }
 gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID symbol_id) 
 { @<Return |-1| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-   return symbol_is_start(symbol_id2p(g, symbol_id));
+   return symbol_is_start(Symbol_by_ID(g, symbol_id));
 }
 @ @<Private function prototypes@> =
 static inline
-gint symbol_is_start(struct marpa_symbol* symbol);
+gint symbol_is_start(struct symbol* symbol);
 @ @<Public function prototypes@> =
 gint marpa_symbol_is_start( struct marpa_g*g, Marpa_Symbol_ID id);
 
@@ -1104,7 +1185,7 @@ symbols: a non-nullable (or "proper") alias and a nulling alias.
 unsigned int is_proper_alias:1;
 unsigned int is_nulling_alias:1;
 @ @<Widely aligned symbol elements@> =
-struct marpa_symbol* alias;
+struct symbol* alias;
 @ @<Initialize symbol elements@> =
 symbol->is_proper_alias = FALSE;
 symbol->is_nulling_alias = FALSE;
@@ -1116,20 +1197,20 @@ with a proper alias, returns the proper alias.
 Otherwise, returns |NULL|.
 @<Function definitions@> =
 static inline
-struct marpa_symbol* symbol_proper_alias(struct marpa_symbol* symbol)
+struct symbol* symbol_proper_alias(struct symbol* symbol)
 { return symbol->is_nulling_alias ? symbol->alias : NULL; }
 Marpa_Symbol_ID marpa_symbol_proper_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 {
-struct marpa_symbol* symbol;
-struct marpa_symbol* proper_alias;
+struct symbol* symbol;
+struct symbol* proper_alias;
 @<Return |-1| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-symbol = symbol_id2p(g, symbol_id);
+symbol = Symbol_by_ID(g, symbol_id);
 proper_alias = symbol_proper_alias(symbol);
 return proper_alias == NULL ? -1 : proper_alias->id;
 }
 @ @<Private function prototypes@> =
-static inline struct marpa_symbol* symbol_proper_alias(struct marpa_symbol* symbol);
+static inline struct symbol* symbol_proper_alias(struct symbol* symbol);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_symbol_proper_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 
@@ -1139,15 +1220,15 @@ with a nulling alias, returns the nulling alias.
 Otherwise, returns |NULL|.
 @<Function definitions@> =
 static inline
-struct marpa_symbol* symbol_null_alias(struct marpa_symbol* symbol)
+struct symbol* symbol_null_alias(struct symbol* symbol)
 { return symbol->is_proper_alias ? symbol->alias : NULL; }
 Marpa_Symbol_ID marpa_symbol_null_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id)
 {
-struct marpa_symbol* symbol;
-struct marpa_symbol* alias;
+struct symbol* symbol;
+struct symbol* alias;
 @<Return |-1| on failure@>@;
 @<Fail if grammar |symbol_id| is invalid@>@;
-symbol = symbol_id2p(g, symbol_id);
+symbol = Symbol_by_ID(g, symbol_id);
 alias = symbol_null_alias(symbol);
 if (alias == NULL) {
     g_context_int_add(g, "symbol_id", symbol_id);
@@ -1157,7 +1238,7 @@ if (alias == NULL) {
 return alias->id;
 }
 @ @<Private function prototypes@> =
-static inline struct marpa_symbol* symbol_null_alias(struct marpa_symbol* symbol);
+static inline struct symbol* symbol_null_alias(struct symbol* symbol);
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_symbol_null_alias(struct marpa_g* g, Marpa_Symbol_ID symbol_id);
 
@@ -1171,10 +1252,10 @@ TODO: I expect to delete
 the external version of this function after
 development.
 @<Function definitions@> = static inline
-struct marpa_symbol* symbol_alias_create(struct marpa_g* g,
-struct marpa_symbol* symbol)
+struct symbol* symbol_alias_create(struct marpa_g* g,
+struct symbol* symbol)
 {
-    struct marpa_symbol* alias = symbol_new(g);
+    struct symbol* alias = symbol_new(g);
     symbol->is_proper_alias = TRUE;
     symbol->is_nulling = FALSE;
     symbol->is_nullable = FALSE;
@@ -1192,13 +1273,13 @@ struct marpa_g* g, Marpa_Symbol_ID original_id)
 { Marpa_Symbol_ID alias_id;
     if (original_id < 0) { return -1; }
     if ((guint)original_id >= g->symbols->len) { return -1; }
-    alias_id = symbol_alias_create(g, symbol_id2p(g, original_id))->id;
+    alias_id = symbol_alias_create(g, Symbol_by_ID(g, original_id))->id;
     symbol_callback(g, alias_id);
     return alias_id; }
 @ @<Private function prototypes@> = 
 static inline
-struct marpa_symbol* symbol_alias_create(struct marpa_g* g,
-struct marpa_symbol* symbol);
+struct symbol* symbol_alias_create(struct marpa_g* g,
+struct symbol* symbol);
 @ @<Public function prototypes@> = 
 Marpa_Symbol_ID marpa_symbol_alias_create(
 struct marpa_g* g, Marpa_Symbol_ID symbol_id);
@@ -1343,8 +1424,8 @@ if (separator_id != -1 && !symbol_is_valid(g, separator_id)) {
     g->error = "bad separator"; return -1;
 }
 @ @<Mark the counted symbols@> =
-symbol_id2p(g, rhs_id)->is_counted = 1;
-if (separator_id >= 0) { symbol_id2p(g, separator_id)->is_counted = 1; }
+Symbol_by_ID(g, rhs_id)->is_counted = 1;
+if (separator_id >= 0) { Symbol_by_ID(g, separator_id)->is_counted = 1; }
 @ @<Add the nulling rule for a sequence@> =
 	{ struct marpa_rule* rule = rule_start(g, lhs_id, 0, 0);
 	if (!rule) { @<Return -1 for an internal error@> }
@@ -1476,7 +1557,7 @@ gboolean is_rule_duplicate(struct marpa_g* g,
 Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID* rhs_ids, guint length)
 {
     guint ix;
-    struct marpa_symbol* lhs = symbol_id2p(g, lhs_id);
+    struct symbol* lhs = Symbol_by_ID(g, lhs_id);
     GArray* same_lhs_array = lhs->lhs;
     guint same_lhs_count = same_lhs_array->len;
     for (ix = 0; ix < same_lhs_count; ix++) {
@@ -1512,7 +1593,7 @@ a stack overflow.
 Even if such case is pathological,
 a core dump is not the right response.
 @<Add this rule to the symbol rule lists@> =
-    symbol_lhs_add(symbol_id2p(g, rule->symbols[0]), rule->id);@;
+    symbol_lhs_add(Symbol_by_ID(g, rule->symbols[0]), rule->id);@;
     if (rule->length > 0) {
 	gint rh_list_ix;
 	const guint alloc_size = rule->length*sizeof( Marpa_Symbol_ID);
@@ -1524,7 +1605,7 @@ a core dump is not the right response.
 	   rh_list_ix < rh_symbol_list_length;
 	   rh_list_ix++) {
 	    symbol_rhs_add(
-		symbol_id2p(g, rh_symbol_list[rh_list_ix]),
+		Symbol_by_ID(g, rh_symbol_list[rh_list_ix]),
 		rule->id);
        }@;
        g_slice_free1(alloc_size, rh_symbol_list);
@@ -1677,11 +1758,10 @@ gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id) {
 @ @<Public function prototypes@> =
 gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id);
 
-@ @<Function definitions@> =
-static inline Marpa_Symbol_ID
-lhs_symbol_id(struct marpa_rule* rule) { return rule->symbols[0]; }
-@ @<Private function prototypes@> =
-static inline Marpa_Symbol_ID lhs_symbol_id(struct marpa_rule* rule);
+@*1 LHS Symbol of Rule.
+@d LHS_Symbol_ID_of_Rule(rule) ((rule)->symbols[0])
+
+@*1 RHS Symbol of Rule.
 @ @<Function definitions@> =
 static inline Marpa_Symbol_ID
     rhs_symbol_id(struct marpa_rule* rule, guint rh_index) {
@@ -1744,8 +1824,8 @@ taken care of in the rewrite itself.
 @<Function definitions@> =
 static inline gint rule_is_accessible(struct marpa_g* g, struct marpa_rule* rule)
 {
-Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
- return symbol_id2p(g, lhs_id)->is_accessible; }
+Marpa_Symbol_ID lhs_id = LHS_Symbol_ID_of_Rule(rule);
+ return Symbol_by_ID(g, lhs_id)->is_accessible; }
 gint marpa_rule_is_accessible(struct marpa_g* g, Marpa_Rule_ID rule_id)
 {
     @<Return |-1| on failure@>@;
@@ -1767,7 +1847,7 @@ static inline gint rule_is_productive(struct marpa_g* g, struct marpa_rule* rule
 guint rh_ix;
 for (rh_ix = 0; rh_ix < rule->length; rh_ix++) {
    Marpa_Symbol_ID rhs_id = rhs_symbol_id(rule, rh_ix);
-   if ( !symbol_id2p(g, rhs_id)->is_productive ) return FALSE;
+   if ( !Symbol_by_ID(g, rhs_id)->is_productive ) return FALSE;
 }
 return TRUE; }
 gint marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID rule_id)
@@ -1833,7 +1913,7 @@ static inline gint rule_is_nulling(struct marpa_g* g, struct marpa_rule* rule)
 guint rh_ix;
 for (rh_ix = 0; rh_ix < rule->length; rh_ix++) {
    Marpa_Symbol_ID rhs_id = rhs_symbol_id(rule, rh_ix);
-   if ( !symbol_id2p(g, rhs_id)->is_nulling ) return FALSE;
+   if ( !Symbol_by_ID(g, rhs_id)->is_nulling ) return FALSE;
 }
 return TRUE; }
 @ @<Private function prototypes@> =
@@ -2127,7 +2207,7 @@ if (!symbol_is_valid(g, original_start_symbol_id)) {
     g->error = "invalid start symbol";
     return NULL;
 }
-original_start_symbol = symbol_id2p(g, original_start_symbol_id);
+original_start_symbol = Symbol_by_ID(g, original_start_symbol_id);
 if (original_start_symbol->lhs->len <= 0) {
     g_context_int_add(g, "symbol_id", original_start_symbol_id);
     g->error = "start symbol not on LHS";
@@ -2135,7 +2215,7 @@ if (original_start_symbol->lhs->len <= 0) {
 }
 @ @<Declare census variables@> =
 Marpa_Symbol_ID original_start_symbol_id = g->start_symbol_id;
-struct marpa_symbol* original_start_symbol;
+struct symbol* original_start_symbol;
 
 @ @<Census LHS symbols@> =
 { Marpa_Rule_ID rule_id;
@@ -2145,7 +2225,7 @@ for (rule_id = 0;
 	rule_id < (Marpa_Rule_ID)pre_rewrite_rule_count;
 	rule_id++) {
     struct marpa_rule* rule = rule_id2p(g, rule_id);
-    Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
+    Marpa_Symbol_ID lhs_id = LHS_Symbol_ID_of_Rule(rule);
     bv_bit_set(lhs_v, (guint)lhs_id);
     if (rule->length <= 0) {
 	bv_bit_set(empty_lhs_v, (guint)lhs_id);
@@ -2162,8 +2242,8 @@ terminal_v = bv_create(pre_rewrite_symbol_count);
 for (symbol_id = 0;
 	symbol_id < (Marpa_Symbol_ID)pre_rewrite_symbol_count;
 	symbol_id++) {
-    struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
-    if (symbol->is_terminal) {
+    struct symbol* symbol = Symbol_by_ID(g, symbol_id);
+    if (Symbol_is_Terminal(symbol)) {
 	bv_bit_set(terminal_v, (guint)symbol_id);
 	have_marked_terminals = 1;
     }
@@ -2197,7 +2277,7 @@ if (!g->is_lhs_terminal_ok) {
 	for (i = (Marpa_Symbol_ID)min; i <= (Marpa_Symbol_ID)max; i++) {
 	    g_context_clear(g);
 	    g_context_int_add(g, "symbol_id", i);
-	    message(g, "lhs is terminal");
+	    grammar_message(g, "lhs is terminal");
 	}
         start = max+2;
 	have_bad_lhs = 1;
@@ -2213,7 +2293,7 @@ if (!g->is_lhs_terminal_ok) {
 { Marpa_Symbol_ID symbol_id;
 bv_fill(terminal_v);
 for (symbol_id = 0; symbol_id < (Marpa_Symbol_ID)g->symbols->len; symbol_id++)
-{ symbol_id2p(g, symbol_id)->is_terminal = 1; } }
+{ Symbol_is_Terminal_by_ID(g, symbol_id) = 1; } }
 @ @<Mark non-LHS symbols terminal@> = 
 { guint start = 0;
 guint min, max;
@@ -2221,7 +2301,7 @@ bv_not(terminal_v, lhs_v);
 while ( bv_scan(terminal_v, start, &min, &max) ) {
     Marpa_Symbol_ID symbol_id;
     for (symbol_id = (Marpa_Symbol_ID)min; symbol_id <= (Marpa_Symbol_ID)max; symbol_id++) {
-     symbol_id2p(g, symbol_id)->is_terminal = 1;
+     Symbol_is_Terminal_by_ID(g, symbol_id) = 1;
     }
     start = max+2;
 }
@@ -2242,11 +2322,11 @@ Marpa_Symbol_ID symbol_id;
 gint counted_nullables = 0;
     for ( start = 0; bv_scan(nullable_v, start, &min, &max); start = max+2 ) {
 	for (symbol_id = (Marpa_Symbol_ID)min; symbol_id <= (Marpa_Symbol_ID)max; symbol_id++) {
-	    struct marpa_symbol *symbol = symbol_id2p(g, symbol_id);
+	    struct symbol *symbol = Symbol_by_ID(g, symbol_id);
 	    if (symbol->is_counted) {
 		g_context_clear(g);
 		g_context_int_add(g, "symbol_id", symbol_id);
-		message(g, "counted nullable");
+		grammar_message(g, "counted nullable");
 		counted_nullables++;
 	    }
 	    symbol->is_nullable = 1;
@@ -2271,7 +2351,7 @@ Marpa_Symbol_ID symbol_id;
 	for (symbol_id = (Marpa_Symbol_ID)min;
 		symbol_id <= (Marpa_Symbol_ID)max;
 		symbol_id++) {
-	    struct marpa_symbol *symbol = symbol_id2p(g, symbol_id);
+	    struct symbol *symbol = Symbol_by_ID(g, symbol_id);
 	    symbol->is_productive = 1;
 } }
 }
@@ -2308,7 +2388,7 @@ where many of the right hand sides repeat symbols.
 @<Calculate reach matrix@> =
 reach_matrix
     = matrix_create(pre_rewrite_symbol_count, pre_rewrite_symbol_count);
-{ guint symbol_id, no_of_symbols = symbol_count(g);
+{ guint symbol_id, no_of_symbols = Symbol_Count_of_G(g);
 for (symbol_id = 0; symbol_id < no_of_symbols; symbol_id++) {
      matrix_bit_set(reach_matrix, symbol_id, symbol_id);
 } }
@@ -2316,7 +2396,7 @@ for (symbol_id = 0; symbol_id < no_of_symbols; symbol_id++) {
 guint no_of_rules = rule_count(g);
 for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
      struct marpa_rule* rule = rule_id2p(g, rule_id);
-     Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
+     Marpa_Symbol_ID lhs_id = LHS_Symbol_ID_of_Rule(rule);
      guint rhs_ix, rule_length = rule->length;
      for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
 	 matrix_bit_set(reach_matrix,
@@ -2335,7 +2415,7 @@ Marpa_Symbol_ID symbol_id;
 	for (symbol_id = (Marpa_Symbol_ID)min;
 		symbol_id <= (Marpa_Symbol_ID)max;
 		symbol_id++) {
-	    struct marpa_symbol *symbol = symbol_id2p(g, symbol_id);
+	    struct symbol *symbol = Symbol_by_ID(g, symbol_id);
 	    symbol->is_accessible = 1;
 } }
 }
@@ -2347,17 +2427,23 @@ Bit_Vector accessible_v;
 @ A symbol is nulling if and only if it is a productive symbol which does not
 reach a terminal symbol.
 @<Census nulling symbols@> = 
-{ Bit_Vector reaches_terminal_v = bv_shadow(terminal_v);
-guint min, max, start;
-for ( start = 0; bv_scan(productive_v, start, &min, &max); start = max+2 ) {
-	Marpa_Symbol_ID productive_id;
-	for (productive_id = (Marpa_Symbol_ID)min;
-		productive_id <= (Marpa_Symbol_ID)max;
-		productive_id++) {
-	    bv_and(reaches_terminal_v, terminal_v, matrix_row(reach_matrix, (guint)productive_id));
-	    if (bv_is_empty(reaches_terminal_v)) symbol_id2p(g, productive_id)->is_nulling=1;
-} }
-bv_free(reaches_terminal_v); }
+{
+  Bit_Vector reaches_terminal_v = bv_shadow (terminal_v);
+  guint min, max, start;
+  for (start = 0; bv_scan (productive_v, start, &min, &max); start = max + 2)
+    {
+      Marpa_Symbol_ID productive_id;
+      for (productive_id = (Marpa_Symbol_ID) min;
+	   productive_id <= (Marpa_Symbol_ID) max; productive_id++)
+	{
+	  bv_and (reaches_terminal_v, terminal_v,
+		  matrix_row (reach_matrix, (guint) productive_id));
+	  if (bv_is_empty (reaches_terminal_v))
+	    Symbol_by_ID (g, productive_id)->is_nulling = 1;
+	}
+    }
+  bv_free (reaches_terminal_v);
+}
 
 @** The CHAF Rewrite.
 
@@ -2452,11 +2538,11 @@ if (!rule_is_productive(g, rule)) { rule->is_used = 0; goto NEXT_RULE; }
 @ For every accessible and productive proper nullable which
 is not already aliased, alias it.
 @<Alias proper nullables@> =
-{ gint no_of_symbols = symbol_count(g);
+{ gint no_of_symbols = Symbol_Count_of_G(g);
 Marpa_Symbol_ID symbol_id;
 for (symbol_id = 0; symbol_id < no_of_symbols; symbol_id++) {
-     struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
-     struct marpa_symbol* alias;
+     struct symbol* symbol = Symbol_by_ID(g, symbol_id);
+     struct symbol* alias;
      if (!symbol->is_nullable) continue;
      if (symbol->is_nulling) continue;
      if (!symbol->is_accessible) continue;
@@ -2479,7 +2565,7 @@ into multiple CHAF rules.
 factor_count = 0;
 for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
      Marpa_Symbol_ID symbol_id = rhs_symbol_id(rule, rhs_ix);
-     struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+     struct symbol* symbol = Symbol_by_ID(g, symbol_id);
      if (symbol->is_nulling) continue; /* Do nothing for nulling symbols */
      if (symbol_null_alias(symbol)) {
      /* If a proper nullable, record its position */
@@ -2504,7 +2590,7 @@ rule->is_used = 0; /* Mark the original rule unused */
 { guint unprocessed_factor_count; /* The number of proper nullables for which CHAF rules have
 yet to be written */
 guint factor_position_ix = 0; /* Current index into the list of factors */
-Marpa_Symbol_ID current_lhs_id = lhs_symbol_id(rule);
+Marpa_Symbol_ID current_lhs_id = LHS_Symbol_ID_of_Rule(rule);
 guint piece_end, piece_start = 0; /* The positions, in the original rule, where
 the new (virtual) rule starts and ends */
 for (unprocessed_factor_count = factor_count - factor_position_ix;
@@ -2519,13 +2605,13 @@ if (unprocessed_factor_count == 2) {
 } }
 
 @ @<Create a CHAF virtual symbol@> = {
-    struct marpa_symbol* chaf_virtual_symbol = symbol_new(g);
+    struct symbol* chaf_virtual_symbol = symbol_new(g);
     chaf_virtual_symbol->is_accessible = 1;
     chaf_virtual_symbol->is_productive = 1;
     chaf_virtual_symbol_id = chaf_virtual_symbol->id;
     g_context_clear(g);
     g_context_int_add(g, "rule_id", rule_id);
-    g_context_int_add(g, "lhs_id", lhs_symbol_id(rule));
+    g_context_int_add(g, "lhs_id", LHS_Symbol_ID_of_Rule(rule));
     g_context_int_add(g, "virtual_end", (gint)piece_end);
     symbol_callback(g, chaf_virtual_symbol_id);
 }
@@ -2612,7 +2698,7 @@ for (remaining_rhs_length=piece_rhs_length-1 ;
 	remaining_rhs_length < chaf_rule_length;
 	remaining_rhs_length++) {
     Marpa_Symbol_ID original_id = rhs_symbol_id(rule, piece_start+remaining_rhs_length);
-    struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, original_id));
+    struct symbol* alias = symbol_null_alias(Symbol_by_ID(g, original_id));
     remaining_rhs[remaining_rhs_length] = alias ? alias->id : original_id;
 } }
 { struct marpa_rule* chaf_rule;
@@ -2625,7 +2711,7 @@ for (remaining_rhs_length=piece_rhs_length-1 ;
 |remaining_rhs| is altered to be ready for the NN rule.
 @<Add NP CHAF rule for nullable continuation@> = {
     Marpa_Symbol_ID proper_id = rhs_symbol_id(rule, first_factor_position);
-    struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, proper_id));
+    struct symbol* alias = symbol_null_alias(Symbol_by_ID(g, proper_id));
     remaining_rhs[first_factor_piece_position] =
 	piece_rhs[first_factor_piece_position] =
 	alias->id;
@@ -2801,7 +2887,7 @@ It is assumed that the caller has ensured that
 @<Function definitions@> =
 static inline
 Marpa_Symbol_ID alias_by_id(struct marpa_g* g, Marpa_Symbol_ID proper_id) {
-     struct marpa_symbol* alias = symbol_null_alias(symbol_id2p(g, proper_id));
+     struct symbol* alias = symbol_null_alias(Symbol_by_ID(g, proper_id));
      return alias->id;
 }
 @ @<Private function prototypes@> =
@@ -2816,10 +2902,10 @@ in the literature --- it is called "augmenting the grammar".
 static inline
 struct marpa_g* g_augment(struct marpa_g* g) {
     Marpa_Symbol_ID proper_new_start_id = -1;
-    struct marpa_symbol* proper_old_start = NULL;
-    struct marpa_symbol* nulling_old_start = NULL;
-    struct marpa_symbol* proper_new_start = NULL;
-    struct marpa_symbol* old_start = symbol_id2p(g, g->start_symbol_id);
+    struct symbol* proper_old_start = NULL;
+    struct symbol* nulling_old_start = NULL;
+    struct symbol* proper_new_start = NULL;
+    struct symbol* old_start = Symbol_by_ID(g, g->start_symbol_id);
     @<Find and classify the old start symbols@>@;
     if (proper_old_start) { @<Set up a new proper start rule@> }
     if (nulling_old_start) { @<Set up a new nulling start rule@> }
@@ -2864,7 +2950,7 @@ if there is one.  Otherwise it is a new, nulling, symbol.
 @<Set up a new nulling start rule@> = {
 Marpa_Symbol_ID nulling_new_start_id;
 struct marpa_rule* new_start_rule;
-struct marpa_symbol* nulling_new_start;
+struct symbol* nulling_new_start;
 if (proper_new_start) { /* There are two start symbols */
     nulling_new_start = symbol_alias_create(g, proper_new_start);
     nulling_new_start_id = nulling_new_start->id;
@@ -2962,7 +3048,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
      proper_id = -1;
      for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
 	 Marpa_Symbol_ID symbol_id = rhs_symbol_id(rule, rhs_ix);
-	 struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+	 struct symbol* symbol = Symbol_by_ID(g, symbol_id);
 	 if (symbol->is_nullable) continue; /* After the CHAF rewrite, nullable $\E$ nulling */
 	 if (proper_id >= 0) goto NEXT_RULE; /* More
 	     than one proper symbol -- not a unit rule */
@@ -2971,7 +3057,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
     @#
     if (proper_id < 0) continue; /* A
 	nulling start rule is allowed, so there may be no proper symbol */
-     { struct marpa_symbol* rhs_symbol = symbol_id2p(g, proper_id);
+     { struct symbol* rhs_symbol = Symbol_by_ID(g, proper_id);
      GArray* lhs_rules = rhs_symbol->lhs;
      guint ix, no_of_lhs_rules = lhs_rules->len;
      for (ix = 0; ix < no_of_lhs_rules; ix++) {
@@ -3001,7 +3087,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
     rule->is_virtual_loop = rule->virtual_start < 0 || !rule->is_virtual_rhs;
     g_context_clear(g);
     g_context_int_add(g, "rule_id", rule_id);
-    message(g, "loop rule");
+    grammar_message(g, "loop rule");
 } }
 
 @ The higher layers can differ greatly in their treatment
@@ -3014,7 +3100,7 @@ there is not just a message for each loop rule, but also a final tally.
 @<Report loop rule count@> =
 g_context_clear(g);
 g_context_int_add(g, "loop_rule_count", loop_rule_count);
-message(g, "loop rule tally");
+grammar_message(g, "loop rule tally");
 
 @** The Aycock-Horspool Finite Automata.
 
@@ -3123,10 +3209,9 @@ the duple being a a rule and a position in that rule.
 typedef gint Marpa_AHFA_Item_ID;
 @ @<Private structures@> =
 struct AHFA_item {
-    Marpa_Symbol_ID postdot; /* The symbol after the dot, -1
-       for a completion */
     Marpa_AHFA_Item_ID sort_key;
     struct marpa_rule* rule;
+    @<Int aligned AHFA item elements@>@/
     gint position; /* position in the RHS, -1 for a completion */
 };
 @ A pointer to two lists of AHFA items.
@@ -3149,14 +3234,20 @@ g->AHFA_items_by_rule = NULL;
 if (g->AHFA_items) { g_free(g->AHFA_items); };
 if (g->AHFA_items_by_rule) { g_free(g->AHFA_items_by_rule); };
 
-@ @<Function definitions@> =
-static inline struct AHFA_item* 
-item_id2p(struct marpa_g* g, Marpa_AHFA_Item_ID item_id) {
-    return g->AHFA_items+item_id;
-}
-@ @<Private function prototypes@> =
-static inline struct AHFA_item*
-item_id2p(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
+@*0 AHFA Item Accessors.
+@*1 AHFA Item ID.
+@d AHFA_Item_by_ID(g, id) ((g)->AHFA_items+(id))
+
+@*1 AHFA Item LHS Symbol.
+@d LHS_Symbol_ID_of_AHFA_Item(item) LHS_ID_of_Rule(Rule_of_AHFA_Item(item))
+
+@*1 AHFA Item Postdot Symbol.
+|-1| if the item is a completion.
+@d Postdot_Symbol_ID_of_AHFA_Item(item) ((item)->postdot)
+@<Int aligned AHFA item elements@> = Marpa_Symbol_ID postdot;
+
+@*1 AHFA Item Rule.
+@d Rule_of_AHFA_Item(item) ((item)->rule)
 
 @*0 AHFA Item External Accessors.
 @<Function definitions@> =
@@ -3174,7 +3265,7 @@ Marpa_Rule_ID marpa_AHFA_item_rule(struct marpa_g* g,
     @<Return |-1| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |item_id| is invalid@>@/
-    return item_id2p(g, item_id)->rule->id;
+    return AHFA_Item_by_ID(g, item_id)->rule->id;
 }
 @ @<Public function prototypes@> =
 Marpa_Rule_ID marpa_AHFA_item_rule(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
@@ -3185,7 +3276,7 @@ gint marpa_AHFA_item_position(struct marpa_g* g,
     @<Return |-2| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |item_id| is invalid@>@/
-    return item_id2p(g, item_id)->position;
+    return AHFA_Item_by_ID(g, item_id)->position;
 }
 @ @<Public function prototypes@> =
 gint marpa_AHFA_item_position(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
@@ -3196,7 +3287,7 @@ Marpa_Symbol_ID marpa_AHFA_item_postdot(struct marpa_g* g,
     @<Return |-2| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |item_id| is invalid@>@/
-    return item_id2p(g, item_id)->postdot;
+    return AHFA_Item_by_ID(g, item_id)->postdot;
 }
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_AHFA_item_postdot(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
@@ -3206,7 +3297,7 @@ gint marpa_AHFA_item_sort_key(struct marpa_g* g,
     @<Return |-1| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |item_id| is invalid@>@/
-    return item_id2p(g, item_id)->sort_key;
+    return AHFA_Item_by_ID(g, item_id)->sort_key;
 }
 @ @<Public function prototypes@> =
 gint marpa_AHFA_item_sort_key(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
@@ -3261,7 +3352,7 @@ current_item++;
 
 @ @<Create an AHFA item for a precompletion@> =
 Marpa_Symbol_ID rh_symbol_id = rhs_symbol_id(rule, rhs_ix);
-struct marpa_symbol* symbol = symbol_id2p(g, rh_symbol_id);
+struct symbol* symbol = Symbol_by_ID(g, rh_symbol_id);
 if (symbol->is_nullable) goto NEXT_RH_SYMBOL;
 current_item->sort_key = current_item - base_item;
 current_item->postdot = rh_symbol_id;
@@ -3427,12 +3518,19 @@ The total is ${s \over 2} + {s \over 2} + s = 2s$.
 Typically, the number of AHFA states should be less than this estimate.
 
 @<Private structures@> =
-struct AHFA_state {
-    struct AHFA_item** items;
+struct AHFA_state_key {
     Marpa_AHFA_State_ID id;
-    guint item_count;
+};
+struct AHFA_state {
+    struct AHFA_state_key key;
+    struct AHFA_item** items;
     struct AHFA_state* empty_transition;
     GSequence* transitions;
+    Marpa_Symbol_ID* completed_symbols;
+    @<Widely aligned AHFA state elements@>@/
+    @<Int aligned AHFA state elements@>@/
+    guint item_count;
+    guint no_of_completed_symbols;
     unsigned int is_predict:1;
     unsigned int is_leo_completion:1;
 };
@@ -3441,7 +3539,8 @@ struct AHFA_state {
 @ @<Initialize grammar elements@> =
 g->AHFA = NULL;
 g->AHFA_len = 0;
-@ @<Destroy grammar elements@> = if (g->AHFA) {
+@*0 Destructor.
+@<Destroy grammar elements@> = if (g->AHFA) {
 Marpa_AHFA_State_ID id;
 for (id = 0; id < g->AHFA_len; id++) {
    GSequence* transitions_for_this_state = g->AHFA[id].transitions;
@@ -3452,16 +3551,17 @@ for (id = 0; id < g->AHFA_len; id++) {
 STOLEN_DQUEUE_DATA_FREE(g->AHFA);
 }
 
-@ Internal accessor to find an AHFA state by its id.
-@<Function definitions@> =
-static inline struct AHFA_state*
-AHFA_state_id2p(const struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id)
-{ return g->AHFA+AHFA_state_id; }
-@ @<Private function prototypes@> =
-static inline struct AHFA_state*
-AHFA_state_id2p(const struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
+@*0 Accessors.
+@*1 ID of AHFA State.
+@d ID_of_AHFA_State(state) ((state)->key.id)
 
-@ Check that symbol is in valid range.
+@*1 Find AHFA State by AHFA ID.
+Internal accessor to find an AHFA state by its id.
+@d AHFA_State_of_G_by_ID(g, id) ((g)->AHFA+(id))
+@d AHFA_State_of_R_by_ID(r, id) AHFA_State_of_G_by_ID(G_of_R(r), (id))
+
+@*1 Validate AHFA ID.
+Check that symbol is in valid range.
 @<Function definitions@> =
 static inline gint AHFA_state_id_is_valid(
 const struct marpa_g *g, Marpa_AHFA_State_ID AHFA_state_id) {
@@ -3471,13 +3571,12 @@ return AHFA_state_id < g->AHFA_len && AHFA_state_id >= 0;
 static inline gint AHFA_state_id_is_valid(
 const struct marpa_g *g, Marpa_AHFA_State_ID AHFA_state_id);
 
+@*1 Convert AHFA index to AHFA ID.
 @ Given an AHFA state
 and an index into the array of items for an AHFA state,
 return the |AHFA_Item_ID|.
-\rightskip 0pt plus 3em
 The caller must ensure that
-the index is in range.\par
-\rightskip 0pt
+the index is in range.
 @<Function definitions@> =
 static inline Marpa_AHFA_Item_ID AHFA_state_item_ix2id(
 const struct marpa_g *g, const struct AHFA_state* state, guint item_ix) {
@@ -3486,6 +3585,12 @@ const struct marpa_g *g, const struct AHFA_state* state, guint item_ix) {
 @ @<Private function prototypes@> =
 static inline Marpa_AHFA_Item_ID AHFA_state_item_ix2id(
 const struct marpa_g *g, const struct AHFA_state* state, guint item_ix);
+
+@*1 Postdot Symbols.
+@d Postdot_Symbol_Count_of_AHFA_State(state) ((state)->no_of_postdot_symbols)
+@d Postdot_Symbol_ID_Array_of_AHFA_State(state) ((state)->postdot_symbols)
+@<Widely aligned AHFA state elements@> = Marpa_Symbol_ID* postdot_symbols;
+@ @<Int aligned AHFA state elements@> = guint no_of_postdot_symbols;
 
 @*0 AHFA State External Accessors.
 @<Function definitions@> =
@@ -3502,7 +3607,7 @@ marpa_AHFA_state_item_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id
     struct AHFA_state* state;
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
     return state->item_count;
 }
 @ @<Public function prototypes@> =
@@ -3516,7 +3621,7 @@ Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
     @<Return |-1| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
     if (item_ix >= state->item_count) {
 	g_context_clear(g);
 	g_context_int_add(g, "item_ix", (gint)item_ix);
@@ -3538,25 +3643,74 @@ marpa_AHFA_state_transition_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_st
     struct AHFA_state* state;
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
     return g_sequence_get_length(state->transitions);
 }
 @ @<Public function prototypes@> =
 gint marpa_AHFA_state_transition_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
 
+@*1 Symbol Transitions of AHFA State.
+@
+Complexity is fine --- $O(1)$ in the length of the input,
+but nonetheless this implementation might be improved.
+This operation is at the heart of the parse engine,
+and worth a careful look.
+@ One alternative is to use bison's solution,
+which is a type of perfect hashing.
+Calculating AHFA transitions
+is very closely related to accessing an LALR table ---
+for this purpose, both are essentially LR(0) tables.
+Time and space tradeoffs of the two algorithms
+are, if not identical, very, very similar.
+So the result of bison's experience is probably
+the best solution here.
+@ Another alternative is to use
+a sparse 2-dimensional array.
+This would be easy to implement
+and very fast,
+but the array will be $a\cdot s$
+in size,
+where $a$ is the number of AHFA states,
+and 
+where $s$ is the number of symbols.
+Since most transitions are not defined, most of the space would be wasted.
+@ The trend is for memory to get cheap, favoring the 2-dimensional array.
+But I expect the trend will also be for grammars to get larger,
+and the space required by the 2-dimensional array is roughly
+$O(n^2)$ in the size of the grammar.
+@d To_State_of_Earley_Item_and_Symbol_ID(item, id)
+    (to_state_find(AHFA_State_of_Earley_Item(item), (id)))
+@<Function definitions@> =
+static inline struct AHFA_state*
+to_state_find (struct AHFA_state *state, Marpa_Symbol_ID symbol_id)
+{
+  gboolean match = FALSE;	// Initialized to silence compiler warning
+  GSequenceIter *found_iter;
+  struct AHFA_transition_key key;
+  key.symbol_id = symbol_id;
+  found_iter =
+    sequence_find (state->transitions, &key, AHFA_transition_cmp, &match);
+  if (!match) return NULL;
+  return To_State_of_AHFA_Transition ((struct AHFA_transition *)
+			   g_sequence_get (found_iter));
+}
+@ @<Public function prototypes@> =
+struct AHFA_state;
+static inline struct AHFA_state* to_state_find(
+    struct AHFA_state* state,
+    Marpa_Symbol_ID symbol_id);
+
 @ This is the external version of the transition
 structure.
-As of this writing it is identical to the internal one,
-but, while each does represent the same data,
-the two representations serve different purposes and may
-well evolve differently.
 @<Public structures@> =
 struct marpa_AHFA_transition {
      Marpa_Symbol_ID symbol;
      Marpa_AHFA_State_ID to;
 };
 
-@ It is up to the caller to ensure there is enough space in |buffer|.
+@
+\rightskip 0pt plus 10em
+It is up to the caller to ensure there is enough space in |buffer|.
 |marpa_AHFA_state_transition_count()| is available for this purpose.
 @<Function definitions@> =
 struct marpa_AHFA_transition* marpa_AHFA_state_transitions(struct marpa_g* g,
@@ -3569,14 +3723,14 @@ struct marpa_AHFA_transition* marpa_AHFA_state_transitions(struct marpa_g* g,
      @<Return |NULL| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    transitions = AHFA_state_id2p(g, AHFA_state_id)->transitions;
+    transitions = AHFA_State_of_G_by_ID(g, AHFA_state_id)->transitions;
     end = g_sequence_get_end_iter(transitions);
     for (iter = g_sequence_get_begin_iter(transitions);
          !g_sequence_iter_is_end(iter);
 	 iter = g_sequence_iter_next(iter)) {
 	 struct AHFA_transition* internal = g_sequence_get(iter);
-	 p_buffer->symbol = internal->symbol;
-	 p_buffer->to = internal->to;
+	 p_buffer->symbol = Symbol_ID_of_AHFA_Transition(internal);
+	 p_buffer->to = To_State_ID_of_AHFA_Transition(internal);
 	 p_buffer++;
     }
     return buffer;
@@ -3586,7 +3740,10 @@ struct marpa_AHFA_transition* marpa_AHFA_state_transitions(struct marpa_g* g,
     Marpa_AHFA_State_ID AHFA_state_id,
     struct marpa_AHFA_transition* buffer);
 
-@ Here -1 is a valid return value, indicating no empty transition.
+@*1 Empty Transition of AHFA State.
+@d Empty_Transition_of_AHFA_State(state) ((state)->empty_transition)
+@ In the external accessor,
+-1 is a valid return value, indicating no empty transition.
 @<Function definitions@> =
 Marpa_AHFA_State_ID marpa_AHFA_state_empty_transition(struct marpa_g* g,
      Marpa_AHFA_State_ID AHFA_state_id) {
@@ -3595,9 +3752,10 @@ Marpa_AHFA_State_ID marpa_AHFA_state_empty_transition(struct marpa_g* g,
     @<Return |-2| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
-    empty_transition_state = state->empty_transition;
-    if (empty_transition_state) return empty_transition_state->id;
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
+    empty_transition_state = Empty_Transition_of_AHFA_State (state);
+    if (empty_transition_state)
+      return ID_of_AHFA_State (empty_transition_state);
     return -1;
 }
 @ @<Public function prototypes@> =
@@ -3611,7 +3769,7 @@ gint marpa_AHFA_state_is_predict(struct marpa_g* g,
     @<Return |-1| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
     return state->is_predict;
 }
 @ @<Public function prototypes@> =
@@ -3625,7 +3783,7 @@ gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
     @<Return |-1| on failure@>@/
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_state_id2p(g, AHFA_state_id);
+    state = AHFA_State_of_G_by_ID(g, AHFA_state_id);
     return state->is_leo_completion;
 }
 @ @<Public function prototypes@> =
@@ -3635,12 +3793,13 @@ gint marpa_AHFA_state_is_leo_completion(struct marpa_g* g,
 @*0 Internal Accessors.
 @ The ordering of the AHFA states can be arbitrarily chosen
 to be efficient to compute.
-All the that is necessary is that state with identical sets
+The only requirement is that states with identical sets
 of items compare equal.
 Here the length is the first subkey, because
 that will be enough to order most predicted states.
 The discovered states will be efficient to compute because
-they will to be either short, or to be quickly differentiated
+they will tend either to be short,
+or else to be quickly differentiated
 based on length.
 \par
 Note that this function is not used for discovered AHFA states of
@@ -3681,7 +3840,7 @@ void create_AHFA_states(struct marpa_g* g) {
    struct AHFA_state* p_working_state;
    const guint initial_no_of_states = 2*g->size;
    struct AHFA_item* AHFA_item_0_p = g->AHFA_items;
-   guint no_of_symbols = symbol_count(g);
+   guint no_of_symbols = Symbol_Count_of_G(g);
    guint no_of_rules = rule_count(g);
    Bit_Matrix prediction_matrix;
    struct marpa_rule** rule_by_sort_key = g_new(struct marpa_rule*, no_of_rules);
@@ -3752,12 +3911,12 @@ g_sequence_free(duplicates);
    struct AHFA_state* p_initial_state = DQUEUE_PUSH(states, struct AHFA_state);@/
    Marpa_Rule_ID start_rule_id;
    struct AHFA_item* start_item;
-   struct marpa_symbol* start_symbol = symbol_id2p(g, g->start_symbol_id);
-   struct marpa_symbol* start_alias
+   struct symbol* start_symbol = Symbol_by_ID(g, g->start_symbol_id);
+   struct symbol* start_alias
        = symbol_null_alias(start_symbol);
-    gint no_of_items_in_state = start_alias ? 2 : 1;
+    gint no_of_items_in_new_state = start_alias ? 2 : 1;
     struct AHFA_item ** item_list
-	= obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
+	= obstack_alloc(&g->obs, no_of_items_in_new_state*sizeof(struct AHFA_item*));
     start_rule_id = g_array_index(start_symbol->lhs, Marpa_Rule_ID, 0); /* The start rule
 	is the unique rule that has the start symbol as its LHS */
     start_item = g->AHFA_items_by_rule[start_rule_id]; /* The start item is the
@@ -3771,25 +3930,49 @@ g_sequence_free(duplicates);
 	item_list[1] = g->AHFA_items_by_rule[alias_rule_id];
     }
     p_initial_state->items = item_list;
-    p_initial_state->item_count = no_of_items_in_state;
-    p_initial_state->id = 0;
+    p_initial_state->item_count = no_of_items_in_new_state;
+    p_initial_state->key.id = 0;
     p_initial_state->is_predict = 0;
     p_initial_state->is_leo_completion = 0;
     p_initial_state->transitions = g_sequence_new(NULL);
     p_initial_state->empty_transition = NULL;
-    if (!start_symbol->is_nulling) { // If this is not a null parse
-	p_initial_state->empty_transition
-	    = create_predicted_AHFA_state(g,
-		matrix_row(prediction_matrix,
-		(guint)start_item->postdot),
-		 rule_by_sort_key,
-		 &states,
-		 duplicates);
-    }
+    if (start_symbol->is_nulling)
+      {				// Special case the null parse
+	p_initial_state->no_of_completed_symbols = 1;
+	p_initial_state->completed_symbols =
+	  obstack_alloc (&g->obs, sizeof (Marpa_Symbol_ID));
+	*(p_initial_state->completed_symbols) = g->start_symbol_id;
+	p_initial_state->no_of_postdot_symbols = 0;
+      }
+    else
+      {
+	p_initial_state->no_of_postdot_symbols = 1;
+	p_initial_state->postdot_symbols =
+	  obstack_alloc (&g->obs, sizeof (Marpa_Symbol_ID));
+	*(p_initial_state->postdot_symbols) = start_item->postdot;
+	if (start_alias)
+	  {
+	    p_initial_state->no_of_completed_symbols = 1;
+	    p_initial_state->completed_symbols =
+	      obstack_alloc (&g->obs, sizeof (Marpa_Symbol_ID));
+	    *(p_initial_state->completed_symbols) =
+	      LHS_Symbol_ID_of_Rule (rule_id2p (g, start_rule_id));
+	  }
+	else
+	  {
+	    p_initial_state->no_of_completed_symbols = 0;
+	  }
+	p_initial_state->empty_transition =
+	  create_predicted_AHFA_state (g,
+				       matrix_row (prediction_matrix,
+						   (guint) start_item->postdot),
+				       rule_by_sort_key, &states, duplicates);
+      }
 }
 
 @* Discovered AHFA States.
-@ @<Create a 1-item discovered AHFA state@> = {
+@ \hbadness2000
+@<Create a 1-item discovered AHFA state@> = {
 struct AHFA_state* p_new_state;
 struct AHFA_item** new_state_item_list;
 struct AHFA_item* single_item_p = item_list[first_working_item_ix];
@@ -3809,12 +3992,16 @@ new_state_item_list = p_new_state->items = obstack_alloc(&g->obs, sizeof(struct 
 new_state_item_list[0] = single_item_p;
 p_new_state->item_count = 1;
 p_new_state->is_predict = 0;
-p_new_state->id = p_new_state - DQUEUE_BASE(states, struct AHFA_state);
+p_new_state->key.id = p_new_state - DQUEUE_BASE(states, struct AHFA_state);
 p_new_state->transitions = g_sequence_new(NULL);
 AHFA_transition_add(g, p_working_state, working_symbol, p_new_state);
 postdot = single_item_p->postdot;
 if (postdot >= 0) {
     p_new_state->is_leo_completion = 0;
+	p_new_state->no_of_postdot_symbols = 1;
+	p_new_state->postdot_symbols =
+	  obstack_alloc (&g->obs, sizeof (Marpa_Symbol_ID));
+	*(p_new_state->postdot_symbols) = postdot;
 // If the sole item is not a completion
 // attempt to create a predicted AHFA state as well
   p_new_state->empty_transition =
@@ -3824,12 +4011,20 @@ if (postdot >= 0) {
 	     &states,
 	     duplicates);
 } else {
+	p_new_state->no_of_completed_symbols = 1;
+	p_new_state->completed_symbols =
+	  obstack_alloc (&g->obs, sizeof (Marpa_Symbol_ID));
+	*(p_new_state->completed_symbols) = 
+	      LHS_Symbol_ID_of_Rule (single_item_p->rule);
+	p_new_state->no_of_postdot_symbols = 0;
   p_new_state->empty_transition = NULL;
   @<Mark this state as a Leo completion if it is one@>@/
 }
 }
 
-@ Assuming this is a 1-item completion, mark this state as
+@
+\hbadness1000
+Assuming this is a 1-item completion, mark this state as
 a Leo completion if the last non-nulling symbol is on a LHS.
 (This eliminates rule which end in a terminal-only symbol from
 consideration in the Leo logic.)
@@ -3857,7 +4052,7 @@ rules, then this state is a Leo completion.
 Marpa_Symbol_ID previous_nonnulling_symbol_id = single_item_p[-1].postdot;
 p_new_state->is_leo_completion
     = SYMBOL_LHS_RULE_COUNT(
-	symbol_id2p(g, previous_nonnulling_symbol_id)
+	Symbol_by_ID(g, previous_nonnulling_symbol_id)
     ) > 0;
 }
 
@@ -3911,32 +4106,91 @@ if (queued_AHFA_state) { // The new state would be a duplicate
     goto NEXT_WORKING_SYMBOL;
 }
 // If we added the new state, finish up its data.
-p_new_state->id = p_new_state - DQUEUE_BASE(states, struct AHFA_state);
+p_new_state->key.id = p_new_state - DQUEUE_BASE(states, struct AHFA_state);
 p_new_state->is_predict=0;
 p_new_state->is_leo_completion=0;
 p_new_state->transitions = g_sequence_new(NULL);
+@<Calculate completed and postdot symbols for discovered state@>@/
 AHFA_transition_add(g, p_working_state, working_symbol, p_new_state);
 @<Calculate the predicted rule vector for this state
 and add the predicted AHFA state@>@/
 }
 
-@ Ensure the AHFA state in the argument exists.
-If it does not exist, insert it and return |NULL|.
-If it does exist, return it.
-@<Function definitions@> =
-static inline struct AHFA_state* assign_AHFA_state(
-struct AHFA_state* state_p, GSequence* duplicates) {
-    GSequenceIter* insertion_point
-	= g_sequence_search(duplicates, state_p, AHFA_state_cmp, NULL);
-    if (!g_sequence_iter_is_begin(insertion_point)) { /* If there is a state
-           equal to the one to be added, it is prior to the insertion point.
-	   If the prior state is equal, just return it */
-	struct AHFA_state* prev_state
-	    = g_sequence_get(g_sequence_iter_prev(insertion_point));
-	if (!AHFA_state_cmp(prev_state, state_p, NULL)) return prev_state;
+@ @<Calculate completed and postdot symbols for discovered state@> =
+{
+  guint symbol_count = Symbol_Count_of_G (g);
+  guint item_ix;
+  guint no_of_postdot_symbols;
+  guint no_of_completed_symbols;
+  Bit_Vector completed_v = bv_create (symbol_count);
+  Bit_Vector postdot_v = bv_create (symbol_count);
+  for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++)
+    {
+      struct AHFA_item *item = item_list_for_new_state[item_ix];
+      Marpa_Symbol_ID postdot = Postdot_Symbol_ID_of_AHFA_Item (item);
+      if (postdot < 0)
+	{
+	  bv_bit_set (postdot_v, (guint) LHS_Symbol_ID_of_Rule (item->rule));
+	}
+      else
+	{
+	  bv_bit_set (completed_v, (guint) postdot);
+	}
     }
-    g_sequence_insert_before(insertion_point, state_p);
-    return NULL;
+if ((no_of_postdot_symbols = p_new_state->no_of_postdot_symbols =
+     bv_count (postdot_v)))
+  {
+    guint min, max, start;
+    Marpa_Symbol_ID *p_symbol = p_new_state->postdot_symbols =
+      obstack_alloc (&g->obs,
+		     no_of_postdot_symbols * sizeof (Marpa_Symbol_ID));
+    for (start = 0; bv_scan (postdot_v, start, &min, &max); start = max + 2)
+      {
+	Marpa_Symbol_ID postdot;
+	for (postdot = (Marpa_Symbol_ID) min;
+	     postdot <= (Marpa_Symbol_ID) max; postdot++)
+	  {
+	    *p_symbol++ = postdot;
+	  }
+      }
+  }
+if ((no_of_completed_symbols = p_new_state->no_of_completed_symbols =
+     bv_count (completed_v)))
+  {
+    guint min, max, start;
+    Marpa_Symbol_ID *p_symbol = p_new_state->completed_symbols =
+      obstack_alloc (&g->obs,
+		     no_of_completed_symbols * sizeof (Marpa_Symbol_ID));
+    for (start = 0; bv_scan (completed_v, start, &min, &max); start = max + 2)
+      {
+	Marpa_Symbol_ID completed_symbol;
+	for (completed_symbol = (Marpa_Symbol_ID) min;
+	     completed_symbol <= (Marpa_Symbol_ID) max; completed_symbol++)
+	  {
+	    *p_symbol++ = completed_symbol;
+	  }
+      }
+  }
+    bv_free (postdot_v);
+    bv_free (completed_v);
+}
+
+@ Find the AHFA state in the argument,
+creating it if it does not exist.
+When it does not exist, insert it
+in the sequence of states
+and return |NULL|.
+When it does exist, return a pointer to it.
+@<Function definitions@> =
+static inline struct AHFA_state *
+assign_AHFA_state (struct AHFA_state *state_p, GSequence * duplicates)
+{
+  gboolean match = FALSE; // Initialized to silence compiler warning
+  GSequenceIter *iter =
+    sequence_find (duplicates, state_p, AHFA_state_cmp, &match);
+  if (match) return g_sequence_get(iter);
+  g_sequence_insert_before (iter, state_p);
+  return NULL;
 }
 @ @<Private function prototypes@> =
 static inline struct AHFA_state* assign_AHFA_state(
@@ -4013,7 +4267,7 @@ Marpa_Symbol_ID symbol_id;
     struct AHFA_item** items_by_rule = g->AHFA_items_by_rule;
     for (symbol_id = 0; symbol_id < (Marpa_Symbol_ID)no_of_symbols; symbol_id++) {
 	// If a symbol appears on a LHS, it predicts itself.
-	struct marpa_symbol* symbol = symbol_id2p(g, symbol_id);
+	struct symbol* symbol = Symbol_by_ID(g, symbol_id);
 	if (!SYMBOL_LHS_RULE_COUNT(symbol)) continue;
 	matrix_bit_set(symbol_by_symbol_matrix,
 	    (guint)symbol_id, (guint)symbol_id);
@@ -4025,7 +4279,7 @@ Marpa_Symbol_ID symbol_id;
 	struct marpa_rule* rule;
 	if (!item) continue; // Not all rules have items
 	rule = item->rule;
-	from = lhs_symbol_id(rule);
+	from = LHS_Symbol_ID_of_Rule(rule);
 	to = item->postdot;
 	if (to < 0) continue; // There is no symbol-to-symbol transition
 	// for a completion item
@@ -4121,31 +4375,45 @@ for (sort_key = 0; sort_key < no_of_rules; sort_key++) {
       sort_key_by_rule_id[rule->id] = sort_key;
 } }
 
-@ @<Populate the prediction matrix@> = {
-   prediction_matrix = matrix_create(no_of_symbols, no_of_predictable_rules);
-    for (from_symbol_id = 0; from_symbol_id < (Marpa_Symbol_ID)no_of_symbols; from_symbol_id++) {
-    // for every row of the symbol-by-symbol matrix
-	  guint min, max, start;
-	for ( start = 0; bv_scan(
-		matrix_row(symbol_by_symbol_matrix, (guint)from_symbol_id),
-		start, &min, &max);
-		start = max+2
-		) {
-	    Marpa_Symbol_ID to_symbol_id;
-	    for (to_symbol_id = min; to_symbol_id <= (Marpa_Symbol_ID)max; to_symbol_id++) {
-	    // for every predicted symbol
-	     struct marpa_symbol* to_symbol = symbol_id2p(g, to_symbol_id);
-	     GArray* lhs_rules = to_symbol->lhs;
-	 guint ix, no_of_lhs_rules = lhs_rules->len;
-     for (ix = 0; ix < no_of_lhs_rules; ix++) {
-	 // For every rule with that symbol on its LHS
-	 Marpa_Rule_ID rule_with_this_lhs_symbol = g_array_index(lhs_rules, Marpa_Rule_ID, ix);
-	 guint sort_key = sort_key_by_rule_id[rule_with_this_lhs_symbol];
-	 if (sort_key >= no_of_predictable_rules) continue; /*
-	     We only need to predict rules which have items */
-	 matrix_bit_set(prediction_matrix, (guint)from_symbol_id, sort_key);
-	     // Set the $(symbol, rule sort key)$ bit in the matrix
-} } } } }
+@ @<Populate the prediction matrix@> =
+{
+  prediction_matrix = matrix_create (no_of_symbols, no_of_predictable_rules);
+  for (from_symbol_id = 0; from_symbol_id < (Marpa_Symbol_ID) no_of_symbols;
+       from_symbol_id++)
+    {
+      // for every row of the symbol-by-symbol matrix
+      guint min, max, start;
+      for (start = 0;
+	   bv_scan (matrix_row
+		    (symbol_by_symbol_matrix, (guint) from_symbol_id), start,
+		    &min, &max); start = max + 2)
+	{
+	  Marpa_Symbol_ID to_symbol_id;
+	  for (to_symbol_id = min; to_symbol_id <= (Marpa_Symbol_ID) max;
+	       to_symbol_id++)
+	    {
+	      // for every predicted symbol
+	      struct symbol *to_symbol = Symbol_by_ID (g, to_symbol_id);
+	      GArray *lhs_rules = to_symbol->lhs;
+	      guint ix, no_of_lhs_rules = lhs_rules->len;
+	      for (ix = 0; ix < no_of_lhs_rules; ix++)
+		{
+		  // For every rule with that symbol on its LHS
+		  Marpa_Rule_ID rule_with_this_lhs_symbol =
+		    g_array_index (lhs_rules, Marpa_Rule_ID, ix);
+		  guint sort_key =
+		    sort_key_by_rule_id[rule_with_this_lhs_symbol];
+		  if (sort_key >= no_of_predictable_rules)
+		    continue;	/*
+				   We only need to predict rules which have items */
+		  matrix_bit_set (prediction_matrix, (guint) from_symbol_id,
+				  sort_key);
+		  // Set the $(symbol, rule sort key)$ bit in the matrix
+		}
+	    }
+	}
+    }
+}
 
 @ @<Function definitions@> =
 static struct AHFA_state*
@@ -4156,49 +4424,49 @@ create_predicted_AHFA_state(
      struct dqueue* states_p,
      GSequence* duplicates
      ) {
-guint start, min, max;
-struct AHFA_item** item_list;
+struct AHFA_item** item_list_for_new_state;
 struct AHFA_state* p_new_state;
 guint item_list_ix = 0;
-guint no_of_items_in_state = 0;
-for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
-	start = max+2
-	) { // count the number of items in this AHFA state
-	no_of_items_in_state += max - min + 1;
-}
-	if (no_of_items_in_state == 0) return NULL;
-item_list = obstack_alloc(&g->obs, no_of_items_in_state*sizeof(struct AHFA_item*));
-for ( start = 0; bv_scan( prediction_rule_vector, start, &min, &max);
-	start = max+2
-	) { // Scan the prediction rule vector again, this time to populate the list
-	    guint rule_sort_key;
-	    for (rule_sort_key = min;
-		    rule_sort_key <= max;
-		    rule_sort_key++) {
-		/* Add the initial item for the predicted rule */
-		struct marpa_rule* rule = rule_by_sort_key[rule_sort_key];
-		item_list[item_list_ix++] = g->AHFA_items_by_rule[rule->id];
-	    }
+guint no_of_items_in_new_state = bv_count( prediction_rule_vector);
+	if (no_of_items_in_new_state == 0) return NULL;
+item_list_for_new_state = obstack_alloc (&g->obs,
+	       no_of_items_in_new_state * sizeof (struct AHFA_item *));
+{
+  guint start, min, max;
+  for (start = 0; bv_scan (prediction_rule_vector, start, &min, &max);
+       start = max + 2)
+    {				// Scan the prediction rule vector again, this time to populate the list
+      guint rule_sort_key;
+      for (rule_sort_key = min; rule_sort_key <= max; rule_sort_key++)
+	{
+	  /* Add the initial item for the predicted rule */
+	  struct marpa_rule *rule = rule_by_sort_key[rule_sort_key];
+	  item_list_for_new_state[item_list_ix++] =
+	    g->AHFA_items_by_rule[rule->id];
 	}
+    }
+}
 p_new_state = DQUEUE_PUSH((*states_p), struct AHFA_state);@/
-    p_new_state->items = item_list;
-    p_new_state->item_count = no_of_items_in_state;
+    p_new_state->items = item_list_for_new_state;
+    p_new_state->item_count = no_of_items_in_new_state;
     { struct AHFA_state* queued_AHFA_state = assign_AHFA_state(p_new_state, duplicates);
 	 /* The new state would be a duplicate
 	 Back it out the new state we were creating and
        and return the one that already exists */
         if (queued_AHFA_state) {
 	    (void)DQUEUE_POP((*states_p), struct AHFA_state);
-	    obstack_free(&g->obs, item_list);
+	    obstack_free(&g->obs, item_list_for_new_state);
 	    return queued_AHFA_state;
 	}
     }
     // The new state was added -- finish up its data
-    p_new_state->id = p_new_state - DQUEUE_BASE((*states_p), struct AHFA_state);
+    p_new_state->key.id = p_new_state - DQUEUE_BASE((*states_p), struct AHFA_state);
     p_new_state->is_predict = 1;
     p_new_state->is_leo_completion = 0;
     p_new_state->empty_transition = NULL;
     p_new_state->transitions = g_sequence_new(NULL);
+    p_new_state->no_of_completed_symbols = 0;
+    @<Calculate postdot symbols for predicted state@>@/
     return p_new_state;
 }
 @ @<Private function prototypes@> =
@@ -4211,35 +4479,73 @@ create_predicted_AHFA_state(
      GSequence* duplicates
      );
 
-@** AHFA Transitions.
+@ @<Calculate postdot symbols for predicted state@> =
+{
+  guint symbol_count = Symbol_Count_of_G (g);
+  guint item_ix;
+  guint no_of_postdot_symbols;
+  Bit_Vector postdot_v = bv_create (symbol_count);
+    for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++)
+      {
+	struct AHFA_item *item = item_list_for_new_state[item_ix];
+	Marpa_Symbol_ID postdot = Postdot_Symbol_ID_of_AHFA_Item (item);
+	if (postdot >= 0)
+	  bv_bit_set (postdot_v, (guint) postdot);
+      }
+    if ((no_of_postdot_symbols = p_new_state->no_of_postdot_symbols =
+     bv_count (postdot_v)))
+  {
+    guint min, max, start;
+    Marpa_Symbol_ID *p_symbol = p_new_state->postdot_symbols =
+      obstack_alloc (&g->obs,
+		     no_of_postdot_symbols * sizeof (Marpa_Symbol_ID));
+    for (start = 0; bv_scan (postdot_v, start, &min, &max); start = max + 2)
+      {
+	Marpa_Symbol_ID postdot;
+	for (postdot = (Marpa_Symbol_ID) min;
+	     postdot <= (Marpa_Symbol_ID) max; postdot++)
+	  {
+	    *p_symbol++ = postdot;
+	  }
+      }
+  }
+    bv_free (postdot_v);
+}
 
+@** AHFA Transitions.
+@d Symbol_ID_of_AHFA_Transition(transition) ((transition)->key.symbol_id)
+@d To_State_of_AHFA_Transition(transition) ((transition)->to_state)
+@d To_State_ID_of_AHFA_Transition(transition)
+    (ID_of_AHFA_State(To_State_of_AHFA_Transition(transition)))
 @ @<Private structures@> =
+struct AHFA_transition_key {
+     Marpa_Symbol_ID symbol_id;
+};
 struct AHFA_transition {
-     Marpa_Symbol_ID symbol;
-     Marpa_AHFA_State_ID to;
+     struct AHFA_transition_key key;
+     struct AHFA_state* to_state;
 };
 
 @ @<Function definitions@> = static
-gint cmp_AHFA_transition(gconstpointer ap,
-	gconstpointer bp, gpointer user_data G_GNUC_UNUSED) {
-    gint subkey;
-    const struct AHFA_transition *a = ap;
-    const struct AHFA_transition *b = bp;
-    subkey = a->symbol - b->symbol;
-    if (subkey) return subkey;
-    return a->to - b->to;
+gint
+AHFA_transition_cmp (gconstpointer ap, gconstpointer bp,
+		     gpointer user_data G_GNUC_UNUSED)
+{
+  const struct AHFA_transition *a = ap;
+  const struct AHFA_transition *b = bp;
+  return Symbol_ID_of_AHFA_Transition (a) - Symbol_ID_of_AHFA_Transition (b);
 }
 @ @<Private function prototypes@> = static
-gint cmp_AHFA_transition(gconstpointer ap,
+gint AHFA_transition_cmp(gconstpointer ap,
 	gconstpointer bp, gpointer user_data);
 
 @ @<Function definitions@> = static inline
 void AHFA_transition_add(struct marpa_g* g,
 struct AHFA_state* from, Marpa_Symbol_ID symbol, struct AHFA_state* to) {
     struct AHFA_transition* transition = obstack_alloc(&g->obs, sizeof(struct AHFA_transition));
-    transition->symbol = symbol;
-    transition->to = to->id;
-    g_sequence_insert_sorted(from->transitions, transition, cmp_AHFA_transition, NULL);
+    transition->key.symbol_id = symbol;
+    transition->to_state = to;
+    g_sequence_insert_sorted(from->transitions, transition, AHFA_transition_cmp, NULL);
 }
 @ @<Private function prototypes@> = static inline void
 AHFA_transition_add(struct marpa_g* g,
@@ -4298,12 +4604,13 @@ keep |libmarpa| MT-safe.
 @ @<Initialize recognizer elements@> =
 r->id = g_atomic_int_exchange_and_add(&next_recce_id, 1);
 @ @<Function definitions@> =
-gint marpa_recce_id(struct marpa_r* r) { return r->id; }
+gint marpa_r_id(struct marpa_r* r) { return r->id; }
 @ @<Public function prototypes@> =
-gint marpa_recce_id(struct marpa_r* r);
+gint marpa_r_id(struct marpa_r* r);
 
 @*0 The Grammar for the Recognizer.
 Initialized in |marpa_r_new|.
+@d G_of_R(r) ((r)->grammar)
 @ @<Widely aligned recognizer elements@> = const struct marpa_g *grammar;
 
 @*0 Recognizer Phase.
@@ -4320,41 +4627,54 @@ enum {
 r->phase = initial_phase;
 
 @*0 Earley Sets.
+@d Current_Earley_Set_Iter_of_R(r) ((r)->current_iter)
+@d LV_Current_Earley_Set_Iter_of_R(r) Current_Earley_Set_Iter_of_R(r)
+@d Earley_Set_of_Earley_Set_Iter(iter) 
+    ((struct earley_set*)g_sequence_get(iter))
+@d Current_Earley_Set_of_R(r)
+    (Earley_Set_of_Earley_Set_Iter(Current_Earley_Set_Iter_of_R(r)))
+@d Earleme_of_Earley_Set_Iter(iter) ID_of_Earley_Set(Earley_Set_of_Earley_Set_Iter(iter))
+@d Current_Earleme_of_R(r) (Earleme_of_Earley_Set_Iter(Current_Earley_Set_Iter_of_R(r)))
 @<Widely aligned recognizer elements@> =
-struct earley_set* initial;
-struct earley_set* current;
-struct earley_set* furthest;
-@ Initialization takes place in |marpa_r_init()|.
-@<Destroy recognizer elements@> =
-if (r->initial) earley_sets_free(r->initial);
-@ @<Function definitions@> =
-static inline void earley_sets_free(struct earley_set* initial) {
-   g_debug("Not yet implemented");
-}
-@ @<Private function prototypes@> =
-static inline void earley_sets_free(struct earley_set* initial);
+GSequence* earley_sets;
+GSequenceIter* current_iter;
+@ @<Initialize recognizer elements@> =
+r->earley_sets = g_sequence_new(earley_set_free);
+@ @<Destroy recognizer elements@> =
+g_sequence_free(r->earley_sets);
 
 @*0 Earley Set Warning Threshold.
-@d DEFAULT_TOO_MANY_EARLEY_ITEMS (100)
-@<Int aligned recognizer elements@> = guint too_many_earley_items;
+@d DEFAULT_EARLEY_ITEM_WARNING_THRESHOLD (100)
+@<Int aligned recognizer elements@> = guint earley_item_warning_threshold;
 @ @<Initialize recognizer elements@> =
-r->too_many_earley_items = MAX(DEFAULT_TOO_MANY_EARLEY_ITEMS, g->no_of_items*2);
+r->earley_item_warning_threshold = MAX(DEFAULT_EARLEY_ITEM_WARNING_THRESHOLD, g->no_of_items*2);
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
-guint marpa_too_many_earley_items(struct marpa_r* r)
-{ return r->too_many_earley_items; }
+guint marpa_earley_item_warning_threshold(struct marpa_r* r)
+{ return r->earley_item_warning_threshold; }
 @ @<Public function prototypes@> =
-guint marpa_too_many_earley_items(struct marpa_r* r);
+guint marpa_earley_item_warning_threshold(struct marpa_r* r);
 @ Returns |TRUE| on success,
 |FALSE| on failure.
 @<Function definitions@> =
-gboolean marpa_too_many_earley_items_set(struct marpa_r*r, guint too_many_earley_items)
+gboolean marpa_earley_item_warning_threshold_set(struct marpa_r*r, guint threshold)
 {
-    r->too_many_earley_items = too_many_earley_items;
+    r->earley_item_warning_threshold = threshold == 0 ? EARLEY_ITEM_FATAL_THRESHOLD : threshold;
     return TRUE;
 }
 @ @<Public function prototypes@> =
-gboolean marpa_too_many_earley_items_set(struct marpa_r*r, guint too_many_earley_items);
+gboolean marpa_earley_item_warning_threshold_set(struct marpa_r*r, guint threshold);
+
+@*0 Furthest Earleme.
+The "furthest" or highest-numbered earleme.
+This is the earleme of the last Earley set that contains anything.
+Marpa allows variable length tokens,
+so it needs to track how far out tokens might be found.
+No completed or predicted Earley item will be found after the current earleme.
+@d Furthest_Earleme_of_R(r) ((r)->furthest_earleme)
+@d LV_Furthest_Earleme_of_R(r) Furthest_Earleme_of_R(r)
+@<Int aligned recognizer elements@> = Marpa_Earleme furthest_earleme;
+@ @<Initialize recognizer elements@> = r->furthest_earleme = 0;
 
 @*0 Recognizer Boolean: Trace Earley Sets.
 A trace flag, set if we are tracing earley sets as they are created.
@@ -4473,13 +4793,130 @@ Marpa_Error_ID marpa_r_error(const struct marpa_r* r)
 @ @<Public function prototypes@> =
 Marpa_Error_ID marpa_r_error(const struct marpa_r* r);
 
+@** Earlemes.
+In most parsers, the input is modeled as a token stream ---
+a sequence of tokens.
+In this model the idea of location is not complex.
+The first token is at location 0, the second at location 1,
+etc.
+@ Marpa allows ambiguous and variable length tokens, and requires
+a more flexible idea of location, with a unit of length.
+The unit of token length in Marpa is called an Earleme.
+The locations themselves are often called earlemes.
+@ |EARLEME_THRESHOLD| is less than |G_MAXINT| so that
+I can prevent overflow without getting fancy -- overflow
+by addition is impossible as long as earlemes are below
+the threshold.
+@ I considered defining earlemes as |glong| or |gint64|.
+My thought on the matter is that machines with 32-bit int's
+will quickly become museum pieces, and in the meantime this
+definition of |EARLEME_THRESHOLD| probably allows as large as
+parse as the memories on those machines will be
+able to handle.
+@d EARLEME_THRESHOLD (G_MAXINT/4)
+@<Public typedefs@> = typedef gint Marpa_Earleme;
+
 @** Earley Set Objects.
-@<Incomplete private structures@> = struct earley_set;
+@ @<Incomplete private structures@> = struct earley_set;
 @ @<Private structures@> =
-struct earley_set {
-    gint id;
-    GSequence* earley_items;
+struct earley_set_key {
+    Marpa_Earleme id;
 };
+struct earley_set {
+    struct earley_set_key key;
+    GSequence* earley_items;
+    GSequence* postdot;
+    @<Int aligned Earley set elements@>@/
+};
+
+@*0 Constructor.
+@<Function definitions@> =
+static inline struct earley_set*
+earley_set_new( struct marpa_r* r, Marpa_Earleme id)
+{
+  struct earley_set_key key;
+  struct earley_set* set = obstack_alloc (&r->obs, sizeof (struct earley_set));
+  key.id = id;
+  set->key = key;
+  set->earley_items = g_sequence_new (NULL);
+  set->postdot = g_sequence_new (NULL);
+  @<Initialize Earley set elements@>@/
+  return set;
+}
+static inline GSequenceIter*
+earley_set_assign (struct marpa_r *r, Marpa_Earleme id)
+{
+  struct earley_set* set;
+  struct earley_set_key key;
+  gboolean match = FALSE; // Initialized to silence compiler warning
+  GSequenceIter * iter;
+  key.id = id;
+  iter = sequence_find (r->earley_sets, &key, earley_set_cmp, &match);
+  if (match) return iter;
+  set = earley_set_new(r, id);
+  return g_sequence_insert_before (iter, set);
+}
+@ @<Private function prototypes@> =
+static inline struct earley_set *earley_set_new (struct marpa_r *r,
+						    Marpa_Earleme id);
+static inline GSequenceIter* earley_set_assign (struct marpa_r *r,
+						    Marpa_Earleme id);
+
+@*0 Destructor.
+@<Function definitions@> =
+static inline void earley_set_free(gpointer p) {
+       GSequence *sequence;
+       struct earley_set* set = p;
+       if ((sequence = set->earley_items)) g_sequence_free(sequence);
+       if ((sequence = set->postdot)) g_sequence_free(sequence);
+}
+@ @<Private function prototypes@> =
+static inline void earley_set_free(gpointer p);
+
+@*0 Comparison Function.
+@<Function definitions@> =
+static gint 
+earley_set_cmp(
+	       gconstpointer ap,
+	       gconstpointer bp,
+	       gpointer user_data G_GNUC_UNUSED)
+{
+	const struct earley_set_key *set_key_a = ap;
+	const struct earley_set_key *set_key_b = bp;
+	return set_key_a->id - set_key_b->id;
+}
+@ @<Private function prototypes@> =
+static gint     earley_set_cmp(gconstpointer a, gconstpointer b, gpointer user_data G_GNUC_UNUSED);
+
+@*0 ID of Earley Set.
+@d ID_of_Earley_Set(set) ((set)->key.id)
+@d Earleme_of_Earley_Set(set) ID_of_Earley_Set(set)
+
+@*0 Earley Set by ID.
+Returns |NULL| if the set is not found.
+@d Earley_Set_by_ID(r, id) (earley_set_by_id((r), (id)))
+@<Function definitions@> =
+static inline struct earley_set *
+earley_set_by_id(struct marpa_r *r, Marpa_Earleme earleme)
+{
+  GSequenceIter *iter;
+  struct earley_set_key key;
+  gboolean match = FALSE; // Initialized to silence compiler warning
+  key.id = earleme;
+  iter = sequence_find (r->earley_sets, &key,
+					      earley_set_cmp,
+					      &match);
+  return match ? (struct earley_set *) g_sequence_get(iter) : NULL;
+}
+@ @<Private function prototypes@> =
+static inline struct earley_set *earley_set_by_id(struct marpa_r * r, Marpa_Earleme earleme);
+
+@*0 Earley Item Count for this Set.
+This is memoized in the Earley set structure.
+It could be determined from the |GSequence| of Earley items,
+but that would add a significant overhead.
+@<Int aligned Earley set elements@>= guint earley_item_count;
+@ @<Initialize Earley set elements@>= set->earley_item_count = 0;
 
 @** Earley Item Objects.
 @ {\bf Thoughts about optimization:}
@@ -4497,22 +4934,938 @@ Earley items and links.
 If there are 1M copies of a structure,
 each byte saved is a 1M saved.
 
-@<Public structures@> =
-struct earley_item {
+@ The solution arrived at is to optimize for Earley items
+with a single source, storing that source in the item
+itself.
+For Earley item with multiple sources, a special structure
+of linked lists is used.
+When a second source is added,
+the first source is copied into the lists,
+and its original space used for pointers to the linked
+lists.
+@ This solution is optimized both
+for the unambiguous case,
+and for adding the third and additional
+sources.
+The only awkwardness takes place
+when the second source is added, and the first one must
+be recopied to make way for pointers to the linked lists.
+@d EARLEY_ITEM_FATAL_THRESHOLD (G_MAXINT/4)
+
+@<Earley item structure@> =
+struct earley_item_key {
      struct AHFA_state* state;
      struct earley_set* origin;
-     struct earley_set* set;
-     /* link data goes here */
 };
-@ Initialize Earley Item Object
+struct earley_item {
+     struct earley_item_key key;
+     struct earley_set* set;
+     union sourcing sourcing;
+     @<Bit aligned Earley item elements@>@/
+};
+@*0 Constructor.
+Find an Earley item object, creating it if it does not exist.
+Only in a couple of cases per parse (in AHFA state 0),
+do we already
+know that the Earley item is unique in the set.
+These are not worth optimizing for.
 @<Function definitions@> =
-static inline struct earley_item* earley_item_new(struct marpa_r* r)
-{ struct earley_item* item =
-    obstack_alloc(&r->obs, sizeof(struct earley_item*));
-    return item;
+static inline struct earley_item* earley_item_new(struct marpa_r* r,
+    struct earley_set *set, struct earley_item_key key)
+{
+  struct earley_item* new_item = obstack_alloc (&r->obs, sizeof (struct earley_item));
+  new_item->key = key;
+  new_item->set = set;
+  new_item->source_type = NO_SOURCE;
+  return new_item;
+}
+@ @<Private function prototypes@> =
+static inline struct earley_item* earley_item_new(struct marpa_r* r,
+    struct earley_set *set, struct earley_item_key key);
+@ @<Function definitions@> =
+static inline struct earley_item* earley_item_assign(
+    struct marpa_r *r, struct earley_set *set,
+     struct earley_set* origin, struct AHFA_state* state)
+{
+    struct earley_item_key key;
+    key.origin = origin;
+    key.state = state;
+    return earley_item_assign_by_key(r, set, key);
+}
+@ @<Private function prototypes@> =
+static inline struct earley_item *earley_item_assign (struct marpa_r *r,
+						      struct earley_set *set,
+						      struct earley_set *origin,
+						      struct AHFA_state* state);
+@ @<Function definitions@> =
+static inline struct earley_item *earley_item_assign_by_key (@/
+    struct marpa_r *r, struct earley_set *set,
+		    struct earley_item_key key)
+{
+  struct earley_item *new_item;
+  GSequenceIter *iter;
+  guint count = set->earley_item_count++;
+  if (count >= r->earley_item_warning_threshold)
+    {@/
+      r_context_clear (r);
+      if (count >= EARLEY_ITEM_FATAL_THRESHOLD)
+	{
+	  r->error = "earley items more than fatal threshold";
+	  return NULL;
+	}
+      r_message (r, "earley item count exceeds threshold");
+    }@;
+  {
+    gboolean match = FALSE; // Initialized to silence compiler warning
+    iter = sequence_find
+      (set->earley_items, &key, own_earley_item_cmp, &match);
+    if (match) return (struct earley_item*)g_sequence_get(iter);
+  }
+  new_item = earley_item_new(r, set, key);
+  g_sequence_insert_before (iter, new_item);
+  return new_item;
+}
+@ @<Private function prototypes@> =
+static inline struct earley_item *earley_item_assign_by_key (struct marpa_r *r,
+						      struct earley_set *set,
+						      struct earley_item_key
+						      key);
+
+@*0 Destructor.
+No destructor.  All earley item elements are either owned by other objects.
+The Earley item itself is on the obstack.
+
+@*0 Comparison Function.
+This must be valid for comparing Earley item keys,
+so it does not use any non-key elements.
+@ @<Function body for Earley item comparison@> =
+{
+  const struct earley_item *item_a = ap;
+  const struct earley_item *item_b = bp;
+  gint subkey =
+    AHFA_State_ID_of_Earley_Item (item_a) -
+    AHFA_State_ID_of_Earley_Item (item_b);
+  if (subkey)
+    return subkey;
+  return Origin_ID_of_Earley_Item (item_a) - Origin_ID_of_Earley_Item (item_b);
+}
+@ @<Function definitions@> =
+static gint
+own_earley_item_cmp (gconstpointer ap,
+		 gconstpointer bp, gpointer user_data G_GNUC_UNUSED)
+@<Function body for Earley item comparison@>
+static inline gint earley_item_cmp (gconstpointer ap,
+		 gconstpointer bp, gpointer user_data G_GNUC_UNUSED)
+@<Function body for Earley item comparison@>
+@ @<Private function prototypes@> =
+static gint own_earley_item_cmp(gconstpointer a, gconstpointer b,
+    gpointer user_data G_GNUC_UNUSED);
+static inline gint earley_item_cmp(gconstpointer a, gconstpointer b,
+    gpointer user_data G_GNUC_UNUSED);
+
+@*0 Accessors.
+
+@*1 The AHFA State of the Earley Item.
+@d AHFA_State_ID_of_Earley_Item(item) (ID_of_AHFA_State(AHFA_State_of_Earley_Item(item)))
+@d AHFA_State_of_Earley_Item(item) ((item)->key.state)
+
+@*1 The Origin of the Earley Item.
+@d Origin_ID_of_Earley_Item(item) (ID_of_Earley_Set(Origin_of_Earley_Item(item)))
+@d Origin_of_Earley_Item(item) ((item)->key.origin)
+
+@*1 Source of the Earley Item.
+@d NO_SOURCE (0U)
+@d SOURCE_IS_TOKEN (1U)
+@d SOURCE_IS_LEO_TOKEN (2U)
+@d SOURCE_IS_COMPLETION (3U)
+@d SOURCE_IS_LEO_COMPLETION (4U)
+@d SOURCE_IS_AMBIGUOUS (5U)
+@d Source_Type_of_Earley_Item(item) ((item)->source_type)
+@d Item_has_No_Source(item) ((item)->source_type == NO_SOURCE)
+@d Item_has_Token_Source(item) ((item)->source_type == SOURCE_IS_TOKEN)
+@d Item_has_Leo_Token_Source(item) ((item)->source_type == SOURCE_IS_LEO_TOKEN)
+@d Item_has_Completed_Source(item) ((item)->source_type == SOURCE_IS_COMPLETION)
+@d Item_has_Leo_Completed_Source(item) ((item)->source_type == SOURCE_IS_LEO_COMPLETION)
+@d Item_is_Ambiguous(item) ((item)->source_type == SOURCE_IS_AMBIGUOUS)
+@<Bit aligned Earley item elements@> =
+unsigned int source_type:3;@/
+
+@*1 External Accessors.
+The external accessor for Earley item counts more logically belongs
+with the Earley set object, but I expect it to be used almost
+exclusively with the external accessor for the Earley items.
+@ These accessors do not
+distinguish between out of bounds earlemes and those with
+no Earley items.
+In alternate input models, spans of earlemes can be skipped,
+so a non-existent earleme may either be one which is out of bounds,
+or one which is within the bounds of the parse but has no Earley
+items.
+To some extent, the bounds of the parse are
+a matter of definition,
+left up to the higher layers.
+For the time being,
+I leave tracking which earleme is in bounds or out up to the
+higher layers as well.
+@<Function definitions@> =
+gint
+marpa_earley_item_count(struct marpa_r* r, Marpa_Earleme earleme)
+{ @<Return |-1| on failure@>@/
+    struct earley_set* set;
+    @<Fail if recognizer initial@>@/
+    set = Earley_Set_by_ID(r, earleme);
+    if (!set) return 0;
+    return g_sequence_get_length(set->earley_items);
 }
 @ @<Public function prototypes@> =
-static inline struct earley_item* earley_item_new(struct marpa_r* r);
+gint marpa_earley_item_count(struct marpa_r* r, Marpa_Earleme earleme);
+
+@ This is the external version of the Earley set key
+structure.
+@<Public structures@> =
+struct marpa_earley_item {
+     Marpa_AHFA_State_ID state;
+     Marpa_Earleme origin;
+};
+
+@
+\rightskip 0pt plus 10em
+It is up to the caller to ensure there is enough space in |buffer|.
+|marpa_earley_item_count()| is available for this purpose.
+It is safe to call |marpa_earley_items|
+even if 
+|marpa_earley_item_count()| returned zero.
+This is true even where 
+the earleme is non=existent.
+Such calls will be useless, but are not treated as errors.
+@<Function definitions@> =
+struct marpa_earley_item *
+marpa_earley_items (struct marpa_r *r,
+		    Marpa_Earleme earleme, struct marpa_earley_item *buffer)
+{
+  struct earley_set *set;
+  GSequence *items;
+  GSequenceIter *iter;
+  struct marpa_earley_item *p_buffer = buffer;
+  @<Return |NULL| on failure @>@/
+  @<Fail if recognizer initial @>@/
+  set = Earley_Set_by_ID (r, earleme);
+  if (!set)
+    return buffer;
+  items = set->earley_items;
+  for (iter = g_sequence_get_begin_iter (items);
+       !g_sequence_iter_is_end (iter); iter = g_sequence_iter_next (iter))
+    {
+      struct earley_item *internal = g_sequence_get (iter);
+      p_buffer->state = AHFA_State_ID_of_Earley_Item (internal);
+      p_buffer->origin = Origin_ID_of_Earley_Item (internal);
+      p_buffer++;
+    }
+  return buffer;
+}
+@ @<Public function prototypes@> =
+struct marpa_earley_item* marpa_earley_items(struct marpa_r* r,
+    Marpa_Earleme earleme,
+    struct marpa_earley_item* buffer
+    );
+
+@** Leo Item Objects.
+Leo items originate from the "transition items" of Joop Leo's 1991 paper.
+They are set up so their first fields are identical to those of
+|earley_ix| items, so that they can be linked into an index together
+with them.
+@<Private structures@> =
+struct leo_item;
+struct earley_ix {
+     Marpa_Symbol_ID postdot_symbol_id;
+     struct earley_item* earley_item; // Never NULL if this is an index item
+};
+struct leo_item {
+     struct earley_ix earley_ix;
+     struct earley_set* origin;
+     struct AHFA* top_to_state;
+     struct leo_item* predecessor;
+     struct earley_item* base;
+     struct earley_set* set;
+};
+
+@** Postdot Items.
+Postdot items are entries in an index,
+by postdot symbol, of both the Earley items and the Leo items
+for each Earley set.
+@<Private structures@> =
+union postdot_item {
+    struct leo_item leo;
+    struct earley_ix earley;
+};
+@*0 Comparison Function.
+@ @<Function definitions@> =
+static gint
+postdot_item_cmp (gconstpointer ap, gconstpointer bp,
+		  gpointer user_data G_GNUC_UNUSED)
+{
+  const struct earley_ix *a = ap;
+  const struct earley_ix *b = bp;
+  struct earley_item *earley_item_a;
+  struct earley_item *earley_item_b;
+  {
+      gint subkey = a->postdot_symbol_id - b->postdot_symbol_id;
+      if (subkey) return subkey;
+  }
+  earley_item_a = a->earley_item;
+  earley_item_b = b->earley_item;
+  if (earley_item_a && earley_item_b) {
+    gint origin_a, origin_b;
+    gint state_a = (gint) AHFA_State_of_Earley_Item (earley_item_a);
+    gint state_b = (gint) AHFA_State_of_Earley_Item (earley_item_b);
+    gint subkey = state_a - state_b;
+    if (subkey)
+      return subkey;
+    origin_a = (gint) Origin_of_Earley_Item (earley_item_a);
+    origin_b = (gint) Origin_of_Earley_Item (earley_item_b);
+    subkey = origin_a - origin_b;
+    if (subkey)
+      return subkey;
+  }
+  return (earley_item_a ? 1 : 0) - (earley_item_b ? 1 : 0);
+}
+@ @<Private function prototypes@> = static gint
+postdot_item_cmp (gconstpointer ap, gconstpointer bp,
+		  gpointer user_data G_GNUC_UNUSED);
+
+@*0 Accessors.
+@*1 Earley Item of a Postdot Item.
+@d Earley_Item_of_Postdot_Item(postdot) ((postdot)->earley.earley_item)
+
+@*1 Symbol of a Postdot Item.
+@d Symbol_ID_of_Postdot_Item(postdot) ((postdot)->earley.postdot_symbol_id)
+
+@ This function inserts regular (non-Leo) postdot items into
+the postdot list.
+It is assumed that the caller has ensured this is not a duplicate.
+\rightskip 0pt
+@<Function definitions@> =
+static inline void postdot_items_create(@/
+    struct marpa_r* r, struct earley_set *set,
+    struct earley_item* item
+)
+{@/
+    struct earley_ix *new_item;@;
+    struct AHFA_state *state = AHFA_State_of_Earley_Item (item);
+    gint symbol_ix;
+    gint postdot_symbol_count = Postdot_Symbol_Count_of_AHFA_State (state);@;
+    Marpa_Symbol_ID* postdot_symbols =
+	Postdot_Symbol_ID_Array_of_AHFA_State(state);@;
+    for (symbol_ix = 0; symbol_ix < postdot_symbol_count; symbol_ix++) {@/
+	new_item = obstack_alloc(&r->obs, sizeof(struct earley_ix));@/
+	new_item->postdot_symbol_id = postdot_symbols[symbol_ix];@/
+	new_item->earley_item = item;@/
+	g_sequence_insert_sorted(set->postdot, new_item, postdot_item_cmp, NULL);@/
+    }
+}
+
+@** Source Objects.
+These are distinguished by context, except in the case
+of Leo token sources and Leo completion sources.
+In that case, |symbol_id| will be |-1| for
+Leo completion sources.
+The |symbol_id| element of the |source| union
+cannot be safely accessed
+unless it is known from the context that the source
+is one of the Leo sources.
+@*0 The Relationship between Leo items and Ambiguity.
+The relationship between Leo items and ambiguous sources bears
+some explaining.
+Leo sources must be unique, but only when their predecessor's
+Earley set is considered.
+That is, for every pairing of Earley item and Earley set,
+if there be only one Leo source in that Earley item
+with a predecessor in that Earley set.
+But there may be other sources (both Leo and non-Leo),
+a long as their predecessors
+are in different Earley sets.
+@ One way to look at these Leo ambiguities is as different
+"factorings" of the Earley item.
+Assume the last (or transition) symbol of an Earley item
+is a token.
+An Earley item will often have both a predecessor and a token,
+and these can "factor", or divide up, the distance between
+an Earley item's origin and its current set in different ways.
+@ The Earley item can have only one origin,
+and only one transition symbol.
+But that transition symbol does not have to start at the origin
+and can start anywhere between the origin and the current
+set of the Earley item.
+For example, for an Earley item at earleme 14, with its origin at 10,
+tokens may start at earlemes 10, 11, 12 and 13.
+Each may have its own Leo source.
+At those earlemes without a Leo source, there may be any number
+of non-Leo sources.
+@ In this way, an Earley item with a Leo source can be ambiguous.
+The discussion above assumed the final symbol was a token.
+The situation for completion Earley items is similar,
+and these also can both have a Leo source and 
+be ambiguous.
+@*0 Optimization.
+There will be a lot of these structures in a long
+parse, so space optimization is important.
+I have some latitude in the number of linked lists
+in a ambiguous source.
+If an |int| is the same size as a |void*|,
+then space for three |void*| in ambiguous sources
+comes "free".
+If |void*| is $n$ bytes larger than an |int|,
+then each unambiguous source uses $n$ bytes
+more than it has to, although there are
+compensating improvements in
+speed and simplicity.
+Any programmer trying to take advantage
+of architectures where |int|
+is shorter than |void*| will need to
+assure herself that the space she saves in 
+the |ambiguous_source| struct was not simply wasted
+by alignment within structures or during memory allocation.
+@ The distinction between full and brief
+source links is used to save the space for one pointer on the completion
+source in ambiguous Earley items.
+@d Next_Link_of_Source_Link(link) ((link)->next)
+@<Incomplete private structures@> = union source_link;
+@ @<Source object structure@>= 
+struct brief_source {
+     void *predecessor;
+     void *cause;
+};
+struct full_source {
+     struct brief_source links;
+     Marpa_Symbol_ID token_id;
+};
+struct brief_source_link {
+    union source_link* next;
+    struct brief_source source;
+};
+struct full_source_link {
+    union source_link* next;
+    struct full_source source;
+};
+union source_link {
+    union source_link* next;
+    struct brief_source_link brief;
+    struct full_source_link full;
+};
+struct ambiguous_source {
+    struct full_source_link* leo;
+    struct full_source_link* token;
+    struct brief_source_link* completion;
+};
+union sourcing {
+    struct ambiguous_source ambiguous;
+    struct brief_source brief;
+    struct full_source full;
+};
+
+@
+@d Predecessor_of_Earley_Item(item) ((item)->sourcing.brief.predecessor)
+@d Predecessor_of_Source_Link(link) (((struct brief_source_link*)(link))->source.predecessor)
+@d Token_ID_of_Earley_Item(item) ((item)->sourcing.full.token_id)
+@d Token_ID_of_Source_Link(link) (((struct full_source_link*)(link))->token_id)
+@d Cause_of_Earley_Item(item) ((item)->sourcing.brief.cause)
+@d Cause_of_Source_Link(link) (((struct brief_source_link*)(link))->source.cause)
+@d First_Completion_Link_of_Earley_Item(item) ((item)->sourcing.ambiguous.completion)
+@d First_Token_Link_of_Earley_Item(item) ((item)->sourcing.ambiguous.token)
+@d First_Leo_Link_of_Earley_Item(item) ((item)->sourcing.ambiguous.leo)
+
+@ @<Function definitions@> = static inline
+void
+token_link_add (struct marpa_r *r,
+		struct earley_item *item,
+		struct earley_item *predecessor,
+		gpointer value, Marpa_Symbol_ID token_id)
+{
+  struct full_source_link *new_link;
+  unsigned int previous_source_type = Source_Type_of_Earley_Item (item);
+  if (previous_source_type == NO_SOURCE)
+    {
+      Source_Type_of_Earley_Item (item) = SOURCE_IS_TOKEN;
+      item->sourcing.full.links.predecessor = predecessor;
+      item->sourcing.full.links.cause = value;
+      item->sourcing.full.token_id = token_id;
+      return;
+    }
+  if (previous_source_type != SOURCE_IS_AMBIGUOUS)
+    { // If the sourcing is not already ambiguous, make it so
+      earley_item_ambiguate (r, item);
+    }
+  new_link = obstack_alloc (&r->obs, sizeof (struct full_source_link));
+  new_link->next = (union source_link*)First_Token_Link_of_Earley_Item (item);
+  new_link->source.links.predecessor = predecessor;
+  new_link->source.links.cause = value;
+  new_link->source.token_id = token_id;
+  First_Token_Link_of_Earley_Item (item) = new_link;
+}
+@ @<Private function prototypes@> = static inline void
+token_link_add (struct marpa_r *r,
+		struct earley_item *item,
+		struct earley_item *predecessor,
+		gpointer value, Marpa_Symbol_ID token_id);
+
+@ {\bf Convert an Earley item to an ambiguous one.}
+|earley_item_ambiguate|
+assumes it is called when there is exactly one source.
+In other words, is assumes that the Earley item
+is not unsourced,
+and that it is not already ambiguous.
+Ambiguous sources should have more than one source,
+and
+|earley_item_ambiguate|
+is assuming that a new source will be added as followup.
+@
+Inlining |earley_item_ambiguate| might help in some
+circumstance, but at this point
+|earley_item_ambiguate| is not marked |inline|.
+|earley_item_ambiguate|
+is not short,
+it is referenced in several places,
+it is only called for ambiguous Earley items,
+and even for these it is only called when the
+Earley item first becomes ambiguous.
+@<Function definitions@> = static 
+void earley_item_ambiguate (struct marpa_r * r, struct earley_item *item)
+{
+  unsigned int previous_source_type = Source_Type_of_Earley_Item (item);
+  Source_Type_of_Earley_Item (item) = SOURCE_IS_AMBIGUOUS;
+  switch (previous_source_type)
+    {
+    case SOURCE_IS_TOKEN: @<Ambiguate token source@>@/
+      return;
+    case SOURCE_IS_COMPLETION: @<Ambiguate completion source@>@/
+      return;
+    case SOURCE_IS_LEO_TOKEN: @<Ambiguate Leo token source@>@/
+      return;
+    case SOURCE_IS_LEO_COMPLETION: @<Ambiguate Leo completion source@>@/
+      return;
+    }
+}
+@ @<Private function prototypes@> = static 
+void earley_item_ambiguate (struct marpa_r * r, struct earley_item *item);
+
+@ @<Ambiguate token source@> = {
+  struct full_source_link *new_link =
+    obstack_alloc (&r->obs, sizeof (struct full_source_link));
+  new_link->next = NULL;
+  new_link->source = item->sourcing.full;
+  First_Leo_Link_of_Earley_Item (item) = NULL;
+  First_Completion_Link_of_Earley_Item (item) = NULL;
+  First_Token_Link_of_Earley_Item (item) = new_link;
+}
+
+@ @<Ambiguate completion source@> = {
+  struct brief_source_link *new_link =
+    obstack_alloc (&r->obs, sizeof (struct brief_source_link));
+  new_link->next = NULL;
+  new_link->source = item->sourcing.brief;
+  First_Leo_Link_of_Earley_Item (item) = NULL;
+  First_Completion_Link_of_Earley_Item (item) = new_link;
+  First_Token_Link_of_Earley_Item (item) = NULL;
+}
+
+@ @<Ambiguate Leo token source@> = {
+  struct full_source_link *new_link =
+    obstack_alloc (&r->obs, sizeof (struct full_source_link));
+  new_link->next = NULL;
+  new_link->source = item->sourcing.full;
+  First_Leo_Link_of_Earley_Item (item) = new_link;
+  First_Completion_Link_of_Earley_Item (item) = NULL;
+  First_Token_Link_of_Earley_Item (item) = NULL;
+}
+
+@ Note that when that when a Leo completion source goes into
+the chain of ambiguous source links, it must be converted
+form a brief source link
+into a full source link.
+@<Ambiguate Leo completion source@> = {
+  struct full_source_link *new_link =
+    obstack_alloc (&r->obs, sizeof (struct full_source_link));
+  new_link->next = NULL;
+  new_link->source.links = item->sourcing.brief;
+  new_link->source.token_id = -1;
+  First_Leo_Link_of_Earley_Item (item) = new_link;
+  First_Completion_Link_of_Earley_Item (item) = NULL;
+  First_Token_Link_of_Earley_Item (item) = NULL;
+}
+
+@** Starting Recognizer Input.
+@<Function definitions@> = gboolean marpa_start_input(struct marpa_r *r)
+{
+    struct earley_set* set0;
+    struct earley_item* item;
+    struct AHFA_state* state;
+    GSequenceIter *current_iter;
+    @<Return |FALSE| on failure@>@/
+    @<Fail if recognizer not initial@>@/
+    current_iter = r->current_iter = earley_set_assign(r, 0);
+    set0 = g_sequence_get(current_iter);
+    state = AHFA_State_of_R_by_ID(r, 0);
+    item = earley_item_assign(r, set0, set0, state);
+    if (!item) return FALSE; // |g->error| was set inside |earley_item_assign|
+    postdot_items_create(r, set0, item);
+    state = Empty_Transition_of_AHFA_State(state);
+    if (state) {
+	item = earley_item_assign(r, set0, set0, state);
+	if (!item) return FALSE; // |g->error| was set inside |earley_item_assign|
+	postdot_items_create(r, set0, item);
+    }
+    r->phase = active_phase;
+    return TRUE;
+}
+@ @<Public function prototypes@> = gboolean marpa_start_input(struct marpa_r *r);
+
+@** Read an Token Alternative.
+If you are familiar with other parsers, you probably are used to thinking of the
+input as a stream of tokens.
+The ordinary, token-stream, semantics of a parser generator, in Marpa terms,
+correspond to reading exactly one token alternative at every location.
+In Marpa, the locations are called earlemes.
+Marpa allows ambiguous tokens, and zero or more token alternatives may be
+read at any one earleme.
+@ |marpa_alternative|, by enforcing a limit on token length and on
+the furthest location, indirectly enforces a limit on the
+number of earley sets and the maximum earleme location.
+If tokens, ending at location $n$ cannot be scanned, the parse can
+never reach location $n$.
+@ Whether token rejection is considered a failure is
+a matter for the upper layers to define.
+Retrying rejected tokens is one way to implement the
+important "Ruby Slippers" parsing technique.
+On the other hand, it is traditional, and in many situations
+quite reasonable, to always treat rejection of a token as a 
+fatal error.
+@ Returns current earleme (which may be zero) on success.
+If the token is rejected, returns |-1|.
+On failure for other reasons, returns |-2|.
+@<Function definitions@> = @<|marpa_alternative| definition@>
+@ @<|marpa_alternative| definition@> =
+gboolean marpa_alternative(struct marpa_r *r,
+Marpa_Symbol_ID token_id, void *value, gint length)
+@ @<|marpa_alternative| definition@> =
+{
+    Marpa_Earleme target_earleme;
+    GSequenceIter* working_postdot_iter = NULL;
+    union postdot_item* working_postdot_item;
+    struct earley_item* postdot_earley_item;
+    struct earley_set* current_earley_set;
+    struct earley_set* target_earley_set;
+    struct earley_item* target_earley_item = NULL;
+    const struct marpa_g* g = G_of_R(r);
+    struct symbol* token = Symbol_by_ID(g, token_id);
+    @<Return |-2| on failure@>@/
+@ @<|marpa_alternative| definition@> =
+    @<Fail if recognizer not active@>@/
+    if (!Symbol_is_Terminal(token)) { @/
+	r_context_clear(r);
+	r->error = "token is not a terminal";
+	return failure_indicator;
+    } @/
+@ @<|marpa_alternative| definition@> =
+    if (length <= 0) { @/
+	r_context_clear(r);
+	r->error = "token length negative or zero";
+	return failure_indicator;
+    } @/
+    if (length >= EARLEME_THRESHOLD) { @/
+	r_context_clear(r);
+	r->error = "token too long";
+	return failure_indicator;
+    } @/
+@ @<|marpa_alternative| definition@> =
+    target_earleme = Current_Earleme_of_R(r) + length;
+    if (target_earleme >= EARLEME_THRESHOLD) { @/
+	r_context_clear(r);
+	r_context_int_add(r, "target_earleme", target_earleme);
+	r->error = "parse too long";
+	return failure_indicator;
+    } @/
+@ @<|marpa_alternative| definition@> =
+    LV_Furthest_Earleme_of_R(r) = MAX(target_earleme, Furthest_Earleme_of_R(r));
+    current_earley_set = Current_Earley_Set_of_R(r);
+    working_postdot_iter = first_postdot_item_find(current_earley_set, token_id);
+    if (!working_postdot_iter) return -1; @/
+@ @<|marpa_alternative| definition@> =
+    // Set postdot data for next iteration
+    working_postdot_item = g_sequence_get(working_postdot_iter);
+    postdot_earley_item = Earley_Item_of_Postdot_Item(working_postdot_item);
+    earley_iter_later_assign(r, target_earleme, &target_earley_set);
+    if (!postdot_earley_item) { @/
+	 @<Find scan target Earley item for Leo transition@>@/
+	 if (target_earley_item) { @/
+	    @<Update Leo completion for scan@>@/
+	    goto RETURN_SUCCESS;
+	 } else { @/
+	    @<Create Leo completion from scan@>@/
+	    goto RETURN_SUCCESS;
+	 }
+    } @/
+@ @<|marpa_alternative| definition@> =
+    target_earley_item =
+    earley_item_assign (r, target_earley_set,
+			Origin_of_Earley_Item (postdot_earley_item),
+			To_State_of_Earley_Item_and_Symbol_ID
+			(postdot_earley_item, token_id));
+     @<Fail if duplicate source@>@/
+@ @<|marpa_alternative| definition@> =
+    for (;;) { // For each postdot item
+         token_link_add(r, target_earley_item, postdot_earley_item, value, token_id);
+	@<Add predicted Earley item, if needed@>@/
+	 working_postdot_iter = g_sequence_iter_next(working_postdot_iter);
+	if (g_sequence_iter_is_end(working_postdot_iter)) goto RETURN_SUCCESS;
+	// Set postdot data for next iteration
+	working_postdot_item = g_sequence_get(working_postdot_iter);
+	if (token_id != Symbol_ID_of_Postdot_Item(working_postdot_item)) goto RETURN_SUCCESS;
+	postdot_earley_item = Earley_Item_of_Postdot_Item(working_postdot_item);
+	 @<Find target Earley item for normal scan@>@/
+     }
+@ @<|marpa_alternative| definition@> =
+     RETURN_SUCCESS: ;
+    return ID_of_Earley_Set(current_earley_set);
+}
+@ @<Public function prototypes@> = gboolean marpa_alternative(struct marpa_r *r,
+Marpa_Symbol_ID token_id, void *value, gint length);
+
+@
+\rightskip 0pt plus 3em
+{\bf Complexity:}
+Marpa, unlike other parsers, allows variable length tokens,
+and |earley_iter_later_assign| is part of their implementation.
+Worst-case practical complexity depends on the application.
+The search here is $O(n)$, where $n$ is the number of Earley sets
+to the |sought_earleme|.
+Where $|sought_earleme| = |current_earleme|+1$, which will usually
+be the case, 
+the search in
+|earley_iter_later_assign|
+needs to only look at the
+next link -- it ends almost immediately.
+@ One could conceive of
+an application which used a random scatter of tokens with
+completely aritrary length, in which case the worse case here is
+that 
+|earley_iter_later_assign|
+is $O(n)$ in the length of the parse.
+Since
+|earley_iter_later_assign|
+is called once per Earley set, that makes the
+complexity $O(n^2)$.
+Since this case amounts to a bizarre example
+of a highly ambiguous grammar,
+$O(n^2)$ is quite acceptable.
+@ In fact, in practice as of this writing, the number of token lengths in play at any
+one time is always
+less than a very small constant.
+This "reasonable worst case" complexity would be $O(1)$.
+Average practical time complexity should be $O(1)$, and in practice
+this search should be extremely fast.
+@ Since variable length tokens are only a Marpa feature, for an
+apples-to-apples comparison with other parsers, token length should be
+treated for theoretical purposes as always one.
+Hence the theoretical time complexity is $O(1)$.
+@<Function definitions@> =
+static inline GSequenceIter* earley_iter_later_assign(
+    struct marpa_r* r, Marpa_Earleme sought_earleme,
+    struct earley_set** set_p)
+{
+    GSequenceIter *iter;
+    for (iter = g_sequence_iter_next(Current_Earley_Set_Iter_of_R(r));
+     !g_sequence_iter_is_end(iter);
+     iter = g_sequence_iter_next(iter)
+    ) {
+	 Marpa_Earleme found_earleme;
+	 struct earley_set* found_set = g_sequence_get(iter);
+	 found_earleme = Earleme_of_Earley_Set(found_set);
+	 if (sought_earleme == found_earleme) {
+	     *set_p = found_set;
+	     return iter;
+	 }
+	 if (sought_earleme > found_earleme) break;
+    }
+    *set_p = earley_set_new(r, sought_earleme);
+    return g_sequence_insert_before (iter, *set_p);
+}
+@ @<Private function prototypes@> =
+static inline GSequenceIter* earley_iter_later_assign(
+    struct marpa_r* r, Marpa_Earleme sought_earleme,
+    struct earley_set** set_p);
+
+@ @<Find scan target Earley item for Leo transition@> = {;}
+@ @<Update Leo completion for scan@> = {;}
+@ @<Create Leo completion from scan@> = {;}
+@ @<Find target Earley item for normal scan@> = {;}
+
+@ Detect if we are attempting to add the same token twice.
+Two tokens are considered the same if
+\li they have the same token ID, and
+\li they have the same length, and
+\li they have the same origin.
+In the context of the code below, the origin is the current earleme location.
+Because the Earley set of a new Earley item is uniquely determined
+by the token's length and its origin,
+an equivalent definition is that two tokens are identical if
+\li they have the same token ID, and
+\li they have the same length, and
+\li they belong to the same Earley set.
+@ Tokens identical for this purpose may have different values.
+Determining whether token values are the same or different involves
+getting deep into the semantics of an application,
+and Marpa does not go there.
+When an application wants Marpa to always consider two tokens to be different,
+it must arrange for the two tokens to have different token ID's.
+@ Consider two tokens which are about to be added to the same
+Earley set.
+Call that the "target" Earley set.
+If these two tokens are identical,
+meaning that their length and origins
+are the same,
+they will cause at least
+one Earley item in the target Earley set to
+be ambiguous -- specifically to have two token links.
+This is because identical token symbols will cause the same transitions
+to occur from the origin Earley set.
+The same transitions from the same set of Earley items will produce the
+same set of AHFA states.
+Therefore, there will be at least one attempt to add
+add the same Earley item (same origin and same state)
+twice to the same Earley set.
+@ The logic below detects such an attempt, by looking for an attempt to add
+two token links with the same predecessor.
+The same predecessor means the same token ID, because each Earley
+item is for a single AHFA state, and for a token
+link, the only possible transition from the predecessor AHFA state is one
+over the token symbol.
+The origin of a token is the Earley set of the token link's
+predecessor.
+Two identical prececessors clearly belong to a single Earley set,
+so the same predecessor means the same origin.
+@ The postdot Earley item would become the predecessor, if this
+new token link is added.  The following logic checks to see if it
+is identical to the predecessor of any existing token link.
+@ It is up to the higher layers to determine if rejection
+of a duplicate token is a fatal error.
+It is safe to proceed when the
+token is rejected as a duplicate,
+and the Earley sets and items will not have been
+altered by the attempt.
+Proof of this assertion is given in the following sections.
+@ {\bf Theorem: } If a token is rejected as a duplicate by
+a call to |marpa_alternative|,
+no new Earley item was added.
+{\bf Proof: }
+A new Earley item will only added as a target.
+Rejection must occur as a result of the target source
+matching the new source.
+But a new Earley item does have a source,
+and therefore will not duplicate the one to be added.
+Therefore if there is a new Earley item, rejection due to
+token duplication cannot occur.
+QED.
+@
+{\bf Theorem: } If a token is rejected as a duplicate by
+a call to |marpa_alternative|,
+no new Earley set was added.
+{\bf Proof: }
+A new Earley set is only added as a target.
+If the target Earley set is new, then the target Earley item
+must be new.
+But by the previous theorem, there cannot be a new target
+Earley item when a token is rejected as a duplicate.
+QED.
+@<Fail if duplicate source@> =
+if (Item_has_Token_Source (target_earley_item)) {
+    if (!earley_item_cmp
+	(postdot_earley_item,
+	 Predecessor_of_Earley_Item (target_earley_item), NULL))
+      {
+	r->error = "duplicate token";
+	return failure_indicator;
+      }
+  } else if (Item_is_Ambiguous (target_earley_item)) {
+      struct full_source_link *link =
+	First_Token_Link_of_Earley_Item (target_earley_item);
+    while (link)
+      {
+	if (!earley_item_cmp
+	    (postdot_earley_item, Predecessor_of_Source_Link (link), NULL))
+	  {
+	    r->error = "duplicate token";
+	    return failure_indicator;
+	  }
+	link = (struct full_source_link*)Next_Link_of_Source_Link (link);
+      }
+}
+
+@ @<Add predicted Earley item, if needed@> = {;}
+
+@ For a given Earley set, and symbol,
+return the |GSequenceIter| before the first entry.
+If there is none, return |NULL|.
+@ I use a trick here.
+A special comparison function treats all postdot items for the
+same symbol as equal.  Normally, |g_sequence_search| would
+return a position after the last of these.
+I search for the previous symbol.
+Whether or not this symbol exists in the postdot data,
+the search will return the last position where a new element with
+that symbol could go, which is the same as the position just before
+the sought symbol.
+@<Function definitions@> =
+static inline GSequenceIter *
+first_postdot_item_find (struct earley_set *set, Marpa_Symbol_ID symbol_id)
+{
+  struct earley_ix *found_ix;
+  struct earley_ix search_ix;
+  GSequenceIter *first_item_for_symbol;
+  search_ix.postdot_symbol_id = symbol_id - 1;
+  first_item_for_symbol = g_sequence_search (set->postdot,
+					    &search_ix,
+					    postdot_symbol_cmp, NULL);
+  if (g_sequence_iter_is_end (first_item_for_symbol)) return NULL;
+  found_ix = g_sequence_get (first_item_for_symbol);
+  return (found_ix->postdot_symbol_id ==
+	  symbol_id) ? first_item_for_symbol : NULL;
+}
+static gint
+postdot_symbol_cmp (gconstpointer ap, gconstpointer bp,
+		  gpointer user_data G_GNUC_UNUSED)
+{
+  const struct earley_ix *a = ap;
+  const struct earley_ix *b = bp;
+  return a->postdot_symbol_id - b->postdot_symbol_id;
+}
+@ @<Private function prototypes@> =
+static inline GSequenceIter *first_postdot_item_find (struct earley_set *set,
+						      Marpa_Symbol_ID
+						      symbol_id);
+static gint postdot_symbol_cmp (gconstpointer ap, gconstpointer bp,
+				gpointer user_data G_GNUC_UNUSED);
+
+@** Complete a Token.
+@<Function definitions@> =
+Marpa_Earleme
+earleme_complete(struct marpa_r* r)
+{
+  struct earley_set* dummy;
+  GSequenceIter* current_earley_set_iter = Current_Earley_Set_Iter_of_R (r);
+  @<Return |-1| on failure@>@/
+  Marpa_Earleme new_current_earleme =
+  Earleme_of_Earley_Set_Iter (current_earley_set_iter) + 1;
+  if (new_current_earleme > Furthest_Earleme_of_R (r))
+    {
+	r->error = "parse exhausted";
+	return failure_indicator;
+     }
+    LV_Current_Earley_Set_Iter_of_R (r) = earley_iter_later_assign (r,
+			   new_current_earleme, &dummy);
+    return new_current_earleme;
+}
+@ @<Public function prototypes@> =
+Marpa_Earleme earleme_complete(struct marpa_r* r);
 
 @** Evaluation.
 @ From the comments in the Perl script:
@@ -4816,6 +6169,22 @@ static inline
 gboolean bv_scan(
     Bit_Vector bv, guint start, guint* min, guint* max);
 
+@*0 Count the bits in a Boolean Vector.
+@<Function definitions@>=
+static inline guint
+bv_count (Bit_Vector v)
+{
+  guint start, min, max;
+  guint count = 0;
+  for (start = 0; bv_scan (v, start, &min, &max); start = max + 2)
+    {
+      count += max - min + 1;
+    }
+    return count;
+}
+@ @<Private function prototypes@> =
+static inline guint bv_count (Bit_Vector v);
+
 @*0 The RHS Closure of a Vector.
 Despite the fact that they are actually tied closely to their
 use in |libmarpa|, most of the logic of boolean vectors has
@@ -4856,42 +6225,51 @@ If I decide rules should have a unique right hand symbol list,
 this is one place to use it.
 Duplicate symbols on the RHS are visited uselessly.
 @<Function definitions@> =
-static void rhs_closure(struct marpa_g* g, Bit_Vector bv)
+static void
+rhs_closure (struct marpa_g *g, Bit_Vector bv)
 {
-      guint min, max, start = 0;
-      Marpa_Symbol_ID *top_of_stack = NULL;
-      FSTACK_DEFINE(stack, Marpa_Symbol_ID);
-      FSTACK_INIT(stack, Marpa_Symbol_ID, symbol_count(g));
-	while ( bv_scan(bv, start, &min, &max) ) {
-    guint symbol_id;
-    for (symbol_id = min; symbol_id <= max; symbol_id++) {
-        *(FSTACK_PUSH(stack)) = symbol_id;
+  guint min, max, start = 0;
+  Marpa_Symbol_ID *top_of_stack = NULL;
+  FSTACK_DEFINE (stack, Marpa_Symbol_ID);
+  FSTACK_INIT (stack, Marpa_Symbol_ID, Symbol_Count_of_G(g));
+  while (bv_scan (bv, start, &min, &max))
+    {
+      guint symbol_id;
+      for (symbol_id = min; symbol_id <= max; symbol_id++)
+	{
+	  *(FSTACK_PUSH (stack)) = symbol_id;
+	}
+      start = max + 2;
     }
-    start = max+2;
-    }
-    while ((top_of_stack = FSTACK_POP(stack))) {
-	guint rule_ix;
-	GArray* rules = symbol_id2p(g, *top_of_stack)->rhs;
-	for (rule_ix = 0; rule_ix < rules->len; rule_ix++) {
-	     Marpa_Rule_ID rule_id = g_array_index(rules, Marpa_Rule_ID, rule_ix);
-	     struct marpa_rule* rule = rule_id2p(g, rule_id);
-	     guint rule_length;
-	     guint rh_ix;
-	     Marpa_Symbol_ID lhs_id = lhs_symbol_id(rule);
-	     if (bv_bit_test(bv, (guint)lhs_id)) goto NEXT_RULE;
-	     rule_length = rule->length;
-	     for (rh_ix = 0; rh_ix < rule_length; rh_ix++) {
-		 if (!bv_bit_test(bv, (guint)rhs_symbol_id(rule, rh_ix))) goto NEXT_RULE;
-	     }
-	     /* If I am here, the bits for the RHS symbols are all
-	      * set, but the one for the LHS symbol is not.
-	      */
-	      bv_bit_set(bv, (guint)lhs_id);
-	     *(FSTACK_PUSH(stack)) = lhs_id;
-	     NEXT_RULE: ;
+  while ((top_of_stack = FSTACK_POP (stack)))
+    {
+      guint rule_ix;
+      GArray *rules = Symbol_by_ID (g, *top_of_stack)->rhs;
+      for (rule_ix = 0; rule_ix < rules->len; rule_ix++)
+	{
+	  Marpa_Rule_ID rule_id =
+	    g_array_index (rules, Marpa_Rule_ID, rule_ix);
+	  struct marpa_rule *rule = rule_id2p (g, rule_id);
+	  guint rule_length;
+	  guint rh_ix;
+	  Marpa_Symbol_ID lhs_id = LHS_Symbol_ID_of_Rule (rule);
+	  if (bv_bit_test (bv, (guint) lhs_id))
+	    goto NEXT_RULE;
+	  rule_length = rule->length;
+	  for (rh_ix = 0; rh_ix < rule_length; rh_ix++)
+	    {
+	      if (!bv_bit_test (bv, (guint) rhs_symbol_id (rule, rh_ix)))
+		goto NEXT_RULE;
+	    }
+	  /* If I am here, the bits for the RHS symbols are all
+	   * set, but the one for the LHS symbol is not.
+	   */
+	  bv_bit_set (bv, (guint) lhs_id);
+	  *(FSTACK_PUSH (stack)) = lhs_id;
+	NEXT_RULE:;
 	}
     }
-      FSTACK_DESTROY(stack);
+  FSTACK_DESTROY (stack);
 }
 @ @<Private function prototypes@> =
 static void rhs_closure(struct marpa_g* g, Bit_Vector bv);
@@ -5063,72 +6441,6 @@ static void transitive_closure(Bit_Matrix matrix)
 @ @<Private function prototypes@> =
 static void transitive_closure(Bit_Matrix matrix);
 
-@** Pointer Arrays.
-Pointer arrays can exist on their own,
-or as part of a dynamic pointer array.
-When considered on their own,
-they are fixed in size.
-@<ADT structures@> =
-struct p_array { gint len; gpointer *data; };
-@ @<Function definitions@> =
-static inline void p_array_destroy(struct p_array* pa) {
-    gpointer data = pa->data;
-    if (data) g_free(data);
-}
-@ @<Private function prototypes@> =
-static inline void p_array_destroy(struct p_array* pa);
-
-@** Dynamic Pointer Arrays.
-In this variation of dynamic arrays, only pointers are allowed
-and sizes are expected to be large.
-Adding to the array may cause it to move,
-invalidating all addresses taken from it.
-Once the array is "frozen",
-addresses within it are stable
-and addresses of items within it may be expected to
-stay valid.
-@<ADT structures@> =
-struct dp_array { struct p_array pa; gint size; };
-@ @<Function definitions@> =
-static inline void dp_array_init(struct dp_array* dpa, gint size) {
-dpa->pa.len = 0; dpa->size = size; dpa->pa.data = g_new(gpointer, size); }
-@ @<Private function prototypes@> =
-static inline void dp_array_init(struct dp_array* dpa, gint size);
-@ @<Function definitions@> =
-static inline void dp_array_destroy(struct dp_array* dpa) {
-    p_array_destroy(&(dpa->pa));
-}
-@ @<Private function prototypes@> =
-static inline void dp_array_destroy(struct dp_array* dpa);
-@ @<Function definitions@> =
-static inline void dp_array_resize(struct dp_array *dpa, gint new_size) {
-   dpa->pa.data = g_renew(gpointer, dpa->pa.data, new_size);
-   dpa->size = new_size;
-}
-@ @<Private function prototypes@> =
-static inline void dp_array_resize(struct dp_array *dpa, gint new_size);
-@ @<Function definitions@> =
-static inline void dp_array_append(struct dp_array *dpa, gpointer p) {
-     if (dpa->pa.len >= dpa->size) dp_array_resize(dpa, dpa->size*2);
-     dpa->pa.data[dpa->pa.len++] = p;
-}
-@ @<Private function prototypes@> =
-static inline void dp_array_append(struct dp_array *dpa, gpointer p);
-@ Copies a dynamic pointer array to a pointer array, giving it a final
-resizing.
-@<Function definitions@> =
-static inline void dp_array_freeze(struct dp_array *dpa, struct p_array* pa) {
-    gint len = pa->len = dpa->pa.len;
-    if (G_UNLIKELY(len >= dpa->size)) {
-       pa->data = dpa->pa.data;
-       return;
-    }
-   pa->data = g_renew(gpointer, dpa->pa.data, len);
-}
-@ @<Private function prototypes@> =
-static inline void dp_array_freeze(struct dp_array *dpa, struct p_array* pa);
-
-
 @** Fixed Size Stacks.
 |libmarpa| uses stacks and worklists extensively.
 Often a reasonable maximum size is known when they are
@@ -5177,7 +6489,9 @@ a declaration is legal and useful.
 @d DSTACK_BASE(this, type) ((type *)this.base)
 @d DSTACK_LENGTH(this) (this.ix)
 
-@ |DSTACK|'s often have their data "stolen", by other containers.
+@
+\rightskip 0pt plus 10em
+|DSTACK|'s often have their data "stolen", by other containers.
 These |STOLEN_DSTACK_DATA_FREE| macro allows the "thief" container to abstract
 slightly from the knowledge of how to deallocate the data it now "owns".
 @d STOLEN_DSTACK_DATA_FREE(data) g_free(data)
@@ -5217,73 +6531,47 @@ when it needs to free the data.
 @<Private structures@> =
 struct dqueue { gint current; struct dstack s; };
 
-@** Hashing.
-The code in this section is adopted from
-|lookup3.c|.
-It is by Bob Jenkins.
-For extensive explanations, and much more,
-see Mr. Jenkin's website: http://burtleburtle.net/bob/.
-
-@d bjenkins_rot(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
-
-@d bjenkins_mix(a,b,c)
-{ 
-  a -= c;  a ^= bjenkins_rot(c, 4);  c += b; 
-  b -= a;  b ^= bjenkins_rot(a, 6);  a += c; 
-  c -= b;  c ^= bjenkins_rot(b, 8);  b += a; 
-  a -= c;  a ^= bjenkins_rot(c,16);  c += b;
-  b -= a;  b ^= bjenkins_rot(a,19);  a += c;
-  c -= b;  c ^= bjenkins_rot(b, 4);  b += a;
-}
-
-@d bjenkins_final(a,b,c) 
+@** GSequences.
+|libmarpa| makes considerable use of the |GSequence| ADT
+of glib.
+One possible optimization is to replace this with an
+inlined binary tree library which does its memory allocation
+using obstacks.
+@ The |GSequence| ADT does not have a real "find" function.
+Instead it requires a sequence of calls to have the same effect.
+This inlined "helper" function implements that sequence of calls.
+It returns the data if the
+key is found, otherwise |NULL|.
+As a side effect, 
+|insertion_point_p| is set to a |GSequenceIter*|
+at which data with that key can be added.
+@ |libmarpa| relies on |g_sequence_search| finding,
+when several elements of the list match the key,
+the position after the last of these.
+This behavior is not documented, but it seems
+as if |glib| is committed to it.
+(On this,
+see the code and GNOME Bugzilla,'s Bug 548666.)
+|g_sequence_lookup| will also make things simpler,
+but that function is not yet in any stable version of glib.
+@<Function definitions@> =
+static inline GSequenceIter *
+sequence_find (GSequence * sequence,
+	       void *key, GCompareDataFunc compare, gboolean * match)
 {
-  c ^= b; c -= bjenkins_rot(b,14);
-  a ^= c; a -= bjenkins_rot(c,11);
-  b ^= a; b -= bjenkins_rot(a,25);
-  c ^= b; c -= bjenkins_rot(b,16);
-  a ^= c; a -= bjenkins_rot(c,4);
-  b ^= a; b -= bjenkins_rot(a,14);
-  c ^= b; c -= bjenkins_rot(b,24);
+  void *data = NULL;
+  GSequenceIter *found;
+  GSequenceIter *insertion_point =
+    g_sequence_search (sequence, key, compare, NULL);
+  if (g_sequence_iter_is_begin (insertion_point))
+    return insertion_point;
+  found = g_sequence_iter_prev (insertion_point);
+  data = g_sequence_get (found);
+  return (*match = !compare (data, key, NULL)) ? found : insertion_point;
 }
-
-@<Hash function body template@> =
-  guint32 a,b,c;
-  gsize length = TEMPLATE_KEY_LENGTH(p);
-  TEMPLATE_KEY_TYPE k = TEMPLATE_KEY_INIT(p);
-
-  /* Set up the internal state */
-  a = b = c = 0xdeadbeef + (((guint32)length)<<2);
-
-  while (length > 3)
-  { /* Handle most of the key */
-    a += TEMPLATE_KEY_VALUE(k, 0);
-    b += TEMPLATE_KEY_VALUE(k, 1);
-    c += TEMPLATE_KEY_VALUE(k, 2);
-    bjenkins_mix(a,b,c);
-    length -= 3;
-    TEMPLATE_KEY_INC(k, 3);
-  }
-
-  switch(length)
-  { 
-  /* Handle the last 3 guint32's --
-   all the case statements fall through */
-  case 3 : c+= TEMPLATE_KEY_VALUE(k, 2);
-  case 2 : b+= TEMPLATE_KEY_VALUE(k, 1);
-  case 1 : a+= TEMPLATE_KEY_VALUE(k, 0);
-    bjenkins_final(a,b,c);
-  case 0:     /* case 0: nothing left to add */
-    break;
-  }
-  return c; /* report the result */
-
-@ @<Hash function template undefine@> =
-#undef TEMPLATE_KEY_TYPE@/
-#undef TEMPLATE_KEY_INIT@/
-#undef TEMPLATE_KEY_VALUE@/
-#undef TEMPLATE_KEY_LENGTH@/
-#undef TEMPLATE_KEY_INC@/
+@ @<Private function prototypes@> =
+static inline GSequenceIter* sequence_find(GSequence* sequence, void *key,
+    GCompareDataFunc compare, gboolean* match);
 
 @** Memory Allocation.
 
@@ -5399,6 +6687,8 @@ When -1 is a legitimate value, the routine may return a |-2|.
 For this reason, the logic in this section expects |failure_indication|
 to be set in the scope in which it is used.
 
+@ Routines with nothing else to return often use |FALSE| as the failure indicator.
+@<Return |FALSE| on failure@> = const gboolean failure_indicator = FALSE;
 @ Routines returning pointers often use |NULL| as the failure indicator.
 @<Return |NULL| on failure@> = const gpointer failure_indicator = NULL;
 @ Routines returning integers often use |-1| as the failure indicator.
@@ -5441,6 +6731,28 @@ if (!AHFA_state_id_is_valid(g, AHFA_state_id)) {
     g_context_clear(g);
     g_context_int_add(g, "AHFA_state_id", AHFA_state_id);
     g->error = "invalid AHFA state id";
+    return failure_indicator;
+}
+
+@*0 Recognizer Failures.
+|r| is assumed to be the value of the relevant recognizer,
+when one is required.
+@<Fail if recognizer not initial@> =
+if (r->phase != initial_phase) {
+    r_context_clear(r);
+    r->error = "not initial recce phase";
+    return failure_indicator;
+}
+@ @<Fail if recognizer initial@> =
+if (r->phase == initial_phase) {
+    r_context_clear(r);
+    r->error = "initial recce phase";
+    return failure_indicator;
+}
+@ @<Fail if recognizer not active@> =
+if (r->phase != active_phase) {
+    r_context_clear(r);
+    r->error = "recce not active";
     return failure_indicator;
 }
 
@@ -5497,86 +6809,71 @@ localization and string encoding issues dealt with
 by the upper layers.
 @<Public typedefs@> =
 typedef const gchar* Marpa_Message_ID;
+
+@* Grammar Messages.
 @ Function pointer declarations are
 hard to type and impossible to read.
 This typedef localizes the damage.
 @<Callback typedefs@> =
-typedef void (Marpa_Message_Callback)(struct marpa_g *g, Marpa_Message_ID id);
+typedef void (Marpa_G_Message_Callback)(struct marpa_g *g, Marpa_Message_ID id);
 @ @<Widely aligned grammar elements@> =
-    Marpa_Message_Callback* message_callback;
+    Marpa_G_Message_Callback* message_callback;
     gpointer message_callback_arg;
 @ @<Initialize grammar elements@> =
 g->message_callback_arg = NULL;
 g->message_callback = NULL;
 @ @<Function definitions@> =
-void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb)
+void marpa_g_message_callback_set(struct marpa_g *g, Marpa_G_Message_Callback*cb)
 { g->message_callback = cb; }
-void marpa_message_callback_arg_set(struct marpa_g *g, gpointer cb_arg)
+void marpa_g_message_callback_arg_set(struct marpa_g *g, gpointer cb_arg)
 { g->message_callback_arg = cb_arg; }
-gpointer marpa_message_callback_arg(struct marpa_g *g)
+gpointer marpa_g_message_callback_arg(struct marpa_g *g)
 { return g->message_callback_arg; }
 @ @<Public function prototypes@> =
-void marpa_message_callback_set(struct marpa_g *g, Marpa_Message_Callback*cb);
-void marpa_message_callback_arg_set(struct marpa_g *g, gpointer cb_arg);
-gpointer marpa_message_callback_arg(struct marpa_g *g);
+void marpa_g_message_callback_set(struct marpa_g *g, Marpa_G_Message_Callback*cb);
+void marpa_g_message_callback_arg_set(struct marpa_g *g, gpointer cb_arg);
+gpointer marpa_g_message_callback_arg(struct marpa_g *g);
 @ Do the message callback.
-@^To Do@> To Do: Deal with the possibility of leaking memory when the
-callback never returns.
+The name of this function is spelled out to avoid a conflict with a
+|glib| function.
+Note that the memory management assumes that the 
+callback either exits or returns control to |libmarpa|.
+A |longjmp| out of a callback will probably cause a memory leak.
 @<Function definitions@> =
-static inline void message(struct marpa_g *g, Marpa_Message_ID id)
-{ Marpa_Message_Callback* cb = g->message_callback;
+static inline void grammar_message(struct marpa_g *g, Marpa_Message_ID id)
+{ Marpa_G_Message_Callback* cb = g->message_callback;
 if (cb) { (*cb)(g, id); } }
 @ @<Private function prototypes@> =
-static inline void message(struct marpa_g *g, Marpa_Message_ID id);
+static inline void grammar_message(struct marpa_g *g, Marpa_Message_ID id);
 
-@** Templates.
-
-@*0 Simple Lists.
-
-@<Simple list public structure template@> =
-
-#undef MARPA_SLIST_LINK
-#define MARPA_SLIST_LINK(prefix) MARPA_CAT(prefix, _link)
-
-struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) {
-   struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) *next;
-   MARPA_TEMPLATE_PAYLOAD payload;
-};
-
-@
-
-@<Simple list public inline definition template@> =
-
-#undef MARPA_SLIST_LINK
-#define MARPA_SLIST_LINK(prefix) MARPA_CAT(prefix, _link)
-#undef MARPA_SLIST_ADD
-#define MARPA_SLIST_ADD(prefix) MARPA_CAT(prefix, _add)
-
-MARPA_PUBLIC_INLINE void MARPA_SLIST_ADD(MARPA_TEMPLATE_PREFIX) (
-    struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) **base,
-    MARPA_TEMPLATE_PAYLOAD payload
-) {
-    struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) *next = *base;
-    struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) *new
-        = *base
-        = g_malloc(sizeof(*next));
-    new->next = next;
-    new->payload = payload;
-}
-
-@
-
-@<Simple list public prototype template@> =
-
-#undef MARPA_SLIST_LINK
-#define MARPA_SLIST_LINK(prefix) MARPA_CAT(prefix, _link)
-#undef MARPA_SLIST_ADD
-#define MARPA_SLIST_ADD(prefix) MARPA_CAT(prefix, _add)
-
-MARPA_PUBLIC_INLINE void MARPA_SLIST_ADD(MARPA_TEMPLATE_PREFIX) (
-    struct MARPA_SLIST_LINK(MARPA_TEMPLATE_PREFIX) **base,
-    MARPA_TEMPLATE_PAYLOAD payload
-);
+@* Recognizer Messages.
+@ Essentially the same as grammar messages,
+except they live in and use the recognizer object.
+@<Callback typedefs@> =
+typedef void (Marpa_R_Message_Callback)(struct marpa_r *r, Marpa_Message_ID id);
+@ @<Widely aligned recognizer elements@> =
+    Marpa_R_Message_Callback* message_callback;
+    gpointer message_callback_arg;
+@ @<Initialize recognizer elements@> =
+r->message_callback_arg = NULL;
+r->message_callback = NULL;
+@ @<Function definitions@> =
+void marpa_r_message_callback_set(struct marpa_r *r, Marpa_R_Message_Callback*cb)
+{ r->message_callback = cb; }
+void marpa_r_message_callback_arg_set(struct marpa_r *r, gpointer cb_arg)
+{ r->message_callback_arg = cb_arg; }
+gpointer marpa_r_message_callback_arg(struct marpa_r *r)
+{ return r->message_callback_arg; }
+@ @<Public function prototypes@> =
+void marpa_r_message_callback_set(struct marpa_r *r, Marpa_R_Message_Callback*cb);
+void marpa_r_message_callback_arg_set(struct marpa_r *r, gpointer cb_arg);
+gpointer marpa_r_message_callback_arg(struct marpa_r *r);
+@ @<Function definitions@> =
+static inline void r_message(struct marpa_r *r, Marpa_Message_ID id)
+{ Marpa_R_Message_Callback* cb = r->message_callback;
+if (cb) { (*cb)(r, id); } }
+@ @<Private function prototypes@> =
+static inline void r_message(struct marpa_r *r, Marpa_Message_ID id);
 
 @** Physical Layout.  
 @ Prematter:
@@ -5625,8 +6922,9 @@ So I add such a comment.
 @<Incomplete private structures@>@;
 @<Private typedefs@>@;
 @<Private global variables@>@;
-@<ADT structures@>@;
 @<Private structures@>@;
+@<Source object structure@>@;
+@<Earley item structure@>@;
 @<Private function prototypes@>@;
 @<Private inline functions@>@;
 @<Function definitions@>@;
@@ -5664,76 +6962,6 @@ So I add such a comment.
 #include <glib.h>
 @<Body of public header file@>
 #endif __MARPA_H__
-
-@ Public inline function definitions
-None yet.
-@<Public inline function definitions@> =
-
-@ Header inline function definitions
-
-This logic is only for inline functions which might need to be "public".
-Those that are "local" to single translation unit should simply be 
-declared |static inline| keyword.
-
-"Public" inline functions (those which need to be visibile outside a
-single translation unit) present complications.
-These should have a non-inlined, "standalone" version in case they
-are used where inlining is not possible.
-(For instance, a pointer to them might be needed.)
-Also, it is more complicated to make them portable.
-
-There is no logic here to make the |inline| keyword portable.
-Marpa expects autoconf to |#define| the |inline| keyword to
-whatever is correct on the target,
-so this logic uses that the |inline| keyword.
-
-There is no guarantee, of course, that there is an inlining
-keyword or that, if there is such a keyword,
-that it actually does inlining.
-If there is no inlining keyword, |inline| is |#define|'d
-as the empty string.
-If inlining actually words,
-Marpa's configuration defines the |MARPA_CAN_INLINE| macro.
-
-{|MARPA_STANDALONE| is defined in only one file, the file which should contain
-the non-inlined ("standalone") definition of the inlined functions.
-Marpa's public inlined functions should be declared |MARPA_PUBLIC_INLINE|.
-Conditional compilation should be set up so that,
-whenever |MARPA_PUBLIC_INLINE| is used,
-|MARPA_STANDALONE| or |MARPA_CAN_INLINE| is defined.
-\tolerance=9999\par}
-
-@<Inlining macros@> =
-#ifdef MARPA_STANDALONE
-#define MARPA_PUBLIC_INLINE
-#elif defined (__GNUC__) 
-#define MARPA_PUBLIC_INLINE static __inline __attribute__ ((unused))
-#elif MARPA_CAN_INLINE
-#define MARPA_PUBLIC_INLINE static inline
-#else
-#define MARPA_PUBLIC_INLINE 
-#endif
-
-@ The file for standalone versions of the inline functions
-
-@(standalone.c@> =
-
-#define MARPA_STANDALONE 1
-#include "marpa.h"
-
-@ ``Never Used'' Sections
-
-This section is a hack to silence the ``never used'' warnings
-for the templates.
-I expect eventually to use these sections.
-
-@(never_used.c@> =
-
-@<Simple list public inline definition template@>
-@<Simple list public prototype template@>
-@<Simple list public structure template@>
-@<Hash function body template@>
-@<Hash function template undefine@>
 
 @** Proofs.
 

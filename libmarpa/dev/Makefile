@@ -13,25 +13,14 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# We keep debugging info around, for fun, but most users don't need it
-CFLAGS = -g
-#CFLAGS = -O
-LINKFLAGS = -g
-#LINKFLAGS = -s # for smaller (stripped) executables on many UNIX systems
-
-# What C compiler are you using?
-CC = cc
-
 # uncomment the second line if you use pdftex to bypass .dvi files
 #PDFTEX = dvipdfm
 PDFTEX = pdftex
 
-##########  You shouldn't have to change anything after this point #######
-
 CWEAVE = cweave
 CTANGLE = ctangle
 
-SOURCES = marpa.w copyright_page_license.w
+SOURCES = cwebmac.tex marpa.w copyright_page_license.w
 
 .SUFFIXES: .dvi .tex .w .pdf
 
@@ -63,16 +52,13 @@ all: marpa.pdf marpa.c marpa.h
 
 marpa.c marpa.h: copyright_page_license.w marpa.w
 
-marpa.pdf: marpa.tex
+marpa.pdf: marpa.tex cwebmac.tex
 
-install: ../dist/marpa.c ../dist/marpa.h ../dist/standalone.c
+install: ../dist/marpa.c ../dist/marpa.h
 
 ../dist/marpa.c: marpa.c
 	cp $? $@
 
 ../dist/marpa.h: marpa.h
-	cp $? $@
-
-../dist/standalone.c: standalone.c
 	cp $? $@
 

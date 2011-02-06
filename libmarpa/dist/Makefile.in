@@ -70,8 +70,7 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libmarpa_la_DEPENDENCIES = $(LIBOBJS)
-am_libmarpa_la_OBJECTS = libmarpa_la-marpa_obs.lo libmarpa_la-marpa.lo \
-	libmarpa_la-standalone.lo
+am_libmarpa_la_OBJECTS = libmarpa_la-marpa_obs.lo libmarpa_la-marpa.lo
 libmarpa_la_OBJECTS = $(am_libmarpa_la_OBJECTS)
 libmarpa_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libmarpa_la_CFLAGS) \
@@ -262,7 +261,7 @@ AM_CFLAGS = $(WARNING_CFLAGS)
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = README
 noinst_LTLIBRARIES = libmarpa.la
-libmarpa_la_SOURCES = marpa_obs.c marpa.c standalone.c
+libmarpa_la_SOURCES = marpa_obs.c marpa.c
 libmarpa_la_LIBADD = $(LIBOBJS)
 libmarpa_la_CFLAGS = $(GLIB_CFLAGS) $(WARNING_CFLAGS)
 include_HEADERS = marpa.h marpa_obs.h
@@ -342,7 +341,6 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-marpa.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-marpa_obs.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libmarpa_la-standalone.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -378,13 +376,6 @@ libmarpa_la-marpa.lo: marpa.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='marpa.c' object='libmarpa_la-marpa.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -c -o libmarpa_la-marpa.lo `test -f 'marpa.c' || echo '$(srcdir)/'`marpa.c
-
-libmarpa_la-standalone.lo: standalone.c
-@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -MT libmarpa_la-standalone.lo -MD -MP -MF $(DEPDIR)/libmarpa_la-standalone.Tpo -c -o libmarpa_la-standalone.lo `test -f 'standalone.c' || echo '$(srcdir)/'`standalone.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/libmarpa_la-standalone.Tpo $(DEPDIR)/libmarpa_la-standalone.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='standalone.c' object='libmarpa_la-standalone.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libmarpa_la_CFLAGS) $(CFLAGS) -c -o libmarpa_la-standalone.lo `test -f 'standalone.c' || echo '$(srcdir)/'`standalone.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

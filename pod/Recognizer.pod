@@ -117,22 +117,6 @@ can be used to set or change named arguments after the recognizer
 has been created.
 Details of the named arguments are L<below|/"NAMED ARGUMENTS">.
 
-=head2 strip
-
-In XS mode, this call is a no-op.
-In Pure Perl mode, when called after
-input is finished,
-this call cleans up internal data
-not needed
-for the evaluation phase.
-
-In Pure Perl mode,
-A considerable amount of data is only used while building
-the recognizer's tables, and is not needed once they are complete.
-Stripping a recognizer greatly reduces the amount of memory it uses.
-Attempting to strip a recognizer before input is finished
-will cause an exception.
-
 =head2 read
 
 =for Marpa::XS::Display

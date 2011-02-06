@@ -205,15 +205,17 @@ my %files_by_type = (
     'ppport.h'       => sub {;},    # copied from CPAN, just leave it alone
     'COPYING'        => sub {;},    # GNU license text, leave it alone
     'COPYING.LESSER' => sub {;},    # GNU license text, leave it alone
-    'lib/Marpa/XS/Test/capture-stderr' => sub {;}
-    ,                               # Mostly from Andy Lester, leave alone
+    'libmarpa/dev/cwebmac.tex' => sub {;}
+    ,                               # originally from Cweb, leave it alone
+    'lib/Marpa/XS/Test/capture-stderr' => sub {;},
+
+    # Mostly from Andy Lester, leave alone
     'libmarpa/dev/copyright_page_license.w' => \&copyright_page,
     'Makefile.PL'                           => \&trivial,
     'html_pp_test.sh'                       => \&trivial,
     'html_xs_test.sh'                       => \&trivial,
     'libmarpa/dist/README'                  => \&trivial,
     'libmarpa/dev/README'                   => \&trivial,
-    'libmarpa/dist/standalone.c'            => \&trivial,
     'README'                                => \&trivial,
     'TODO'                                  => \&trivial,
     'author.t/accept_tidy'                  => \&trivial,
