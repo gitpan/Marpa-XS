@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -149,17 +149,17 @@ Test::More::is( $trace_output, <<'END_TRACE_OUTPUT', 'trace output' );
 Inaccessible symbol: Add
 Inaccessible symbol: Term
 Setting trace_terminals option
-Expecting "Number" at earleme 0
 Expecting "Expression" at earleme 0
 Expecting "Factor" at earleme 0
+Expecting "Number" at earleme 0
 Accepted "Number" at 0-1
 Expecting "Multiply" at 1
 Accepted "Multiply" at 1-2
-Expecting "Number" at 2
 Expecting "Factor" at 2
+Expecting "Number" at 2
 Accepted "Number" at 2-3
 Expecting "Multiply" at 3
-Rejected "Add" at 3
+Rejected "Add" at 3-4
 END_TRACE_OUTPUT
 
 # Marpa::XS::Display::End

@@ -1,4 +1,4 @@
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -39,6 +39,7 @@ author.t/spelling_exceptions.list
 author.t/tidy1
 config/Marpa/XS/Build_Me.pm
 config/Marpa/XS/Config.pm
+config/Marpa/XS/License.pm
 devlib/ppshim/Marpa.pm
 devlib/ppshim/Marpa/Test.pm
 devlib/xsshim/Marpa.pm
@@ -114,7 +115,6 @@ lib/Marpa/XS/Grammar.pm
 lib/Marpa/XS/Grammar_PP.pm
 lib/Marpa/XS/Internal.pm
 lib/Marpa/XS/Internal/Carp_Not.pm
-lib/Marpa/XS/License.pm
 lib/Marpa/XS/Offset.pm
 lib/Marpa/XS/Perl.pm
 lib/Marpa/XS/Recognizer.pm
@@ -193,6 +193,7 @@ t/base/initial_nulls.t
 t/base/leo.t
 t/base/leo2.t
 t/base/leo3.t
+t/base/leo_cycle.t
 t/base/leo_example.t
 t/base/limits.t
 t/base/minus.t
@@ -233,6 +234,7 @@ t/pp/initial_nulls.t
 t/pp/leo.t
 t/pp/leo2.t
 t/pp/leo3.t
+t/pp/leo_cycle.t
 t/pp/leo_example.t
 t/pp/limits.t
 t/pp/minus.t
@@ -274,6 +276,7 @@ t/xs/initial_nulls.t
 t/xs/leo.t
 t/xs/leo2.t
 t/xs/leo3.t
+t/xs/leo_cycle.t
 t/xs/leo_example.t
 t/xs/limits.t
 t/xs/minus.t

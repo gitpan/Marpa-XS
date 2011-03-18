@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -19,7 +19,7 @@ use strict;
 use warnings;
 
 use Fatal qw(open close);
-use Test::More tests => 9;
+use Test::More tests => 8;
 
 use Marpa::XS::Test;
 
@@ -155,74 +155,6 @@ END_RULES
 
 my $show_AHFA_output = $grammar->show_AHFA();
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-# Does not include transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo Example New AHFA States' );
-* S0:
-Statement['] -> . Statement
- <Statement> => S2; leo(Statement['])
-* S1: predict
-Statement -> . Expression
-Expression -> . Lvalue AssignOp Expression
-Expression -> . Lvalue AddAssignOp Expression
-Expression -> . Lvalue MinusAssignOp Expression
-Expression -> . Lvalue MultiplyAssignOp Expression
-Expression -> . Variable
-Lvalue -> . Variable
- <Expression> => S3; leo(Statement)
- <Lvalue> => S4
- <Variable> => S5
-* S2: leo-c
-Statement['] -> Statement .
-* S3: leo-c
-Statement -> Expression .
-* S4:
-Expression -> Lvalue . AssignOp Expression
-Expression -> Lvalue . AddAssignOp Expression
-Expression -> Lvalue . MinusAssignOp Expression
-Expression -> Lvalue . MultiplyAssignOp Expression
- <AddAssignOp> => S7; S8
- <AssignOp> => S6; S7
- <MinusAssignOp> => S7; S9
- <MultiplyAssignOp> => S10; S7
-* S5:
-Expression -> Variable .
-Lvalue -> Variable .
-* S6:
-Expression -> Lvalue AssignOp . Expression
- <Expression> => S11; leo(Expression)
-* S7: predict
-Expression -> . Lvalue AssignOp Expression
-Expression -> . Lvalue AddAssignOp Expression
-Expression -> . Lvalue MinusAssignOp Expression
-Expression -> . Lvalue MultiplyAssignOp Expression
-Expression -> . Variable
-Lvalue -> . Variable
- <Lvalue> => S4
- <Variable> => S5
-* S8:
-Expression -> Lvalue AddAssignOp . Expression
- <Expression> => S12; leo(Expression)
-* S9:
-Expression -> Lvalue MinusAssignOp . Expression
- <Expression> => S13; leo(Expression)
-* S10:
-Expression -> Lvalue MultiplyAssignOp . Expression
- <Expression> => S14; leo(Expression)
-* S11: leo-c
-Expression -> Lvalue AssignOp Expression .
-* S12: leo-c
-Expression -> Lvalue AddAssignOp Expression .
-* S13: leo-c
-Expression -> Lvalue MinusAssignOp Expression .
-* S14: leo-c
-Expression -> Lvalue MultiplyAssignOp Expression .
-EOS
-
-} ## SKIP of XS tests
-
-
 # Marpa::XS::Display
 # name: Leo Example show_AHFA Output
 # start-after-line: END_AHFA
@@ -306,50 +238,50 @@ Earley Set 0
 S0@0-0
 S1@0-0
 Earley Set 1
-S5@0-1 [p=S1@0-0; s=Variable; t=\'a']
+S2@0-1 [p=S0@0-0; c=S3@0-1]
 S3@0-1 [p=S1@0-0; c=S5@0-1]
 S4@0-1 [p=S1@0-0; c=S5@0-1]
-S2@0-1 [p=S0@0-0; c=S3@0-1]
+S5@0-1 [p=S1@0-0; s=Variable; t=\'a']
 Earley Set 2
 S6@0-2 [p=S4@0-1; s=AssignOp; t=\'=']
 S7@2-2
-L11:1@0-2; "Expression"; [c=S6@0-2]
+L1@2 ["Expression"; S6@0-2]
 Earley Set 3
-S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
-S11@0-3 [l=L11:1@0-2; c=S5@2-3]
-S4@2-3 [p=S7@2-2; c=S5@2-3]
-S3@0-3 [p=S1@0-0; c=S11@0-3]
 S2@0-3 [p=S0@0-0; c=S3@0-3]
+S3@0-3 [p=S1@0-0; c=S11@0-3]
+S11@0-3 [l=L1@2; c=S5@2-3]
+S4@2-3 [p=S7@2-2; c=S5@2-3]
+S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
 Earley Set 4
 S8@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L12:1@0-4; "Expression"; [l=L11:1@0-2; c=S8@2-4]
+L1@4 ["Expression"; L1@2; S8@2-4]
 Earley Set 5
-S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
-S11@0-5 [l=L12:1@0-4; c=S5@4-5]
-S4@4-5 [p=S7@4-4; c=S5@4-5]
-S3@0-5 [p=S1@0-0; c=S11@0-5]
 S2@0-5 [p=S0@0-0; c=S3@0-5]
+S3@0-5 [p=S1@0-0; c=S11@0-5]
+S11@0-5 [l=L1@4; c=S5@4-5]
+S4@4-5 [p=S7@4-4; c=S5@4-5]
+S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L13:1@0-6; "Expression"; [l=L12:1@0-4; c=S9@4-6]
+L1@6 ["Expression"; L1@4; S9@4-6]
 Earley Set 7
-S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
-S11@0-7 [l=L13:1@0-6; c=S5@6-7]
-S4@6-7 [p=S7@6-6; c=S5@6-7]
-S3@0-7 [p=S1@0-0; c=S11@0-7]
 S2@0-7 [p=S0@0-0; c=S3@0-7]
+S3@0-7 [p=S1@0-0; c=S11@0-7]
+S11@0-7 [l=L1@6; c=S5@6-7]
+S4@6-7 [p=S7@6-6; c=S5@6-7]
+S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L14:1@0-8; "Expression"; [l=L13:1@0-6; c=S10@6-8]
+L1@8 ["Expression"; L1@6; S10@6-8]
 Earley Set 9
-S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
-S11@0-9 [l=L14:1@0-8; c=S5@8-9]
-S4@8-9 [p=S7@8-8; c=S5@8-9]
-S3@0-9 [p=S1@0-0; c=S11@0-9]
 S2@0-9 [p=S0@0-0; c=S3@0-9]
+S3@0-9 [p=S1@0-0; c=S11@0-9]
+S11@0-9 [l=L1@8; c=S5@8-9]
+S4@8-9 [p=S7@8-8; c=S5@8-9]
+S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 END_EARLEY_SETS
 
 # Marpa::XS::Display::End
@@ -376,53 +308,53 @@ Earley Set 0
 S0@0-0
 S1@0-0
 Earley Set 1
-S5@0-1 [p=S1@0-0; s=Variable; t=\'a']
+S2@0-1 [p=S0@0-0; c=S3@0-1]
 S3@0-1 [p=S1@0-0; c=S5@0-1]
 S4@0-1 [p=S1@0-0; c=S5@0-1]
-S2@0-1 [p=S0@0-0; c=S3@0-1]
+S5@0-1 [p=S1@0-0; s=Variable; t=\'a']
 Earley Set 2
 S6@0-2 [p=S4@0-1; s=AssignOp; t=\'=']
 S7@2-2
-L11:1@0-2; "Expression"; [c=S6@0-2]
+L1@2 ["Expression"; S6@0-2]
 Earley Set 3
-S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
-S11@0-3 [l=L11:1@0-2; c=S5@2-3]
-S4@2-3 [p=S7@2-2; c=S5@2-3]
-S3@0-3 [p=S1@0-0; c=S11@0-3]
 S2@0-3 [p=S0@0-0; c=S3@0-3]
+S3@0-3 [p=S1@0-0; c=S11@0-3]
+S11@0-3 [l=L1@2; c=S5@2-3]
+S4@2-3 [p=S7@2-2; c=S5@2-3]
+S5@2-3 [p=S7@2-2; s=Variable; t=\'b']
 Earley Set 4
 S8@2-4 [p=S4@2-3; s=AddAssignOp; t=\'+=']
 S7@4-4
-L12:1@0-4; "Expression"; [l=L11:1@0-2; c=S8@2-4]
+L1@4 ["Expression"; L1@2; S8@2-4]
 Earley Set 5
-S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
-S11@0-5 [l=L12:1@0-4; c=S5@4-5]
-S4@4-5 [p=S7@4-4; c=S5@4-5]
-S3@0-5 [p=S1@0-0; c=S11@0-5]
 S2@0-5 [p=S0@0-0; c=S3@0-5]
+S3@0-5 [p=S1@0-0; c=S11@0-5]
+S11@0-5 [l=L1@4; c=S5@4-5]
+S4@4-5 [p=S7@4-4; c=S5@4-5]
+S5@4-5 [p=S7@4-4; s=Variable; t=\'c']
 Earley Set 6
 S9@4-6 [p=S4@4-5; s=MinusAssignOp; t=\'-=']
 S7@6-6
-L13:1@0-6; "Expression"; [l=L12:1@0-4; c=S9@4-6]
+L1@6 ["Expression"; L1@4; S9@4-6]
 Earley Set 7
-S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
-S11@0-7 [l=L13:1@0-6; c=S5@6-7]
-S4@6-7 [p=S7@6-6; c=S5@6-7]
-S3@0-7 [p=S1@0-0; c=S11@0-7]
 S2@0-7 [p=S0@0-0; c=S3@0-7]
+S3@0-7 [p=S1@0-0; c=S11@0-7]
+S11@0-7 [l=L1@6; c=S5@6-7]
+S4@6-7 [p=S7@6-6; c=S5@6-7]
+S5@6-7 [p=S7@6-6; s=Variable; t=\'d']
 Earley Set 8
 S10@6-8 [p=S4@6-7; s=MultiplyAssignOp; t=\'*=']
 S7@8-8
-L14:1@0-8; "Expression"; [l=L13:1@0-6; c=S10@6-8]
+L1@8 ["Expression"; L1@6; S10@6-8]
 Earley Set 9
-S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
-S11@0-9 [p=S6@0-2; c=S12@2-9]
-S4@8-9 [p=S7@8-8; c=S5@8-9]
-S3@0-9 [p=S1@0-0; c=S11@0-9]
 S2@0-9 [p=S0@0-0; c=S3@0-9]
-S14@6-9 [p=S10@6-8; c=S5@8-9]
-S13@4-9 [p=S9@4-6; c=S14@6-9]
+S3@0-9 [p=S1@0-0; c=S11@0-9]
+S11@0-9 [p=S6@0-2; c=S12@2-9] [l=L1@8; c=S5@8-9]
 S12@2-9 [p=S8@2-4; c=S13@4-9]
+S13@4-9 [p=S9@4-6; c=S14@6-9]
+S14@6-9 [p=S10@6-8; c=S5@8-9]
+S4@8-9 [p=S7@8-8; c=S5@8-9]
+S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 END_EARLEY_SETS
 
 # Marpa::XS::Display::End

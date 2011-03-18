@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -20,7 +20,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 6;
 
 use Marpa::XS::Test;
 
@@ -73,73 +73,6 @@ Marpa::XS::Test::is( $grammar->show_rules,
 9: S[R0:2] -> p[] n /* vlhs real=2 */
 10: S['] -> S /* vlhs real=1 */
 END_OF_STRING
-
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-# no transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'duplicate parse New AHFA States' );
-* S0:
-S['] -> . S
- <S> => S2; leo(S['])
-* S1: predict
-p -> . a
-n -> . a
-S -> . p p S[R0:2]
-S -> . p p[] S[R0:2]
-S -> p[] . p S[R0:2]
-S -> p[] p[] . S[R0:2]
-S[R0:2] -> . p n
-S[R0:2] -> p[] . n
- <S[R0:2]> => S7; leo(S)
- <a> => S3
- <n> => S6; leo(S[R0:2])
- <p> => S4; S5
-* S2: leo-c
-S['] -> S .
-* S3:
-p -> a .
-n -> a .
-* S4:
-S -> p . p S[R0:2]
-S -> p p[] . S[R0:2]
-S -> p[] p . S[R0:2]
-S[R0:2] -> p . n
- <S[R0:2]> => S10
- <n> => S9; leo(S[R0:2])
- <p> => S5; S8
-* S5: predict
-p -> . a
-n -> . a
-S[R0:2] -> . p n
-S[R0:2] -> p[] . n
- <a> => S3
- <n> => S6; leo(S[R0:2])
- <p> => S11; S12
-* S6: leo-c
-S[R0:2] -> p[] n .
-* S7: leo-c
-S -> p[] p[] S[R0:2] .
-* S8:
-S -> p p . S[R0:2]
- <S[R0:2]> => S13; leo(S)
-* S9: leo-c
-S[R0:2] -> p n .
-* S10:
-S -> p p[] S[R0:2] .
-S -> p[] p S[R0:2] .
-* S11:
-S[R0:2] -> p . n
- <n> => S9; leo(S[R0:2])
-* S12: predict
-n -> . a
- <a> => S14
-* S13: leo-c
-S -> p p S[R0:2] .
-* S14:
-n -> a .
-EOS
-
-} ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_OF_STRING', 'duplicate parse AHFA' );

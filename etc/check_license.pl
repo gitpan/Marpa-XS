@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -26,7 +26,7 @@ my $result = Getopt::Long::GetOptions( 'verbose=i' => \$verbose );
 die "usage $PROGRAM_NAME [--verbose=n] file ...\n" if not $result;
 
 ## no critic (Modules::RequireBarewordIncludes)
-require 'lib/Marpa/XS/License.pm';
+require 'config/Marpa/XS/License.pm';
 ## use critic
 
 my $file_count = @ARGV;

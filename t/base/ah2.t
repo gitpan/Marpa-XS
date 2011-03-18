@@ -1,5 +1,5 @@
 #!perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -22,7 +22,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 38;
+use Test::More tests => 31;
 use Marpa::XS::Test;
 
 BEGIN {
@@ -167,92 +167,6 @@ AHFA item 24: sort = 24; completion
 AHFA item 25: sort = 25; completion
     S['][] -> .
 EOS
-}
-
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-# excluding transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA, <<'EOS', 'Aycock/Horspool New AHFA States' );
-* S0:
-S['] -> . S
-S['][] -> .
- <S> => S2; leo(S['])
-* S1: predict
-A -> . a
-S -> . A S[R0:1]
-S -> . A A[] A[] A[]
-S -> A[] . S[R0:1]
-S[R0:1] -> . A S[R0:2]
-S[R0:1] -> . A A[] A[]
-S[R0:1] -> A[] . S[R0:2]
-S[R0:2] -> . A A
-S[R0:2] -> . A A[]
-S[R0:2] -> A[] . A
- <A> => S3; S4
- <S[R0:1]> => S6; leo(S)
- <S[R0:2]> => S7; leo(S[R0:1])
- <a> => S5
-* S2: leo-c
-S['] -> S .
-* S3:
-S -> A . S[R0:1]
-S -> A A[] A[] A[] .
-S[R0:1] -> A . S[R0:2]
-S[R0:1] -> A A[] A[] .
-S[R0:2] -> A . A
-S[R0:2] -> A A[] .
-S[R0:2] -> A[] A .
- <A> => S8; leo(S[R0:2])
- <S[R0:1]> => S9; leo(S)
- <S[R0:2]> => S10; leo(S[R0:1])
-* S4: predict
-A -> . a
-S[R0:1] -> . A S[R0:2]
-S[R0:1] -> . A A[] A[]
-S[R0:1] -> A[] . S[R0:2]
-S[R0:2] -> . A A
-S[R0:2] -> . A A[]
-S[R0:2] -> A[] . A
- <A> => S11; S12
- <S[R0:2]> => S7; leo(S[R0:1])
- <a> => S5
-* S5:
-A -> a .
-* S6: leo-c
-S -> A[] S[R0:1] .
-* S7: leo-c
-S[R0:1] -> A[] S[R0:2] .
-* S8: leo-c
-S[R0:2] -> A A .
-* S9: leo-c
-S -> A S[R0:1] .
-* S10: leo-c
-S[R0:1] -> A S[R0:2] .
-* S11:
-S[R0:1] -> A . S[R0:2]
-S[R0:1] -> A A[] A[] .
-S[R0:2] -> A . A
-S[R0:2] -> A A[] .
-S[R0:2] -> A[] A .
- <A> => S8; leo(S[R0:2])
- <S[R0:2]> => S10; leo(S[R0:1])
-* S12: predict
-A -> . a
-S[R0:2] -> . A A
-S[R0:2] -> . A A[]
-S[R0:2] -> A[] . A
- <A> => S13; S14
- <a> => S5
-* S13:
-S[R0:2] -> A . A
-S[R0:2] -> A A[] .
-S[R0:2] -> A[] A .
- <A> => S8; leo(S[R0:2])
-* S14: predict
-A -> . a
- <a> => S5
-EOS
-
 }
 
 if ($Marpa::XS::USING_PP ) {
@@ -433,43 +347,43 @@ S0@0-0
 S1@0-0
 END_OF_SET0
 Earley Set 1
-S5@0-1 [p=S1@0-0; s=a; t=\'a']
-S3@0-1 [p=S1@0-0; c=S5@0-1]
-S4@1-1
 S2@0-1 [p=S0@0-0; c=S3@0-1] [p=S0@0-0; c=S6@0-1]
+S3@0-1 [p=S1@0-0; c=S5@0-1]
+S5@0-1 [p=S1@0-0; s=a; t=\'a']
 S6@0-1 [p=S1@0-0; c=S3@0-1] [p=S1@0-0; c=S7@0-1]
 S7@0-1 [p=S1@0-0; c=S3@0-1]
-L9:6@0-1; "S[R0:1]"; [c=S3@0-1]
+S4@1-1
+L6@1 ["S[R0:1]"; S3@0-1]
 END_OF_SET1
 Earley Set 2
-S5@1-2 [p=S4@1-1; s=a; t=\'a']
+S2@0-2 [p=S0@0-0; c=S6@0-2] [p=S0@0-0; c=S9@0-2]
+S6@0-2 [p=S1@0-0; c=S7@0-2] [p=S1@0-0; c=S10@0-2]
+S7@0-2 [p=S1@0-0; c=S8@0-2]
 S8@0-2 [p=S3@0-1; c=S5@1-2]
+S9@0-2 [l=L6@1; c=S7@1-2] [l=L6@1; c=S11@1-2]
+S10@0-2 [p=S3@0-1; c=S11@1-2]
+S5@1-2 [p=S4@1-1; s=a; t=\'a']
+S7@1-2 [p=S4@1-1; c=S11@1-2]
 S11@1-2 [p=S4@1-1; c=S5@1-2]
 S12@2-2
-S7@0-2 [p=S1@0-0; c=S8@0-2]
-S9@0-2 [l=L9:6@0-1; c=S11@1-2] [l=L9:6@0-1; c=S7@1-2]
-S10@0-2 [p=S3@0-1; c=S11@1-2]
-S7@1-2 [p=S4@1-1; c=S11@1-2]
-S6@0-2 [p=S1@0-0; c=S7@0-2] [p=S1@0-0; c=S10@0-2]
-S2@0-2 [p=S0@0-0; c=S9@0-2] [p=S0@0-0; c=S6@0-2]
-L10:7@0-2; "S[R0:2]"; [l=L9:6@0-1; c=S11@1-2]
+L7@2 ["S[R0:2]"; L6@1; S11@1-2]
 END_OF_SET2
 Earley Set 3
-S5@2-3 [p=S12@2-2; s=a; t=\'a']
-S8@1-3 [p=S11@1-2; c=S5@2-3]
-S13@2-3 [p=S12@2-2; c=S5@2-3]
-S14@3-3
+S2@0-3 [p=S0@0-0; c=S6@0-3] [p=S0@0-0; c=S9@0-3]
+S6@0-3 [p=S1@0-0; c=S10@0-3]
+S9@0-3 [l=L6@1; c=S7@1-3] [l=L7@2; c=S13@2-3]
 S10@0-3 [p=S3@0-1; c=S8@1-3]
 S7@1-3 [p=S4@1-1; c=S8@1-3]
-S9@0-3 [l=L10:7@0-2; c=S13@2-3] [l=L9:6@0-1; c=S7@1-3]
-S6@0-3 [p=S1@0-0; c=S10@0-3]
-S2@0-3 [p=S0@0-0; c=S9@0-3] [p=S0@0-0; c=S6@0-3]
-L8:1@0-3; "A"; [l=L10:7@0-2; c=S13@2-3]
+S8@1-3 [p=S11@1-2; c=S5@2-3]
+S5@2-3 [p=S12@2-2; s=a; t=\'a']
+S13@2-3 [p=S12@2-2; c=S5@2-3]
+S14@3-3
+L1@3 ["A"; L7@2; S13@2-3]
 END_OF_SET3
 Earley Set 4
-S5@3-4 [p=S14@3-3; s=a; t=\'a']
-S9@0-4 [l=L8:1@0-3; c=S5@3-4]
 S2@0-4 [p=S0@0-0; c=S9@0-4]
+S9@0-4 [l=L1@3; c=S5@3-4]
+S5@3-4 [p=S14@3-3; s=a; t=\'a']
 END_OF_SET4
 
 my $input_length = 4;
@@ -480,20 +394,8 @@ EARLEME: for my $earleme ( 0 .. $input_length + 1 ) {
         $recce->show_earley_sets(1),
         "Last Completed: $last_completed; Furthest: $furthest\n"
             . ( join q{}, @set[ 0 .. $furthest ] ),
-        "Aycock/Horspool Parse Status at earleme $earleme"
+        "Aycock/Horspool PP Parse Status at earleme $earleme"
     );
-    SKIP: {
-        skip "not using XS", 1 if not $Marpa::XS::USING_XS;
-        TODO: {
-            local $TODO = "Development in progress";
-            Marpa::XS::Test::is(
-                $recce->new_show_earley_sets(1),
-                "Last Completed: $last_completed; Furthest: $furthest\n"
-                    . ( join q{}, @set[ 0 .. $furthest ] ),
-                "Aycock/Horspool Parse Status at earleme $earleme"
-            );
-        } ## end TODO:
-    } ## end SKIP:
     next EARLEME if $earleme == $input_length;
     last EARLEME if $earleme > $input_length;
     $recce->read( 'a', 'a' );

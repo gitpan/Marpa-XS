@@ -1,5 +1,5 @@
 #!perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -21,7 +21,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 9;
+use Test::More tests => 8;
 
 use Marpa::XS::Test;
 
@@ -86,45 +86,6 @@ Marpa::XS::Test::is( $grammar->show_rules,
 11: S['][] -> /* empty vlhs real=1 */
 END_OF_STRING
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo166 New AHFA States' );
-* S0:
-S['] -> . S
-S['][] -> .
- <S> => S2; leo(S['])
-* S1: predict
-S -> . a A
-S -> . a A[]
- <a> => S3; S4
-* S2: leo-c
-S['] -> S .
-* S3:
-S -> a . A
-S -> a A[] .
- <A> => S5; leo(S)
-* S4: predict
-S -> . a A
-S -> . a A[]
-A -> . B
-B -> . C
-C -> . S
- <B> => S7; leo(A)
- <C> => S8; leo(B)
- <S> => S6; leo(C)
- <a> => S3; S4
-* S5: leo-c
-S -> a A .
-* S6: leo-c
-C -> S .
-* S7: leo-c
-A -> B .
-* S8: leo-c
-B -> C .
-EOS
-
-} ## SKIP of XS tests
-
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo166 AHFA' );
 * S0:
 S['] -> . S
@@ -181,7 +142,7 @@ LEO_FLAG: for my $leo_flag ( 0, 1 ) {
     # constant c
     my $expected_size = $leo_flag ? 4 : ( $length - 1 ) * 4 + 3;
     Marpa::XS::Test::is( $max_size, $expected_size,
-        "Leo flag $leo_flag, size $max_size" );
+        "Leo flag $leo_flag, PP size $max_size" );
 
     my $value_ref = $recce->value( {} );
     my $value = $value_ref ? ${$value_ref} : 'No parse';

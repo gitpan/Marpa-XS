@@ -1,4 +1,4 @@
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -34,13 +34,10 @@ use Marpa::XS::Offset qw(
 
     ID
     TAG
-    ITEMS
+    ITEM
     RULE_ID
     POSITION
     AND_NODE_IDS
-
-    SOURCE_OR_NODE { The name of the first grandparent or-node,
-    for keeping track while populating the ITEMS element }
 
     CYCLE { Can this Or node be part of a cycle? }
 
@@ -308,6 +305,16 @@ sub Marpa::XS::Recognizer::show_recce_or_node {
     return $text;
 
 } ## end sub Marpa::XS::Recognizer::show_recce_or_node
+
+sub Marpa::XS::Recognizer::show_or_nodes {
+    my ($recce, $verbose) = @_;
+    my $text;
+    my $or_nodes  = $recce->[Marpa::XS::Internal::Recognizer::OR_NODES];
+    for my $or_node (@{$or_nodes}) {
+         $text .= $recce->show_recce_or_node($or_node, $verbose);
+    }
+    return $text;
+}
 
 sub Marpa::XS::brief_iteration_node {
     my ($iteration_node) = @_;
@@ -964,8 +971,6 @@ sub do_rank_all {
                 if ( not defined $rank_ref ) {
                     push @unranked_and_nodes, $child_and_node_id;
 
-# say STDERR "rank for a$child_and_node_id not defined -- re-adding to worklist";
-
                     next CHILD_AND_NODE;
                 } ## end if ( not defined $rank_ref )
 
@@ -1566,9 +1571,8 @@ sub Marpa::XS::Recognizer::value {
                     ->{$start_or_node_tag} = $start_or_node;
             }
             $start_or_node->[Marpa::XS::Internal::Or_Node::ID] = 0;
-            $start_or_node->[Marpa::XS::Internal::Or_Node::ITEMS] =
-                { $start_item->[Marpa::XS::Internal::Earley_Item::ID] =>
-                    $start_item };
+            $start_or_node->[Marpa::XS::Internal::Or_Node::ITEM] =
+                    $start_item;
             $start_or_node->[Marpa::XS::Internal::Or_Node::RULE_ID] =
                 $start_rule_id;
 
@@ -1576,10 +1580,6 @@ sub Marpa::XS::Recognizer::value {
             $start_or_node->[Marpa::XS::Internal::Or_Node::CYCLE] = 0;
             $start_or_node->[Marpa::XS::Internal::Or_Node::POSITION] =
                 scalar @{ $start_rule->[Marpa::XS::Internal::Rule::RHS] };
-
-            # No source or-node for the start or-node
-            $start_or_node->[Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE] =
-                '[TOP]';
 
             # Zero out the evaluation
             $#{$and_nodes}       = -1;
@@ -2062,18 +2062,13 @@ sub Marpa::XS::Recognizer::value {
                 $work_or_node->[Marpa::XS::Internal::Or_Node::TAG];
 
             # SET Should be the same for all items
-            my $or_node_items = [
-                values %{ $work_or_node->[Marpa::XS::Internal::Or_Node::ITEMS]
-                    } ];
-            my $work_set;
-            my $work_node_origin;
-            {
-                my $first_item = $or_node_items->[0];
-                $work_set =
-                    $first_item->[Marpa::XS::Internal::Earley_Item::SET];
-                $work_node_origin =
-                    $first_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
-            }
+            my $or_node_item = 
+                $work_or_node->[Marpa::XS::Internal::Or_Node::ITEM];
+
+	    my $work_set =
+		$or_node_item->[Marpa::XS::Internal::Earley_Item::SET];
+	    my $work_node_origin =
+		$or_node_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
 
             my $work_rule_id =
                 $work_or_node->[Marpa::XS::Internal::Or_Node::RULE_ID];
@@ -2083,39 +2078,32 @@ sub Marpa::XS::Recognizer::value {
             my $work_symbol =
                 $work_rule->[Marpa::XS::Internal::Rule::RHS]
                 ->[$work_position];
+	    my $work_symbol_name = $work_symbol->[Marpa::XS::Internal::Symbol::NAME];
 
-            for my $item ( @{$or_node_items} ) {
+            {
 
+		my $item = $or_node_item;
                 my $or_sapling_set = $work_set;
 
                 my $leo_links =
-                    $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS]
-                    // [];
+                    defined $item->[Marpa::XS::Internal::Earley_Item::IS_LEO_EXPANDED]
+                    ? [] : $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
+                $leo_links //= [];
 
                 # If this is a Leo completion, translate the Leo links
                 for my $leo_link ( @{$leo_links} ) {
 
-                    # say STDERR join " ", __FILE__, __LINE__, "=== translating leo links ===";
-
-                    my ( $leo_item, $cause, $token_name, $token_value ) =
+                    my ( $leo_item, $cause ) =
                         @{$leo_link};
 
                     my $next_leo_item = $leo_item
                         ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+		    my $leo_symbol_name =
+			$leo_item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
                     my $leo_base_item =
                         $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
 
-                    my $next_links = [];
-                    if ($token_name) {
-                        push @{$next_links},
-                            [
-                            $leo_base_item, undef,
-                            $token_name,    $token_value
-                            ];
-                    } ## end if ($token_name)
-                    if ($cause) {
-                        push @{$next_links}, [ $leo_base_item, $cause ];
-                    }
+                    my $next_links = [[ $leo_base_item, $cause, ]];
 
                     LEO_ITEM: for ( ;; ) {
 
@@ -2131,22 +2119,22 @@ sub Marpa::XS::Recognizer::value {
                                 @{$next_links};
                             #<<<
 
-                            # Now that the Leo links are translated, remove them
-                            #<<< perltidy cycles as of version 20090616
-                            $item
-                                ->[Marpa::XS::Internal::Earley_Item::LEO_LINKS
-                                ] = undef;
-                            #>>>
+			    # Now that the Leo links are translated, mark the
+			    # Earley item accordingly
+			    $item->[Marpa::XS::Internal::Earley_Item::IS_LEO_EXPANDED] = 1;
+
                             last LEO_ITEM;
 
                         } ## end if ( not $next_leo_item )
 
-                        #<<< perltidy cycles as of version 20090616
-                        my $base_to_state = $leo_item->[
-                            Marpa::XS::Internal::Leo_Item::BASE_TO_STATE ];
-                        #>>>
+			my ( undef, $base_to_state ) =
+			    @{ $leo_base_item
+				->[ Marpa::XS::Internal::Earley_Item::STATE ]
+				->[Marpa::XS::Internal::AHFA::TRANSITION]
+				->{$leo_symbol_name} };
                         my $origin = $next_leo_item
                             ->[Marpa::XS::Internal::Leo_Item::SET];
+
                         my $name = sprintf
                             'S%d@%d-%d',
                             $base_to_state->[Marpa::XS::Internal::AHFA::ID],
@@ -2189,25 +2177,33 @@ sub Marpa::XS::Recognizer::value {
                                 ->[Marpa::XS::Internal::Earley_Item::LINKS] },
                             @{$next_links};
 
-                        $leo_item = $next_leo_item;
-			$next_leo_item = $leo_item
-			    ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
-			$leo_base_item =
-			    $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
+                        $leo_item      = $next_leo_item;
+                        $next_leo_item = $leo_item
+                            ->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
+                        $leo_base_item =
+                            $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
+			$leo_symbol_name =
+			    $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
 
-                        $next_links = [ [ $leo_base_item, $target_item ] ];
+                        $next_links = [ [ $leo_base_item, $target_item, $leo_symbol_name ] ];
 
                     } ## end for ( ;; )
                 } ## end for my $leo_link ( @{$leo_links} )
 
-            } ## end for my $item ( @{$or_node_items} )
+            }
 
             my @link_worklist;
 
             CREATE_LINK_WORKLIST: {
 
+                # Several Earley items may be the source of the same or-node,
+                # but the or-node only keeps track of one.  This is sufficient,
+                # because the Earley item is tracked by the or-node only for its
+                # links, and the links for every Earley item which is the source
+                # of the same or-node must be the same.  There's more about this
+		# in the libmarpa docs.
+
                 # link worklist item is $predecessor, $cause, $token_name, $value_ref
-                my ( $predecessor, $cause, $token_name, $value_ref );
 
                 # All predecessors apply to a
                 # nulling work symbol.
@@ -2215,20 +2211,16 @@ sub Marpa::XS::Recognizer::value {
                 if ( $work_symbol->[Marpa::XS::Internal::Symbol::NULLING] ) {
                     my $nulling_symbol_id =
                         $work_symbol->[Marpa::XS::Internal::Symbol::ID];
-                    $value_ref = \$null_values->[$nulling_symbol_id];
-                    $token_name =
-                        $work_symbol->[Marpa::XS::Internal::Symbol::NAME];
+                    my $value_ref = \$null_values->[$nulling_symbol_id];
                     @link_worklist =
-                        map { [ $_, undef, $token_name, $value_ref ] }
-                        @{$or_node_items};
+                        [ $or_node_item, undef, $work_symbol_name, $value_ref ];
                     last CREATE_LINK_WORKLIST;
                 } ## end if ( $work_symbol->[...])
 
                 # Collect links for or node items
                 # into link work items
                 @link_worklist =
-                    map { @{ $_->[Marpa::XS::Internal::Earley_Item::LINKS] } }
-                    @{$or_node_items};
+                    @{ $or_node_item->[Marpa::XS::Internal::Earley_Item::LINKS] };
 
             } ## end CREATE_LINK_WORKLIST:
 
@@ -2239,19 +2231,21 @@ sub Marpa::XS::Recognizer::value {
 
             LINK_WORK_ITEM: for my $link_work_item (@link_worklist) {
 
-                # CHOICE POINT
-                my ( $predecessor, $cause, $token_name, $value_ref ) =
+		my ( $predecessor, $cause, $symbol_name, $value_ref ) =
                     @{$link_work_item};
+
+		# next LINK_WORK_ITEM if $symbol_name ne $work_symbol_name;
 
                 my $cause_earleme = $work_node_origin;
                 my $predecessor_id;
+		my $predecessor_name;
 
                 if ( $work_position > 0 ) {
 
                     $cause_earleme =
                         $predecessor->[Marpa::XS::Internal::Earley_Item::SET];
 
-                    my $predecessor_name =
+                    $predecessor_name =
                         "R$work_rule_id:$work_position" . q{@}
                         . $predecessor
                         ->[Marpa::XS::Internal::Earley_Item::ORIGIN] . q{-}
@@ -2265,18 +2259,6 @@ sub Marpa::XS::Recognizer::value {
                         if ($predecessor_or_node) {
                             $predecessor_id = $predecessor_or_node
                                 ->[Marpa::XS::Internal::Or_Node::ID];
-                            last FIND_PREDECESSOR
-                                if $predecessor_or_node->[
-                                    Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE
-                                ] ne $work_node_name;
-
-                            # If the working or node is the grandparent of this new or-node,
-                            # we are building it, and need to populate the list of Earley items
-                            $predecessor_or_node
-                                ->[Marpa::XS::Internal::Or_Node::ITEMS]
-                                ->{ $predecessor
-                                    ->[Marpa::XS::Internal::Earley_Item::ID]
-                                } = $predecessor;
 
                             last FIND_PREDECESSOR;
 
@@ -2304,13 +2286,8 @@ sub Marpa::XS::Recognizer::value {
                             ->[Marpa::XS::Internal::Or_Node::POSITION] =
                             $work_position;
                         $predecessor_or_node
-                            ->[Marpa::XS::Internal::Or_Node::ITEMS] =
-                            { $predecessor
-                                ->[Marpa::XS::Internal::Earley_Item::ID] =>
-                                $predecessor };
-                        $predecessor_or_node
-                            ->[Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE] =
-                            $work_node_name;
+                            ->[Marpa::XS::Internal::Or_Node::ITEM] =
+                                $predecessor;
                         $predecessor_id =
                             ( push @{$or_nodes}, $predecessor_or_node ) - 1;
 
@@ -2363,21 +2340,7 @@ sub Marpa::XS::Recognizer::value {
                             if ($cause_or_node) {
                                 $cause_id = $cause_or_node
                                     ->[Marpa::XS::Internal::Or_Node::ID];
-                                last FIND_CAUSE
-                                    if $cause_or_node->[
-                                        Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE
-                                    ] ne $work_node_name;
-
-                                # If the working or node is the grandparent of this new or-node,
-                                # we are building it, and need to populate the list of Earley items
-                                $cause_or_node
-                                    ->[Marpa::XS::Internal::Or_Node::ITEMS]->{
-                                    $cause->[
-                                        Marpa::XS::Internal::Earley_Item::ID
-                                    ]
-                                    }
-                                    = $cause;
-                                last FIND_CAUSE if $cause_or_node;
+                                last FIND_CAUSE;
                             } ## end if ($cause_or_node)
 
                             $cause_or_node = [];
@@ -2402,14 +2365,8 @@ sub Marpa::XS::Recognizer::value {
                                 ->[Marpa::XS::Internal::Or_Node::POSITION] =
                                 scalar @{ $cause_rule
                                     ->[Marpa::XS::Internal::Rule::RHS] };
-                            $cause_or_node
-                                ->[Marpa::XS::Internal::Or_Node::ITEMS] =
-                                { $cause
-                                    ->[Marpa::XS::Internal::Earley_Item::ID]
-                                    => $cause };
-                            $cause_or_node->[
-                                Marpa::XS::Internal::Or_Node::SOURCE_OR_NODE]
-                                = $work_node_name;
+                            $cause_or_node ->[Marpa::XS::Internal::Or_Node::ITEM] =
+                                    $cause;
                             $cause_id =
                                 ( push @{$or_nodes}, $cause_or_node ) - 1;
 
@@ -2453,13 +2410,13 @@ sub Marpa::XS::Recognizer::value {
                 $and_node->[Marpa::XS::Internal::And_Node::CAUSE_EARLEME] =
                     $cause_earleme;
                 $and_node->[Marpa::XS::Internal::And_Node::TOKEN_NAME] =
-                    $token_name;
+                    $symbol_name;
                 $and_node->[Marpa::XS::Internal::And_Node::VALUE_REF] =
                     $value_ref;
 
                 $and_node_data{
                     join q{:}, ( $predecessor_id // q{} ),
-                    q{}, $token_name
+                    q{}, $symbol_name
                     }
                     = $and_node;
 
@@ -2608,7 +2565,6 @@ sub Marpa::XS::Recognizer::value {
             # may be empty.  If it is, throw away the stack and iterate.
             if ( not scalar @{$choices} ) {
 
-# say STDERR "Initialized iteration-node has no choices";
                 @task_list = ( [Marpa::XS::Internal::Task::ITERATE] );
                 next TASK;
             } ## end if ( not scalar @{$choices} )

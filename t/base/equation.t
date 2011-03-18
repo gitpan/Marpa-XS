@@ -1,5 +1,5 @@
 #!perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -19,7 +19,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 13;
 
 use Marpa::XS::Test;
 use English qw( -no_match_vars );
@@ -136,32 +136,9 @@ Marpa::XS::Test::is( ${$actual_ref},
 2: E['] -> E /* vlhs real=1 */
 END_RULES
 
-if ($Marpa::XS::USING_XS ) {
-    Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Ambiguous Equation New AHFA Items' );
-* S0:
-E['] -> . E
- <E> => S2; leo(E['])
-* S1: predict
-E -> . E Op E
-E -> . Number
- <E> => S3
- <Number> => S4
-* S2: leo-c
-E['] -> E .
-* S3:
-E -> E . Op E
- <Op> => S1; S5
-* S4:
-E -> Number .
-* S5:
-E -> E Op . E
- <E> => S6; leo(E)
-* S6: leo-c
-E -> E Op E .
-EOS
-}
+# Alternative tests: AHFA items if XS, NFA items if PP
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
+if ($Marpa::XS::USING_XS) {
 
 $actual_ref = save_stdout();
 
@@ -169,7 +146,7 @@ print $grammar->show_AHFA_items()
     or die "print failed: $ERRNO";
 
 Marpa::XS::Test::is( ${$actual_ref},
-    <<'EOS', 'Ambiguous Equation AHFA States' );
+    <<'EOS', 'Ambiguous Equation AHFA Items' );
 AHFA item 0: sort = 0; postdot = "E"
     E -> . E Op E
 AHFA item 1: sort = 3; postdot = "Op"
@@ -188,7 +165,7 @@ AHFA item 7: sort = 7; completion
     E['] -> E .
 EOS
 
-} ## SKIP of XS tests
+} # USING_XS
 
 if ($Marpa::XS::USING_PP) {
     $actual_ref = save_stdout();
@@ -215,7 +192,7 @@ S7: E['] -> . E
  <E> => S8
 S8: E['] -> E .
 END_NFA
-}
+} # USING_PP
 
 $actual_ref = save_stdout();
 
@@ -292,53 +269,55 @@ print $recce->show_earley_sets()
 
 # Marpa::XS::Display::End
 
-Marpa::XS::Test::is( ${$actual_ref},
-    <<'END_OF_EARLEY_SETS', 'Ambiguous Equation Earley Sets' );
+my $expected_earley_sets = <<'END_OF_EARLEY_SETS';
 Last Completed: 7; Furthest: 7
 Earley Set 0
 S0@0-0
 S1@0-0
 Earley Set 1
-S4@0-1 [p=S1@0-0; s=Number; t=\2]
 S2@0-1 [p=S0@0-0; c=S4@0-1]
 S3@0-1 [p=S1@0-0; c=S4@0-1]
+S4@0-1 [p=S1@0-0; s=Number; t=\2]
 Earley Set 2
 S5@0-2 [p=S3@0-1; s=Op; t=\'-']
 S1@2-2
 Earley Set 3
-S4@2-3 [p=S1@2-2; s=Number; t=\0]
-S6@0-3 [p=S5@0-2; c=S4@2-3]
-S3@2-3 [p=S1@2-2; c=S4@2-3]
 S2@0-3 [p=S0@0-0; c=S6@0-3]
 S3@0-3 [p=S1@0-0; c=S6@0-3]
+S6@0-3 [p=S5@0-2; c=S4@2-3]
+S3@2-3 [p=S1@2-2; c=S4@2-3]
+S4@2-3 [p=S1@2-2; s=Number; t=\0]
 Earley Set 4
+S5@0-4 [p=S3@0-3; s=Op; t=\'*']
 S5@2-4 [p=S3@2-3; s=Op; t=\'*']
 S1@4-4
-S5@0-4 [p=S3@0-3; s=Op; t=\'*']
 Earley Set 5
-S4@4-5 [p=S1@4-4; s=Number; t=\3]
-S6@2-5 [p=S5@2-4; c=S4@4-5]
-S3@4-5 [p=S1@4-4; c=S4@4-5]
-S6@0-5 [p=S5@0-4; c=S4@4-5] [p=S5@0-2; c=S6@2-5]
-S3@2-5 [p=S1@2-2; c=S6@2-5]
 S2@0-5 [p=S0@0-0; c=S6@0-5]
 S3@0-5 [p=S1@0-0; c=S6@0-5]
+S6@0-5 [p=S5@0-2; c=S6@2-5] [p=S5@0-4; c=S4@4-5]
+S3@2-5 [p=S1@2-2; c=S6@2-5]
+S6@2-5 [p=S5@2-4; c=S4@4-5]
+S3@4-5 [p=S1@4-4; c=S4@4-5]
+S4@4-5 [p=S1@4-4; s=Number; t=\3]
 Earley Set 6
+S5@0-6 [p=S3@0-5; s=Op; t=\'+']
+S5@2-6 [p=S3@2-5; s=Op; t=\'+']
 S5@4-6 [p=S3@4-5; s=Op; t=\'+']
 S1@6-6
-S5@2-6 [p=S3@2-5; s=Op; t=\'+']
-S5@0-6 [p=S3@0-5; s=Op; t=\'+']
 Earley Set 7
-S4@6-7 [p=S1@6-6; s=Number; t=\1]
-S6@4-7 [p=S5@4-6; c=S4@6-7]
-S3@6-7 [p=S1@6-6; c=S4@6-7]
-S6@2-7 [p=S5@2-6; c=S4@6-7] [p=S5@2-4; c=S6@4-7]
-S6@0-7 [p=S5@0-6; c=S4@6-7] [p=S5@0-4; c=S6@4-7] [p=S5@0-2; c=S6@2-7]
-S3@4-7 [p=S1@4-4; c=S6@4-7]
-S3@2-7 [p=S1@2-2; c=S6@2-7]
 S2@0-7 [p=S0@0-0; c=S6@0-7]
 S3@0-7 [p=S1@0-0; c=S6@0-7]
+S6@0-7 [p=S5@0-2; c=S6@2-7] [p=S5@0-4; c=S6@4-7] [p=S5@0-6; c=S4@6-7]
+S3@2-7 [p=S1@2-2; c=S6@2-7]
+S6@2-7 [p=S5@2-4; c=S6@4-7] [p=S5@2-6; c=S4@6-7]
+S3@4-7 [p=S1@4-4; c=S6@4-7]
+S6@4-7 [p=S5@4-6; c=S4@6-7]
+S3@6-7 [p=S1@6-6; c=S4@6-7]
+S4@6-7 [p=S1@6-6; s=Number; t=\1]
 END_OF_EARLEY_SETS
+
+Marpa::XS::Test::is( ${$actual_ref},
+    $expected_earley_sets, 'Ambiguous Equation Earley Sets' );
 
 restore_stdout();
 

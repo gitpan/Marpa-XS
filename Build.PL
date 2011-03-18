@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -27,7 +27,7 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_xs_version = '0.001_029';
+my $marpa_xs_version = '0.001_030';
     
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
@@ -98,7 +98,7 @@ my $build = Marpa::XS::Build_Me->new(
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
         no_index => {
-            directory => [qw( config inc t html devlib author.t )],
+            directory => [qw( config inc t html devlib libmarpa author.t )],
             namespace => [
                 'Marpa::XS::Recognizer', 'Marpa::XS::Grammar',
                 @no_index_namespace_inclusive

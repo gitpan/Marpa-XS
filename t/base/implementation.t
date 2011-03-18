@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -19,7 +19,7 @@ use strict;
 use warnings;
 
 use Fatal qw(open close);
-use Test::More tests => 10;
+use Test::More tests => 9;
 
 use Marpa::XS::Test;
 
@@ -124,67 +124,6 @@ END_RULES
 
 # Marpa::XS::Display::End
 
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-# does not include transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Implementation Example New AHFA States' );
-* S0:
-Expression['] -> . Expression
- <Expression> => S2; leo(Expression['])
-* S1: predict
-Expression -> . Term
-Term -> . Factor
-Factor -> . Number
-Term -> . Term Add Term
-Factor -> . Factor Multiply Factor
- <Factor> => S4
- <Number> => S5
- <Term> => S3
-* S2: leo-c
-Expression['] -> Expression .
-* S3:
-Expression -> Term .
-Term -> Term . Add Term
- <Add> => S6; S7
-* S4:
-Term -> Factor .
-Factor -> Factor . Multiply Factor
- <Multiply> => S8; S9
-* S5:
-Factor -> Number .
-* S6:
-Term -> Term Add . Term
- <Term> => S10; leo(Term)
-* S7: predict
-Term -> . Factor
-Factor -> . Number
-Term -> . Term Add Term
-Factor -> . Factor Multiply Factor
- <Factor> => S4
- <Number> => S5
- <Term> => S11
-* S8:
-Factor -> Factor Multiply . Factor
- <Factor> => S12; leo(Factor)
-* S9: predict
-Factor -> . Number
-Factor -> . Factor Multiply Factor
- <Factor> => S13
- <Number> => S5
-* S10: leo-c
-Term -> Term Add Term .
-* S11:
-Term -> Term . Add Term
- <Add> => S6; S7
-* S12: leo-c
-Factor -> Factor Multiply Factor .
-* S13:
-Factor -> Factor . Multiply Factor
- <Multiply> => S8; S9
-EOS
-
-} ## SKIP of XS tests
-
 my $show_AHFA_output = $grammar->show_AHFA();
 
 # Marpa::XS::Display
@@ -258,40 +197,42 @@ my $show_earley_sets_output = $recce->show_earley_sets();
 # start-after-line: END_EARLEY_SETS
 # end-before-line: '^END_EARLEY_SETS$'
 
-Marpa::XS::Test::is( $show_earley_sets_output,
-    <<'END_EARLEY_SETS', 'Implementation Example Earley Sets' );
+my $expected_earley_sets = <<'END_EARLEY_SETS';
 Last Completed: 5; Furthest: 5
 Earley Set 0
 S0@0-0
 S1@0-0
 Earley Set 1
-S5@0-1 [p=S1@0-0; s=Number; t=\42]
-S4@0-1 [p=S1@0-0; c=S5@0-1]
-S3@0-1 [p=S1@0-0; c=S4@0-1]
 S2@0-1 [p=S0@0-0; c=S3@0-1]
+S3@0-1 [p=S1@0-0; c=S4@0-1]
+S4@0-1 [p=S1@0-0; c=S5@0-1]
+S5@0-1 [p=S1@0-0; s=Number; t=\42]
 Earley Set 2
 S8@0-2 [p=S4@0-1; s=Multiply; t=\'*']
 S9@2-2
 Earley Set 3
-S5@2-3 [p=S9@2-2; s=Number; t=\1]
-S12@0-3 [p=S8@0-2; c=S5@2-3]
-S13@2-3 [p=S9@2-2; c=S5@2-3]
-S4@0-3 [p=S1@0-0; c=S12@0-3]
-S3@0-3 [p=S1@0-0; c=S4@0-3]
 S2@0-3 [p=S0@0-0; c=S3@0-3]
+S3@0-3 [p=S1@0-0; c=S4@0-3]
+S4@0-3 [p=S1@0-0; c=S12@0-3]
+S12@0-3 [p=S8@0-2; c=S5@2-3]
+S5@2-3 [p=S9@2-2; s=Number; t=\1]
+S13@2-3 [p=S9@2-2; c=S5@2-3]
 Earley Set 4
 S6@0-4 [p=S3@0-3; s=Add; t=\'+']
 S7@4-4
 Earley Set 5
-S5@4-5 [p=S7@4-4; s=Number; t=\7]
-S4@4-5 [p=S7@4-4; c=S5@4-5]
-S10@0-5 [p=S6@0-4; c=S4@4-5]
-S11@4-5 [p=S7@4-4; c=S4@4-5]
-S3@0-5 [p=S1@0-0; c=S10@0-5]
 S2@0-5 [p=S0@0-0; c=S3@0-5]
+S3@0-5 [p=S1@0-0; c=S10@0-5]
+S10@0-5 [p=S6@0-4; c=S4@4-5]
+S4@4-5 [p=S7@4-4; c=S5@4-5]
+S5@4-5 [p=S7@4-4; s=Number; t=\7]
+S11@4-5 [p=S7@4-4; c=S4@4-5]
 END_EARLEY_SETS
 
 # Marpa::XS::Display::End
+
+Marpa::XS::Test::is( $show_earley_sets_output,
+    $expected_earley_sets, 'Implementation Example Earley Sets' );
 
 my $trace_output;
 open my $trace_fh, q{>}, \$trace_output;

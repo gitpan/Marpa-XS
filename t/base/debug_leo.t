@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -84,7 +84,6 @@ COMPLETED @0-20 0: S -> Top_sequence
 COMPLETED @0-20 (Leo) 1: Top_sequence -> Top Top_sequence
 COMPLETED @19-20 2: Top_sequence -> Top
 COMPLETED @19-20 (Leo) 3: Top -> Upper_Middle
-COMPLETED @19-20 (Leo) 5: Lower_Middle -> Bottom
 COMPLETED @19-20 6: Bottom -> T
 COMPLETED @0-20 7: S['] -> S
 END_PROGRESS_REPORT

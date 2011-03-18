@@ -1,5 +1,5 @@
 #!perl
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -22,7 +22,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 18;
 
 use Marpa::XS::Test;
 
@@ -91,47 +91,6 @@ Marpa::XS::Test::is( $grammar->show_rules,
 9: S['] -> S /* vlhs real=1 */
 10: S['][] -> /* empty vlhs real=1 */
 END_OF_STRING
-
-SKIP: { skip 'Not using XS', 1 if not $Marpa::XS::USING_XS ;
-
-# does include transitions
-Marpa::XS::Test::is( $grammar->show_new_AHFA(), <<'EOS', 'Leo168 New AHFA States' );
-* S0:
-S['] -> . S
-S['][] -> .
- <S> => S2; leo(S['])
-* S1: predict
-S -> . a S
-S -> . a S[]
-S -> . C
-C -> . a C b
-C -> . a C[] b
- <C> => S4; leo(S)
- <a> => S1; S3
-* S2: leo-c
-S['] -> S .
-* S3:
-S -> a . S
-S -> a S[] .
-C -> a . C b
-C -> a C[] . b
- <C> => S7
- <S> => S6; leo(S)
- <b> => S5
-* S4: leo-c
-S -> C .
-* S5:
-C -> a C[] b .
-* S6: leo-c
-S -> a S .
-* S7:
-C -> a C . b
- <b> => S8
-* S8:
-C -> a C b .
-EOS
-
-} ## SKIP of XS tests
 
 Marpa::XS::Test::is( $grammar->show_AHFA, <<'END_OF_STRING', 'Leo168 AHFA' );
 * S0:

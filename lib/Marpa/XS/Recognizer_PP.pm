@@ -1,4 +1,4 @@
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -58,6 +58,7 @@ use Marpa::XS::Offset qw(
     "factored" differently between predecessor and cause.
     Each different "factoring" can contribute a Leo
     link. }
+    IS_LEO_EXPANDED { Flag indicating if Leo links were expanded }
 
     ORIGIN { The number of the Earley set with the parent item(s) }
     SET { The set this item is in. For debugging. }
@@ -71,8 +72,7 @@ use Marpa::XS::Offset qw(
 
     :package=Marpa::XS::Internal::Leo_Item
 
-    BASE_TO_STATE { The AHFA to-state of the base's transition. }
-    LEO_SYMBOL { A symbol name.  Used only for tracing and debugging. }
+    LEO_POSTDOT_SYMBOL { A symbol name.  Used only for tracing and debugging. }
     ORIGIN { The number of the Earley set with the parent item(s) }
     BASE { The Earley item on which this item is based. }
     PREDECESSOR { The Leo item prior in the series to this one. }
@@ -288,7 +288,7 @@ sub Marpa::XS::Recognizer::new {
         scalar @terminals_expected <= 0;
 
     if ( $trace_terminals > 1 ) {
-        for my $terminal (@terminals_expected) {
+        for my $terminal (sort @terminals_expected) {
             say {$Marpa::XS::Internal::TRACE_FH}
                 qq{Expecting "$terminal" at earleme 0}
                 or Marpa::XS::exception("Cannot print: $ERRNO");
@@ -506,7 +506,7 @@ sub Marpa::XS::Recognizer::set {
 } ## end sub Marpa::XS::Recognizer::set
 
 # Not intended to be documented.
-# Returns the size of the lasy completed earley set.
+# Returns the size of the last completed earley set.
 # For testing, especially that the Leo items
 # are doing their job.
 sub Marpa::XS::Recognizer::earley_set_size {
@@ -573,22 +573,15 @@ sub Marpa::XS::show_link_choice {
 } ## end sub Marpa::XS::show_link_choice
 
 sub Marpa::XS::show_leo_link_choice {
-    my ($leo_link) = @_;
-    my ( $leo_item, $cause, $symbol_name, $value_ref ) = @{$leo_link};
+    my ($recce, $leo_link) = @_;
+    my ( $leo_item, $cause ) = @{$leo_link};
     my @link_texts = ();
     if ($leo_item) {
         push @link_texts,
-            ( 'l=' . $leo_item->name() );
+            ( 'l=' . Marpa::XS::leo_item_name($recce, $leo_item) );
     }
-    if ($cause) {
-        push @link_texts,
+    push @link_texts,
             'c=' .  Marpa::XS::Internal::Earley_Item::name($cause);
-    }
-    else {
-        my $token_dump = Data::Dumper->new( [$value_ref] )->Terse(1)->Dump;
-        chomp $token_dump;
-        push @link_texts, "s=$symbol_name", "t=$token_dump";
-    }
     return '[' . ( join '; ', @link_texts ) . ']';
 } ## end sub Marpa::XS::show_leo_link_choice
 
@@ -602,71 +595,110 @@ sub Marpa::XS::Internal::Earley_Item::name {
 } ## end sub Marpa::XS::Internal::Earley_Item::name
 
 sub Marpa::XS::show_earley_item {
-    my ($item)    = @_;
+    my ($recce, $item)    = @_;
     my $links     = $item->[Marpa::XS::Internal::Earley_Item::LINKS];
     my $leo_links = $item->[Marpa::XS::Internal::Earley_Item::LEO_LINKS];
+    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
 
     my $text = Marpa::XS::Internal::Earley_Item::name($item);
 
     if ( defined $links and @{$links} ) {
+	my @sort_data;
         for my $link ( @{$links} ) {
-            $text .= q{ } . Marpa::XS::show_link_choice($link);
+	    my ( $predecessor, $cause, $token_name, $value_ref ) = @{$link};
+	    # The actual middle of a link with no predecessor
+	    # is the origin of the Earley item which contains this link,
+	    # but for sorting purposes any number less than than will do
+	    my $middle = defined $predecessor ? $predecessor->[Marpa::XS::Internal::Earley_Item::SET] : -1;
+	    my $cause_state_id =
+		defined $cause
+		? $cause->[Marpa::XS::Internal::Earley_Item::STATE]
+		->[Marpa::XS::Internal::AHFA::ID]
+		: -1;
+	    my $symbol_id = defined $token_name ? $symbol_hash->{$token_name} : -1;
+	    push @sort_data, [ $middle, $cause_state_id, $symbol_id, Marpa::XS::show_link_choice($link) ]; 
         }
+	my @sorted_links = map { $_->[-1] } sort {
+	   $a->[0] <=> $b->[0]
+	   || $a->[1] <=> $b->[1]
+	   || $a->[2] <=> $b->[2]
+	} @sort_data;
+	$text .= q{ } . join q{ }, @sorted_links;
     }
     if ( defined $leo_links and @{$leo_links} ) {
-        for my $leo_link ( @{$leo_links} ) {
-            $text .= q{ } . Marpa::XS::show_leo_link_choice($leo_link);
-        }
-    }
+        my @sort_data;
+        for my $link ( @{$leo_links} ) {
+            my ( $predecessor, $cause ) = @{$link};
+            my $middle = $predecessor->[Marpa::XS::Internal::Leo_Item::SET];
+            my $cause_state_id =
+                $cause->[Marpa::XS::Internal::Earley_Item::STATE]
+                ->[Marpa::XS::Internal::AHFA::ID];
+            my $symbol_name = $predecessor
+                ->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
+            my $symbol_id = $symbol_hash->{$symbol_name};
+            push @sort_data,
+                [
+                $middle, $cause_state_id, $symbol_id,
+                Marpa::XS::show_leo_link_choice( $recce, $link )
+                ];
+        } ## end for my $link ( @{$leo_links} )
+        my @sorted_links = map { $_->[-1] } sort {
+                   $a->[0] <=> $b->[0]
+                || $a->[1] <=> $b->[1]
+                || $a->[2] <=> $b->[2]
+        } @sort_data;
+        $text .= q{ } . join q{ }, @sorted_links;
+    } ## end if ( defined $leo_links and @{$leo_links} )
     return $text;
 } ## end sub Marpa::XS::show_earley_item
 
-sub Marpa::XS::Internal::Leo_Item::name {
-    my ($item) = @_;
-    my $to_state  = $item->[Marpa::XS::Internal::Leo_Item::BASE_TO_STATE];
-    my $parent = $item->[Marpa::XS::Internal::Leo_Item::ORIGIN];
+sub Marpa::XS::leo_item_name {
+    my ($recce, $item) = @_;
+    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
     my $set    = $item->[Marpa::XS::Internal::Leo_Item::SET];
-    my $symbol = $item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL];
-    return sprintf 'L%d:%d@%d-%d',
-        $to_state->[Marpa::XS::Internal::AHFA::ID],
-        $symbol->[Marpa::XS::Internal::Symbol::ID],
-        $parent, $set;
+    my $symbol_name = $item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
+    my $symbol_id = $symbol_hash->{$symbol_name};
+    return sprintf 'L%d@%d', $symbol_id, $set;
 } ## end sub Marpa::XS::Internal::Leo_Item::name
 
 sub Marpa::XS::show_leo_item {
-    my ($item)          = @_;
+    my ($recce, $item)          = @_;
     my $base            = $item->[Marpa::XS::Internal::Leo_Item::BASE];
     my $predecessor     = $item->[Marpa::XS::Internal::Leo_Item::PREDECESSOR];
-    my $leo_symbol      = $item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL];
-    my $leo_symbol_name = $leo_symbol->[Marpa::XS::Internal::Symbol::NAME];
+    my $leo_symbol_name = $item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
 
-    my $text = $item->name();
-    $text .= qq{; "$leo_symbol_name";};
-
-    my @link_texts = ();
+    my $text = Marpa::XS::leo_item_name($recce, $item);
+    my @link_texts = qq{"$leo_symbol_name"};
     if ($predecessor) {
-        push @link_texts, ( 'l=' . $predecessor->name() );
+        push @link_texts, Marpa::XS::leo_item_name($recce, $predecessor);
     }
-    if ($base) {
-        push @link_texts,
-            'c=' .  Marpa::XS::Internal::Earley_Item::name($base);
-    }
-    $text .= ' [' . ( join '; ', @link_texts ) . ']';
+    push @link_texts, Marpa::XS::Internal::Earley_Item::name($base);
+    $text .= ' [' . (join '; ', @link_texts) . ']';
     return $text;
 } ## end sub Marpa::XS::show_leo_item
 
 sub Marpa::XS::show_earley_set {
-    my ($earley_set) = @_;
-    my $text = q{};
-    my $items = $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS];
-    for my $earley_item ( @{$items} ) {
-        $text .= Marpa::XS::show_earley_item($earley_item) . "\n";
-    }
-    return $text;
+    my ($recce, $earley_set) = @_;
+    my $text         = q{};
+    my $items        = $earley_set->[Marpa::XS::Internal::Earley_Set::ITEMS];
+    my @sorted_descriptions = map { $_->[-1] }
+        sort { $a->[0] <=> $b->[0] || $a->[1] <=> $b->[1] }
+        map {
+        [   $_->[Marpa::XS::Internal::Earley_Item::ORIGIN],
+            $_->[Marpa::XS::Internal::Earley_Item::STATE]
+                ->[Marpa::XS::Internal::AHFA::ID],
+	     Marpa::XS::show_earley_item($recce, $_) . "\n"
+        ]
+        } @{$items};
+    return join q{}, @sorted_descriptions;
 } ## end sub Marpa::XS::show_earley_set
 
 sub Marpa::XS::show_postdot_set {
-    my ($postdot_set)       = @_;
+    my ($recce, $postdot_set)       = @_;
+    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
     my $text                = q{};
     my @decorated_leo_items = ();
     for my $leo_item (
@@ -674,40 +706,33 @@ sub Marpa::XS::show_postdot_set {
         map { @{$_} } values %{$postdot_set}
         )
     {
-        my $to_state_id =
-            $leo_item->[Marpa::XS::Internal::Leo_Item::BASE_TO_STATE]
-            ->[Marpa::XS::Internal::AHFA::ID],
-            my $origin = $leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN];
-        my $symbol_id =
-            $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL]
-            ->[Marpa::XS::Internal::Symbol::ID];
+	my $symbol_name = $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
+        my $symbol_id = $symbol_hash->{$symbol_name};
         push @decorated_leo_items,
-            [ $leo_item, $to_state_id, $symbol_id, $origin ];
+            [ $leo_item, $symbol_id ];
     } ## end for my $leo_item ( grep { ref eq $LEO_CLASS } map { @...})
     my @sorted_leo_items = map { $_->[0] } sort {
                $a->[1] <=> $b->[1]
-            || $a->[2] <=> $b->[2]
-            || $a->[3] <=> $b->[3];
     } @decorated_leo_items;
     for my $postdot_item (@sorted_leo_items) {
-        $text .= Marpa::XS::show_leo_item($postdot_item) . "\n";
+        $text .= Marpa::XS::show_leo_item($recce, $postdot_item) . "\n";
     }
     return $text;
 } ## end sub Marpa::XS::show_postdot_set
 
 sub Marpa::XS::show_earley_set_list {
-    my ( $earley_set_list ) = @_;
+    my ( $recce, $earley_set_list ) = @_;
     my $text             = q{};
     my $earley_set_count = @{$earley_set_list};
     LIST: for my $ix ( 0 .. $earley_set_count - 1 ) {
         my $set = $earley_set_list->[$ix];
         next LIST if not defined $set;
-        $text .= "Earley Set $ix\n" . Marpa::XS::show_earley_set($set);
+        $text .= "Earley Set $ix\n" . Marpa::XS::show_earley_set($recce, $set);
         my $postdot_set =
             $earley_set_list->[$ix]
             ->[Marpa::XS::Internal::Earley_Set::POSTDOT];
         next LIST if not defined $postdot_set;
-        $text .= Marpa::XS::show_postdot_set($postdot_set);
+        $text .= Marpa::XS::show_postdot_set($recce, $postdot_set);
     } ## end for my $ix ( 0 .. $earley_set_count - 1 )
     return $text;
 } ## end sub Marpa::XS::show_earley_set_list
@@ -721,7 +746,7 @@ sub Marpa::XS::Recognizer::show_earley_sets {
     return
           "Last Completed: $last_completed_earleme; "
         . "Furthest: $furthest_earleme\n"
-        . Marpa::XS::show_earley_set_list( $earley_set_list );
+        . Marpa::XS::show_earley_set_list( $recce, $earley_set_list );
 
 } ## end sub Marpa::XS::Recognizer::show_earley_sets
 
@@ -933,6 +958,8 @@ sub Marpa::XS::Recognizer::alternative {
         Marpa::XS::exception($problem);
     } ## end if ( not defined $symbol_name or not $terminal_names...)
 
+    $length //= 1;
+
     # Make sure it's an allowed terminal symbol.
     my $postdot_data = $postdot_here->{$symbol_name};
     if ( not $postdot_data ) {
@@ -941,14 +968,14 @@ sub Marpa::XS::Recognizer::alternative {
                 qq{Rejected "$symbol_name" at token $current_earleme});
         }
         if ($trace_terminals) {
-            say {$trace_fh} qq{Rejected "$symbol_name" at $current_earleme}
+	    say {$trace_fh} qq{Rejected "$symbol_name" at $current_earleme-}
+		. ( $length + $current_earleme )
                 or Marpa::XS::exception("Cannot print: $ERRNO");
         }
         return;
     } ## end if ( not $postdot_data )
 
     my $value_ref = \($value);
-    $length //= 1;
 
     if ( $length & Marpa::XS::Internal::Recognizer::EARLEME_MASK ) {
         Marpa::XS::exception(
@@ -981,13 +1008,8 @@ sub Marpa::XS::Recognizer::alternative {
 
 	my $origin;
 	my @to_states;
-	my $postdot_item_is_leo = ref $postdot_item eq $LEO_CLASS;
-	if ($postdot_item_is_leo) {
-	    @to_states =
-		$postdot_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE];
-	    $origin = $postdot_item->[Marpa::XS::Internal::Leo_Item::ORIGIN];
-	}
-	else {
+	next EARLEY_ITEM if ref $postdot_item eq $LEO_CLASS;
+	{
 	    my $state = $postdot_item->[Marpa::XS::Internal::Earley_Item::STATE];
 	    @to_states =
 		grep {ref}
@@ -995,7 +1017,7 @@ sub Marpa::XS::Recognizer::alternative {
 		    ->{$symbol_name} };
 	    next EARLEY_ITEM if not scalar @to_states;
 	    $origin = $postdot_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
-	} ## end else [ if ($postdot_item_is_leo) ]
+	}
 
         $accepted++;
 
@@ -1007,9 +1029,7 @@ sub Marpa::XS::Recognizer::alternative {
             my $target_item = $target_hash->{$hash_key};
             if ( defined $target_item ) {
                 next TO_STATE if $reset;
-                if (not $postdot_item_is_leo
-                    and
-                    $postdot_item->[Marpa::XS::Internal::Earley_Item::ID] ~~
+                if ( $postdot_item->[Marpa::XS::Internal::Earley_Item::ID] ~~
                     [   map {
                             $_->[0]->[Marpa::XS::Internal::Earley_Item::ID]
                             } @{
@@ -1022,7 +1042,7 @@ sub Marpa::XS::Recognizer::alternative {
                     Marpa::XS::exception(
                         qq{"$symbol_name" already scanned with length $length at location $current_earleme}
                     );
-                } ## end if ( not $postdot_item_is_leo and $postdot_item->[...])
+                }
             } ## end if ( defined $target_item )
             else {
 
@@ -1045,17 +1065,8 @@ sub Marpa::XS::Recognizer::alternative {
 
             next TO_STATE if $reset;
 
-            if ($postdot_item_is_leo) {
-                push @{ $target_item
-                        ->[Marpa::XS::Internal::Earley_Item::LEO_LINKS] },
-                    [ $postdot_item, undef, $symbol_name, $value_ref ];
-            } ## end if ($leo_item)
-            else {
-                push
-                    @{ $target_item->[Marpa::XS::Internal::Earley_Item::LINKS]
-                    },
-                    [ $postdot_item, undef, $symbol_name, $value_ref ];
-            }
+	    push @{ $target_item->[Marpa::XS::Internal::Earley_Item::LINKS] },
+		[ $postdot_item, undef, $symbol_name, $value_ref ];
         }    # for my $to_state
 
     }
@@ -1377,17 +1388,19 @@ sub Marpa::XS::Recognizer::earleme_complete {
                 if ($postdot_item_is_leo) {
                     push @{ $target_item
                             ->[Marpa::XS::Internal::Earley_Item::LEO_LINKS] },
-                        [ $postdot_item, $earley_item ];
+                        [ $postdot_item, $earley_item, $lhs_symbol ];
+		    # If we do the Leo item, do *ONLY* the Leo item
+		    last PARENT_ITEM;
                 }
                 else {
                     push @{ $target_item
                             ->[Marpa::XS::Internal::Earley_Item::LINKS] },
-                        [ $postdot_item, $earley_item ];
+                        [ $postdot_item, $earley_item, $lhs_symbol ];
                 }
             }    # TRANSITION_STATE
 
         }    # PARENT_ITEM
-	}
+	} # LHS_SYMBOL 
 
     }    # EARLEY_ITEM
 
@@ -1436,87 +1449,175 @@ sub Marpa::XS::Recognizer::earleme_complete {
         }
     } ## end for my $earley_item ( @{$earley_items} )
 
+    # Create the unpopulated Leo items, and put them into a worklist
     my @leo_worklist = ();
     if ( $recce->[Marpa::XS::Internal::Recognizer::USE_LEO] ) {
         SYMBOL: for my $postdot_symbol_name ( keys %{$postdot_here} ) {
             my $postdot_data = $postdot_here->{$postdot_symbol_name};
             next SYMBOL if scalar @{$postdot_data} != 1;
             my $earley_item = $postdot_data->[0];
-            my $leo_lhs =
-                $earley_item->[Marpa::XS::Internal::Earley_Item::STATE]
-                ->[Marpa::XS::Internal::AHFA::TRANSITION]
-                ->{$postdot_symbol_name}->[0];
+            my ( $leo_lhs, $base_to_state ) =
+                @{ $earley_item->[Marpa::XS::Internal::Earley_Item::STATE]
+                    ->[Marpa::XS::Internal::AHFA::TRANSITION]
+                    ->{$postdot_symbol_name} };
 
             # Only one transition in the Earley set on this symbol,
             # but it is not to a Leo completion.
             next SYMBOL if ref $leo_lhs;
+
+            my $leo_item = bless [], $LEO_CLASS;
+            # $leo_item->[Marpa::XS::Internal::Leo_Item::BASE_TO_STATE] =
+                # $base_to_state;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::SET] =
+                $earleme_to_complete;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL] =
+                $postdot_symbol_name;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::BASE] =
+                $earley_item;
+
+            unshift @{ $postdot_here->{$postdot_symbol_name} }, $leo_item;
             push @leo_worklist, $postdot_symbol_name;
+
         } ## end for my $postdot_symbol_name ( keys %{$postdot_here} )
     } ## end if ( $recce->[Marpa::XS::Internal::Recognizer::USE_LEO...])
-    my $no_of_work_entries = scalar @leo_worklist;
-    my $final_pass = 0;
-    # Pretend there was an pre-pass
-    PASS: for (;;) {
-        my $to_ix = 0;
-    SYMBOL:
-    for (my $ix = 0; $ix < $no_of_work_entries; $ix++) {
-        my $postdot_symbol_name = $leo_worklist[$ix];
-        my $postdot_data = $postdot_here->{$postdot_symbol_name};
-        my $base_earley_item = $postdot_data->[0];
 
-	my $leo_origin =
-	    $base_earley_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
-	my ( $leo_lhs, $top_to_state ) =
-	    @{ $base_earley_item->[Marpa::XS::Internal::Earley_Item::STATE]
-		->[Marpa::XS::Internal::AHFA::TRANSITION]
-		->{$postdot_symbol_name} };
-	my $base_to_state = $top_to_state;
+    POSTDOT_SYMBOL: for my $postdot_symbol_name (@leo_worklist) {
 
-        # A flag that indicates if we working on a prediction
-        # Leo item.  Set here because $leo_origin is changed
-        # below.
-        my $prediction = $leo_origin == $earleme_to_complete;
+        my $leo_item = $postdot_here->{$postdot_symbol_name}->[0];
+        next POSTDOT_SYMBOL
+            if
+            defined $leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE];
 
+        # Find the predecessor LIM
+        my $base_earley_item =
+            $leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
+        my $base_origin =
+            $base_earley_item->[Marpa::XS::Internal::Earley_Item::ORIGIN];
+        my ( $leo_transition_symbol, $top_to_state ) =
+            @{ $base_earley_item->[Marpa::XS::Internal::Earley_Item::STATE]
+                ->[Marpa::XS::Internal::AHFA::TRANSITION]
+                ->{$postdot_symbol_name} };
+        my $predecessor_postdot =
+            $earley_set_list->[$base_origin]
+            ->[Marpa::XS::Internal::Earley_Set::POSTDOT]
+            ->{$leo_transition_symbol};
+        my $first_postdot_item = $predecessor_postdot->[0];
+        my $predecessor_leo_item =
+            ref $first_postdot_item eq $LEO_CLASS
+            ? $first_postdot_item
+            : undef;
 
-	my $predecessor_postdot =
-	    $earley_set_list->[$leo_origin]
-	    ->[Marpa::XS::Internal::Earley_Set::POSTDOT]->{$leo_lhs};
-	my $postdot_item = $predecessor_postdot->[0];
-        my $predecessor_leo_item = ref $postdot_item eq $LEO_CLASS ? $postdot_item : undef;
+        # If there is a predecessor Leo item and it is populated, populate from the predecessor
+        # Leo item
+        my $predecessor_top_to_state = defined $predecessor_leo_item ? $predecessor_leo_item
+            ->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE] : undef;
+        if ( defined $predecessor_top_to_state ) {
+            $leo_item->[Marpa::XS::Internal::Leo_Item::PREDECESSOR] =
+                $predecessor_leo_item;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE] =
+                $predecessor_top_to_state;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN] =
+                $predecessor_leo_item
+                ->[Marpa::XS::Internal::Leo_Item::ORIGIN];
+            next POSTDOT_SYMBOL;
+        } ## end if ( $predecessor_leo_item and $predecessor_top_to_state)
 
-	if ( not $predecessor_leo_item and not $final_pass and $prediction ) {
-            # We didn't find a predecessor Leo item.
-            # That's ok in the final phase,
-            # or if we are not working on a Leo prediction item.
-	    $leo_worklist[ $to_ix++ ] = $postdot_symbol_name;
-	    next SYMBOL;
-	}
+        # If there is no predecessor Leo item, populate from the base Earley item
+        if ( not defined $predecessor_leo_item ) {
+            $leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN] = $base_origin;
+            $leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE] =
+                $top_to_state;
+            next POSTDOT_SYMBOL;
+        } ## end if ( not $predecessor_leo_item )
 
-	if ( $predecessor_leo_item ) {
-	    $leo_origin = $predecessor_leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN];
-	    $top_to_state = $predecessor_leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE];
-	} ## end if ($predecessor_leo_item)
+        # If there is a predecessor, but it is not populated, we need to build a
+        # predecessor chain of Leo items
+        my @leo_chain = ($postdot_symbol_name);
+        BUILD_LEO_CHAIN: while (1) {
+            my $chain_leo_item              = $predecessor_leo_item;
+            my $chain_leo_transition_symbol = $chain_leo_item
+                ->[Marpa::XS::Internal::Leo_Item::LEO_POSTDOT_SYMBOL];
 
-        my $leo_item = bless [], $LEO_CLASS;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::BASE_TO_STATE] = $base_to_state;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN] = $leo_origin;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::SET] =
-            $earleme_to_complete;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::LEO_SYMBOL] =
-            $symbols->[$symbol_hash->{$postdot_symbol_name}];
-        $leo_item->[Marpa::XS::Internal::Leo_Item::BASE] = $base_earley_item;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::PREDECESSOR] =
-            $predecessor_leo_item;
-        $leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE] = $top_to_state;
+            # If this leo item is already on the chain, break here.
+            # The predecessor Leo item has not yet been updated
+            # (it and the current Leo item are the same)
+            # so the predecessor Leo item
+            # is still correct for the Leo item at the top of the
+            # Leo item chain.
+            last BUILD_LEO_CHAIN
+                if $chain_leo_transition_symbol ~~ @leo_chain;
 
-        $postdot_here->{$postdot_symbol_name} = [ $leo_item ];
+            # Find the new predecessor Leo item
+            my $chain_base_earley_item =
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
+            my $chain_base_origin = $chain_base_earley_item
+                ->[Marpa::XS::Internal::Earley_Item::ORIGIN];
+            my ( $chain_predecessor_leo_transition_symbol,
+                $chain_top_to_state )
+                = @{ $chain_base_earley_item
+                    ->[Marpa::XS::Internal::Earley_Item::STATE]
+                    ->[Marpa::XS::Internal::AHFA::TRANSITION]
+                    ->{$chain_leo_transition_symbol} };
+            my $chain_predecessor_postdot =
+                $earley_set_list->[$chain_base_origin]
+                ->[Marpa::XS::Internal::Earley_Set::POSTDOT]
+                ->{$chain_predecessor_leo_transition_symbol};
+            my $chain_first_postdot_item = $chain_predecessor_postdot->[0];
+            $predecessor_leo_item =
+                ref $chain_first_postdot_item eq $LEO_CLASS
+                ? $chain_first_postdot_item
+                : undef;
 
-    } ## end for ( ;; )
-    last PASS if $final_pass;
-    # Final pass if nothing accomplished
-    $final_pass = $no_of_work_entries == $to_ix;
-    $no_of_work_entries = $to_ix;
-    }
+            push @leo_chain, $chain_leo_transition_symbol;
+
+            #  No predecessor, so I am forced to break the Leo chain here.
+            last BUILD_LEO_CHAIN if not defined $predecessor_leo_item;
+
+            # A populated predecessor, so I can fully populate the Leo chain.
+            # Break the Leo chain here.
+            last BUILD_LEO_CHAIN
+                if defined $predecessor_leo_item
+                    ->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE];
+        } ## end while (1)
+
+        while ( my $chain_leo_transition_symbol = pop @leo_chain ) {
+            my $chain_leo_item = $postdot_here->{$chain_leo_transition_symbol}->[0];
+
+            # If there is a predecessor Leo item and it is populated, populate from the predecessor
+            # Leo item
+            my $chain_predecessor_top_to_state =
+                  $predecessor_leo_item
+                ? $predecessor_leo_item
+                ->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE]
+                : undef;
+            if ( defined $chain_predecessor_top_to_state ) {
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::PREDECESSOR]
+                    = $predecessor_leo_item;
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE]
+                    = $chain_predecessor_top_to_state;
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN] =
+                    $predecessor_leo_item
+                    ->[Marpa::XS::Internal::Leo_Item::ORIGIN];
+            } ## end if ( $predecessor_leo_item and ...)
+            else {
+                my $chain_base_earley_item =
+                    $chain_leo_item->[Marpa::XS::Internal::Leo_Item::BASE];
+                my $chain_base_origin = $chain_base_earley_item
+                    ->[Marpa::XS::Internal::Earley_Item::ORIGIN];
+                my ( undef, $chain_top_to_state ) =
+                    @{ $chain_base_earley_item
+                        ->[Marpa::XS::Internal::Earley_Item::STATE]
+                        ->[Marpa::XS::Internal::AHFA::TRANSITION]
+                        ->{$chain_leo_transition_symbol} };
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::ORIGIN] =
+                    $chain_base_origin;
+                $chain_leo_item->[Marpa::XS::Internal::Leo_Item::TOP_TO_STATE]
+                    = $chain_top_to_state;
+            } ## end else [ if ( $predecessor_leo_item and ...)]
+            $predecessor_leo_item = $chain_leo_item;
+        } ## end while ( my $chain_leo_transition_symbol = pop @leo_chain)
+    } ## end for my $postdot_symbol_name (@leo_worklist)
+
 
     my @terminals_expected =
         grep { $terminal_names->{$_} } keys %{$postdot_here};
@@ -1529,7 +1630,7 @@ sub Marpa::XS::Recognizer::earleme_complete {
         >= $recce->[Marpa::XS::Internal::Recognizer::FURTHEST_EARLEME];
 
     if ( $trace_terminals > 1 ) {
-        for my $terminal (@terminals_expected) {
+        for my $terminal (sort @terminals_expected) {
             say {$Marpa::XS::Internal::TRACE_FH}
                 qq{Expecting "$terminal" at $earleme_to_complete}
                 or Marpa::XS::exception("Cannot print: $ERRNO");

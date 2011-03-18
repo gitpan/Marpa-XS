@@ -1,4 +1,4 @@
-/.gdb_history
+.gdb_history
 /pod2htmd.tmp
 /pod2htmi.tmp
 /Build
@@ -11,7 +11,7 @@
 /Marpa-XS-[0-9].[0-9][0-9][0-9]_[0-9][0-9][0-9]/
 /_build/
 /blib/
-/errs
-/junk
+errs
+junk
 /nogit/
 no_git_*

@@ -1,4 +1,4 @@
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -253,7 +253,7 @@ sub ACTION_manifest {
 }
 
 sub ACTION_licensecheck {
-    require 'lib/Marpa/XS/License.pm';
+    require 'config/Marpa/XS/License.pm';
     my @manifest = do {
 	open my $fh, q{<}, 'MANIFEST';
 	local $RS = undef;

@@ -1,3 +1,6 @@
+% customized for marpa.w Jeffrey Kegler 2011
+% These macros are not intended for general use on CWEB files.
+
 % standard macros for CWEB listings (in addition to plain.tex)
 % Version 3.67 --- July 2006
 \ifx\renewenvironment\undefined\else\endinput\fi % LaTeX will use other macros
@@ -328,6 +331,7 @@
 
 \def\lapstar{\rlap{*}}
 \def\stsec{ \rightskip=0pt plus 100pt minus 10pt % SAME AS C mode
+  \hbadness1000 % set hbadness back to default
   \sfcode`;=1500 \pretolerance 200 \hyphenpenalty 50 \exhyphenpenalty 50
   \noindent{\let\*=\lapstar\bf\secstar.\quad}%
   \ifpdftex\smash{\raise\baselineskip\hbox to0pt{%
@@ -340,6 +344,7 @@
 \def\A{\note{See also section}} % xref for doubly defined section name
 \def\As{\note{See also sections}} % xref for multiply defined section name
 \def\B{ \rightskip=0pt plus 100pt minus 10pt % go into C mode
+  \hbadness2000 % do not really care about underfull lines
   \sfcode`;=3000
   \pretolerance 10000
   \hyphenpenalty 1000 % so strings can be broken (discretionary \ is inserted)
@@ -358,16 +363,16 @@
 % \H is long Hungarian umlaut accent
 \let\I=\ne % unequal sign
 \def\J{\.{@\&}} % TANGLE's join operation
-\let\K== % assignment operator
-%\let\K=\leftarrow % "honest" alternative to standard assignment operator
+% \let\K== % assignment operator
+\let\K=\leftarrow % "honest" alternative to standard assignment operator
 % \L is Polish letter suppressed-L
-\outer\def\M#1{\MN{#1}\ifon\vfil\penalty-100\vfilneg % beginning of section
+\outer\def\M#1{\MN{#1}\ifon\penalty-200 % beginning of section
   \vskip\intersecskip\startsection\ignorespaces}
 \outer\def\N#1#2#3.{% beginning of starred section
   \ifacro{\toksF={}\makeoutlinetoks#3\outlinedone\outlinedone}\fi
   \gdepth=#1\gtitle={#3}\MN{#2}%
   \ifon\ifnum#1<\secpagedepth \vfil\eject % force page break if depth is small
-    \else\vfil\penalty-100\vfilneg\vskip\intersecskip\fi\fi
+    \else\penalty-200\vskip\intersecskip\fi\fi
   \message{*\secno} % progress report
   \def\stripprefix##1>{}\def\gtitletoks{#3}%
   \edef\gtitletoks{\expandafter\stripprefix\meaning\gtitletoks}%
@@ -379,7 +384,9 @@
   \ifpdf\special{pdf: outline #1 << /Title (\the\toksE) /Dest
     [ @thispage /FitH @ypos ] >>}\fi
   \ifon\startsection{\bf#3.\quad}\ignorespaces}
-\def\MN#1{\par % common code for \M, \N
+\def\MN#1{
+    \par % common code for \M, \N
+    \hbadness1000 % set back to default
   {\xdef\secstar{#1}\let\*=\empty\xdef\secno{#1}}% remove \* from section name
   \ifx\secno\secstar \onmaybe \else\ontrue \fi
   \mark{{{\tensy x}\secno}{\the\gdepth}{\the\gtitle}}}
@@ -503,7 +510,9 @@
     \global\vsize\pageheight\gdef\lr{L}\global\pagesavedfalse\fi}
   \message{Index:}
   \parskip 0pt plus .5pt
-  \outer\def\I##1, ##2.{\par\hangindent2em\noindent##1:\kern1em
+  % \outer\def\I##1, ##2.{\par\hangindent2em\noindent##1:\kern1em
+    % \ifacro\pdfnote##2.\else##2\fi.} % index entry
+  \outer\def\I##1, ##2.{\par\hangindent2em\noindent##1:
     \ifacro\pdfnote##2.\else##2\fi.} % index entry
   \def\[##1]{$\underline{##1}$} % underlined index item
   \rm \rightskip0pt plus 2.5em \tolerance 10000 \let\*=\lapstar

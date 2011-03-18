@@ -1,4 +1,4 @@
-# Copyright 2010 Jeffrey Kegler
+# Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -38,5 +38,6 @@ return bless Marpa::XS::Recognizer::new(@_), 'Marpa::XS::Recognizer';
 sub Marpa::Recognizer::reset_evaluation { return Marpa::XS::Recognizer::reset_evaluation(@_); }
 sub Marpa::Recognizer::set { return Marpa::XS::Recognizer::set(@_); }
 sub Marpa::Recognizer::tokens { return Marpa::XS::Recognizer::tokens(@_); }
+sub Marpa::Recognizer::terminals_expected { return Marpa::XS::Recognizer::terminals_expected(@_); }
 
 1;
