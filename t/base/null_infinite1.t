@@ -80,29 +80,29 @@ $grammar->precompute();
 # So I do not treat the difference as a bug.
 
 my @expected3 = ();
-if ($Marpa::XS::USING_PP ) {
-push @expected3, qw{
-            S(-;f(S(n(A);f(S(-;f(S(n(A);f(A))))))))
-            S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))))
-            S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))))
-            S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))))
-            S(-;f(S(n(A);f(S(n(A);f(A))))))
-            S(-;f(S(n(A);f(S(n(A);f(S(-;f(A))))))))
-            S(-;f(S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))))
-            S(-;f(S(n(A);f(S(n(A);f(S(n(A);-)))))))
-            };
-}
+if ($Marpa::XS::USING_PP) {
+    push @expected3, qw{
+        S(-;f(S(n(A);f(S(-;f(S(n(A);f(A))))))))
+        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))))
+        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))))
+        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))))
+        S(-;f(S(n(A);f(S(n(A);f(A))))))
+        S(-;f(S(n(A);f(S(n(A);f(S(-;f(A))))))))
+        S(-;f(S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))))
+        S(-;f(S(n(A);f(S(n(A);f(S(n(A);-)))))))
+    };
+} ## end if ($Marpa::XS::USING_PP)
 
 push @expected3, qw{
-            S(n(A);f(S(-;f(S(n(A);f(A))))))
-            S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))
-            S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))
-            S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))
-            S(n(A);f(S(n(A);f(A))))
-            S(n(A);f(S(n(A);f(S(-;f(A))))))
-            S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))
-            S(n(A);f(S(n(A);f(S(n(A);-)))))
-            };
+    S(n(A);f(S(-;f(S(n(A);f(A))))))
+    S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))
+    S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))
+    S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))
+    S(n(A);f(S(n(A);f(A))))
+    S(n(A);f(S(n(A);f(S(-;f(A))))))
+    S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))
+    S(n(A);f(S(n(A);f(S(n(A);-)))))
+};
 
 my @expected = (
     [q{}],
@@ -123,7 +123,7 @@ my @expected = (
             S(n(A);f(A))
             }
     ],
-    \@expected3
+    \@expected3,
 );
 
 for my $input_length ( 1 .. 3 ) {

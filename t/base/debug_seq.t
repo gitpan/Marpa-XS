@@ -69,10 +69,10 @@ Test::More::ok( $value_ref, 'Parse ok?' );
 
 Marpa::XS::Test::is( $progress_report,
     << 'END_PROGRESS_REPORT', 'progress report' );
-PREDICTING @0 1: Document -> Document[Subseq:0:1]
-PREDICTING @0 2: Document[Subseq:0:1] -> Stuff
-PREDICTING @0 3: Document[Subseq:0:1] -> Document[Subseq:0:1] Stuff
-PREDICTING @0 4: Document['] -> Document
+P1 @0-0 Document -> . Document[Subseq:0:1]
+P2 @0-0 Document[Subseq:0:1] -> . Stuff
+P3 @0-0 Document[Subseq:0:1] -> . Document[Subseq:0:1] Stuff
+P4 @0-0 Document['] -> . Document
 END_PROGRESS_REPORT
 
 # Marpa::XS::Display::End

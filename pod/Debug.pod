@@ -275,12 +275,11 @@ name: Debug Example Progress Report
 partial: 1
 normalize-whitespace: 1
 
-    BUILDING @0-3 Factor -> Factor . Multiply Factor
-    BUILDING @2-3 Factor -> Factor . Multiply Factor
-    COMPLETED @0-3 0: Expression -> Factor
-    COMPLETED @2-3 2: Factor -> Number
-    COMPLETED @0-3 4: Factor -> Factor Multiply Factor
-    COMPLETED @0-3 5: Expression['] -> Expression
+      F0 @0-3 Expression -> Factor .
+      F2 @2-3 Factor -> Number .
+      R4:1 x2 @0,2-3 Factor -> Factor . Multiply Factor
+      F4 @0-3 Factor -> Factor Multiply Factor .
+      F5 @0-3 Expression['] -> Expression .
 
 =for Marpa::XS::Display::End
 
@@ -319,10 +318,10 @@ name: Debug Example Progress Report
 partial: 1
 normalize-whitespace: 1
 
-    PREDICTING @0 0: Expression -> Factor
-    PREDICTING @0 2: Factor -> Number
-    PREDICTING @0 4: Factor -> Factor Multiply Factor
-    PREDICTING @0 5: Expression['] -> Expression
+      P0 @0-0 Expression -> . Factor
+      P2 @0-0 Factor -> . Number
+      P4 @0-0 Factor -> . Factor Multiply Factor
+      P5 @0-0 Expression['] -> . Expression
 
 =for Marpa::XS::Display::End
 
@@ -473,10 +472,10 @@ name: Debug Sequence Example Progress Report
 partial: 1
 normalize-whitespace: 1
 
-    PREDICTING @0 1: Document -> Document[Subseq:0:1]
-    PREDICTING @0 2: Document[Subseq:0:1] -> Stuff
-    PREDICTING @0 3: Document[Subseq:0:1] -> Document[Subseq:0:1] Stuff
-    PREDICTING @0 4: Document['] -> Document
+      P1 @0-0 Document -> . Document[Subseq:0:1]
+      P2 @0-0 Document[Subseq:0:1] -> . Stuff
+      P3 @0-0 Document[Subseq:0:1] -> . Document[Subseq:0:1] Stuff
+      P4 @0-0 Document['] -> . Document
 
 =for Marpa::XS::Display::End
 
@@ -543,13 +542,21 @@ name: Debug Leo Example Progress Report
 partial: 1
 normalize-whitespace: 1
 
-    COMPLETED @0-20 0: S -> Top_sequence
-    COMPLETED @0-20 (Leo) 1: Top_sequence -> Top Top_sequence
-    COMPLETED @19-20 2: Top_sequence -> Top
-    COMPLETED @19-20 (Leo) 3: Top -> Upper_Middle
-    COMPLETED @19-20 (Leo) 4: Upper_Middle -> Lower_Middle
-    COMPLETED @19-20 6: Bottom -> T
-    COMPLETED @0-20 7: S['] -> S
+      F0 @0-20 S -> Top_sequence .
+      P1 @20-20 Top_sequence -> . Top Top_sequence
+      R1:1 @19-20 Top_sequence -> Top . Top_sequence
+      F1 x20 @0...19-20 Top_sequence -> Top Top_sequence .
+      P2 @20-20 Top_sequence -> . Top
+      F2 @19-20 Top_sequence -> Top .
+      P3 @20-20 Top -> . Upper_Middle
+      F3 @19-20 Top -> Upper_Middle .
+      P4 @20-20 Upper_Middle -> . Lower_Middle
+      F4 @19-20 Upper_Middle -> Lower_Middle .
+      P5 @20-20 Lower_Middle -> . Bottom
+      F5 @19-20 Lower_Middle -> Bottom .
+      P6 @20-20 Bottom -> . T
+      F6 @19-20 Bottom -> T .
+      F7 @0-20 S['] -> S .
 
 =for Marpa::XS::Display::End
 
@@ -648,12 +655,12 @@ This topmost completion stands in only for itself.
 
 =head3 The Third Leo Topmost Completion
 
+[ This section is no longer applicable. ]
+
 Our third Leo topmost completion illustrates a final point to watch for:
 
 =for Marpa::XS::Display
-name: Debug Leo Example Progress Report
-partial: 1
-normalize-whitespace: 1
+ignore: 1
 
     COMPLETED @19-20 (Leo) 4: Upper_Middle -> Lower_Middle
 
@@ -768,7 +775,7 @@ perltidy: '-dcsc -sil=0'
     sub My_Actions::first_arg { shift; return shift; }
 
     my $recce = Marpa::XS::Recognizer->new(
-        { grammar => $grammar, interactive => 1, trace_terminals => 2 } );
+        { grammar => $grammar, trace_terminals => 2 } );
 
     my $token_ix = 0;
 
@@ -792,17 +799,17 @@ remove-blank-last-line: 1
     Inaccessible symbol: Add
     Inaccessible symbol: Term
     Setting trace_terminals option
-    Expecting "Number" at earleme 0
     Expecting "Expression" at earleme 0
     Expecting "Factor" at earleme 0
+    Expecting "Number" at earleme 0
     Accepted "Number" at 0-1
     Expecting "Multiply" at 1
     Accepted "Multiply" at 1-2
-    Expecting "Number" at 2
     Expecting "Factor" at 2
+    Expecting "Number" at 2
     Accepted "Number" at 2-3
     Expecting "Multiply" at 3
-    Rejected "Add" at 3
+    Rejected "Add" at 3-4
 
 =for Marpa::XS::Display::End
 
@@ -813,23 +820,22 @@ name: Debug Example Progress Report
 remove-display-indent: 1
 remove-blank-last-line: 1
 
-    PREDICTING @0 0: Expression -> Factor
-    PREDICTING @0 2: Factor -> Number
-    PREDICTING @0 4: Factor -> Factor Multiply Factor
-    PREDICTING @0 5: Expression['] -> Expression
-    BUILDING @0-1 Factor -> Factor . Multiply Factor
-    COMPLETED @0-1 0: Expression -> Factor
-    COMPLETED @0-1 2: Factor -> Number
-    COMPLETED @0-1 5: Expression['] -> Expression
-    PREDICTING @2 2: Factor -> Number
-    PREDICTING @2 4: Factor -> Factor Multiply Factor
-    BUILDING @0-2 Factor -> Factor Multiply . Factor
-    BUILDING @0-3 Factor -> Factor . Multiply Factor
-    BUILDING @2-3 Factor -> Factor . Multiply Factor
-    COMPLETED @0-3 0: Expression -> Factor
-    COMPLETED @2-3 2: Factor -> Number
-    COMPLETED @0-3 4: Factor -> Factor Multiply Factor
-    COMPLETED @0-3 5: Expression['] -> Expression
+    P0 @0-0 Expression -> . Factor
+    P2 @0-0 Factor -> . Number
+    P4 @0-0 Factor -> . Factor Multiply Factor
+    P5 @0-0 Expression['] -> . Expression
+    F0 @0-1 Expression -> Factor .
+    F2 @0-1 Factor -> Number .
+    R4:1 @0-1 Factor -> Factor . Multiply Factor
+    F5 @0-1 Expression['] -> Expression .
+    P2 @2-2 Factor -> . Number
+    P4 @2-2 Factor -> . Factor Multiply Factor
+    R4:2 @0-2 Factor -> Factor Multiply . Factor
+    F0 @0-3 Expression -> Factor .
+    F2 @2-3 Factor -> Number .
+    R4:1 x2 @0,2-3 Factor -> Factor . Multiply Factor
+    F4 @0-3 Factor -> Factor Multiply Factor .
+    F5 @0-3 Expression['] -> Expression .
 
 =for Marpa::XS::Display::End
 

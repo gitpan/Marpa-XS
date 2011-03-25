@@ -27,8 +27,8 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_xs_version = '0.001_030';
-    
+my $marpa_xs_version = '0.001_031';
+
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
 use Marpa::XS::Config;
@@ -40,13 +40,16 @@ my $glib_2_0_compiler_flags = $glib2_info{cflags};
 my $glib_2_0_linker_flags   = $glib2_info{libs};
 
 my %build_requires =
-    map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( ExtUtils::CBuilder Test::More );
+    map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) }
+    qw( ExtUtils::CBuilder Test::More );
 my %configure_requires =
-    map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( ExtUtils::PkgConfig Module::Build Glib );
+    map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) }
+    qw( ExtUtils::PkgConfig Module::Build Glib );
 my %requires =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) }
     qw( Scalar::Util List::Util Task::Weaken Carp Data::Dumper Storable Glib );
-my %recommends = map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( PPI Test::Weaken );
+my %recommends =
+    map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( PPI Test::Weaken );
 
 my %pod_files = map { ( "pod/$_" => "lib/Marpa/XS/$_" ) } qw(
     Advanced/Algorithm.pod
@@ -73,8 +76,8 @@ my @no_index_namespace_inclusive = (
 );
 
 my @files_to_cleanup = (
-    'lib/Marpa/XS/Version.pm',      'lib/Marpa/XS/Perl/Version.pm',
-    'lib/Marpa/XS.o',               'libmarpa/main/build',
+    'lib/Marpa/XS/Version.pm', 'lib/Marpa/XS/Perl/Version.pm',
+    'lib/Marpa/XS.o',          'libmarpa/main/build',
 );
 
 my $build = Marpa::XS::Build_Me->new(
@@ -90,11 +93,10 @@ my $build = Marpa::XS::Build_Me->new(
     dynamic_config     => 1,
     extra_compiler_flags =>
         "$glib_2_0_compiler_flags -I$gperl_h_location -Ilibmarpa/dist",
-    extra_linker_flags =>
-        "$glib_2_0_linker_flags",
-    PL_files   => {},
-    xs_files   => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
-    meta_merge => {
+    extra_linker_flags => "$glib_2_0_linker_flags",
+    PL_files           => {},
+    xs_files           => { 'xs/XS.xs' => 'lib/Marpa/XS.xs' },
+    meta_merge         => {
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
         no_index => {

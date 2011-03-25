@@ -37,10 +37,11 @@ sub catch_problem {
     };
     my $eval_error = $EVAL_ERROR;
 
-    Test::More::is($result, $expected_result, "Result: $test_name");
+    Test::More::is( $result, $expected_result, "Result: $test_name" );
     if ($eval_ok) {
         Test::More::fail("Failed to catch problem: $test_name");
-    } elsif ( index( $eval_error, $expected_error ) < 0 ) {
+    }
+    elsif ( index( $eval_error, $expected_error ) < 0 ) {
         my $diag_message =
             "Failed to find expected message, was expecting:\n";
         my $temp;
@@ -55,21 +56,22 @@ sub catch_problem {
         $diag_message .= "$temp\n";
         Test::More::diag($diag_message);
         Test::More::fail("Unexpected message: $test_name");
-    } else {
+    } ## end elsif ( index( $eval_error, $expected_error ) < 0 )
+    else {
         Test::More::pass("Successfully caught problem: $test_name");
     }
     return;
-} ## end sub test_grammar
+} ## end sub catch_problem
 
 my $grammar = Marpa::XS::Grammar->new(
-    {   start          => 'Top',
-        strip          => 0,
-        rules          => [
-            { lhs => 'Top', rhs => [qw/Term/], min=>1 },
-            { lhs => 'Term',       rhs => [qw/a/] },
-            { lhs => 'Term',       rhs => [qw/b/] },
-            { lhs => 'Term',       rhs => [qw/c/] },
-            { lhs => 'Term',       rhs => [qw/d/] },
+    {   start => 'Top',
+        strip => 0,
+        rules => [
+            { lhs => 'Top',  rhs => [qw/Term/], min => 1 },
+            { lhs => 'Term', rhs => [qw/a/] },
+            { lhs => 'Term', rhs => [qw/b/] },
+            { lhs => 'Term', rhs => [qw/c/] },
+            { lhs => 'Term', rhs => [qw/d/] },
         ],
     }
 );
@@ -83,21 +85,27 @@ my $memory;
 my $recce;
 
 # First test that duplicates are Detected
-$test_name = "duplicate terminal 1";
-$trace = q{};
+$test_name = 'duplicate terminal 1';
+$trace     = q{};
+## no critic (InputOutput::RequireBriefOpen)
 open $memory, q{>}, \$trace;
 $recce = Marpa::XS::Recognizer->new(
-    { grammar => $grammar, trace_terminals => 1, trace_file_handle=>$memory } );
+    {   grammar           => $grammar,
+        trace_terminals   => 1,
+        trace_file_handle => $memory
+    }
+);
 
 sub duplicate_terminal_1 {
-    defined $recce->alternative('a', 42, 1) or return 'First alternative failed';
-    return $recce->alternative('a', 711, 1);
+    defined $recce->alternative( 'a', 42, 1 )
+        or return 'First alternative failed';
+    return $recce->alternative( 'a', 711, 1 );
 }
 
-catch_problem($test_name, \&duplicate_terminal_1, undef,
-    qq{"a" already scanned with length 1});
+catch_problem( $test_name, \&duplicate_terminal_1, undef,
+    q{"a" already scanned with length 1} );
 
-$expected_trace = qq{Accepted "a" at 0-1};
+$expected_trace = q{Accepted "a" at 0-1};
 if ( index( $trace, $expected_trace ) < 0 ) {
     my $diag_message =
         "Failed to get expected trace result, was expecting:\n";
@@ -108,37 +116,49 @@ if ( index( $trace, $expected_trace ) < 0 ) {
     $diag_message .= "$temp\n";
     Test::More::diag($diag_message);
     Test::More::fail("Trace messages are wrong: $test_name");
-}
+} ## end if ( index( $trace, $expected_trace ) < 0 )
 else {
     Test::More::pass("Tracing OK: $test_name");
 }
 
 # 2nd test that duplicates are Detected
-$test_name = "duplicate terminal 2";
-$trace = q{};
+$test_name = 'duplicate terminal 2';
+$trace     = q{};
 close $memory;
 open $memory, q{>}, \$trace;
 $recce = Marpa::XS::Recognizer->new(
-    { grammar => $grammar, trace_terminals => 1, trace_file_handle=>$memory } );
+    {   grammar           => $grammar,
+        trace_terminals   => 1,
+        trace_file_handle => $memory
+    }
+);
 
 sub duplicate_terminal_2 {
-    # Should be OK, because different symbols
-    defined $recce->alternative('a', 11, 1) or return 'alternative a at 0 failed';
-    defined $recce->alternative('b', 12, 1) or return 'alternative b at 0 failed';
-    $recce->earleme_complete();
-    # Should be OK, because different lengths
-    defined $recce->alternative('a', 21, 3) or return 'alternative a at 1 failed';
-    defined $recce->alternative('a', 22, 1) or return 'alternative b at 1 failed';
-    $recce->earleme_complete();
-    defined $recce->alternative('d', 42, 2) or return 'first alternative d at 2 failed';
-    defined $recce->alternative('b', 22, 1) or return 'alternative b at 1 failed';
-    # this should cause an abend -- a 2nd d, with the same length
-    return $recce->alternative('d', 711, 2);
-}
 
-catch_problem($test_name, \&duplicate_terminal_2, undef,
-    qq{"d" already scanned with length 2 at location 2}
-);
+    # Should be OK, because different symbols
+    defined $recce->alternative( 'a', 11, 1 )
+        or return 'alternative a at 0 failed';
+    defined $recce->alternative( 'b', 12, 1 )
+        or return 'alternative b at 0 failed';
+    $recce->earleme_complete();
+
+    # Should be OK, because different lengths
+    defined $recce->alternative( 'a', 21, 3 )
+        or return 'alternative a at 1 failed';
+    defined $recce->alternative( 'a', 22, 1 )
+        or return 'alternative b at 1 failed';
+    $recce->earleme_complete();
+    defined $recce->alternative( 'd', 42, 2 )
+        or return 'first alternative d at 2 failed';
+    defined $recce->alternative( 'b', 22, 1 )
+        or return 'alternative b at 1 failed';
+
+    # this should cause an abend -- a 2nd d, with the same length
+    return $recce->alternative( 'd', 711, 2 );
+} ## end sub duplicate_terminal_2
+
+catch_problem( $test_name, \&duplicate_terminal_2, undef,
+    q{"d" already scanned with length 2 at location 2} );
 
 $expected_trace = <<'EOS';
 Setting trace_terminals option
@@ -160,7 +180,7 @@ if ( index( $trace, $expected_trace ) < 0 ) {
     $diag_message .= "$temp\n";
     Test::More::diag($diag_message);
     Test::More::fail("Trace messages are wrong: $test_name");
-}
+} ## end if ( index( $trace, $expected_trace ) < 0 )
 else {
     Test::More::pass("Tracing OK: $test_name");
 }

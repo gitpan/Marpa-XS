@@ -398,6 +398,7 @@ my %unwrapped = (
     term_hi__arrow_hash       => \&do_term_hi__arrow_hash,
     term_hi__parens           => \&symbol_2,
     term_hi__scalar           => \&symbol_1,
+    term_hi__subscripted      => \&symbol_1,
     term_hi__THING            => \&do_THING,
     term_increment__t         => \&symbol_1,
     term_listop__t            => \&symbol_1,

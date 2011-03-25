@@ -46,7 +46,6 @@ use Marpa::XS::Offset qw(
 
     GRAMMAR { the grammar used }
     FINISHED
-    INTERACTIVE { Return undef if token is rejected? }
     SLOTS { Array of slots for data to pass to libmarpa }
 
     TRACE_FILE_HANDLE
@@ -224,10 +223,9 @@ sub Marpa::XS::Recognizer::new {
 
     $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR]     = $grammar;
 
-    my $terminals_expected = $recce->terminals_expected();
-
     if ( $trace_terminals > 1 ) {
-        for my $terminal (sort @{$terminals_expected}) {
+	my @terminals_expected = @{$recce->terminals_expected()};
+        for my $terminal (sort @terminals_expected ) {
             say {$Marpa::XS::Internal::TRACE_FH}
                 qq{Expecting "$terminal" at earleme 0}
                 or Marpa::XS::exception("Cannot print: $ERRNO");
@@ -241,7 +239,6 @@ use constant RECOGNIZER_OPTIONS => [
     qw{
         closures
         end
-	interactive
         leo
         max_parses
         mode
@@ -301,11 +298,6 @@ sub Marpa::XS::Recognizer::set {
             Carp::croak( 'Unknown option(s) for Marpa::XS Recognizer: ',
                 join q{ }, @bad_options );
         } ## end if ( my @bad_options = grep { not $_ ~~ ...})
-
-        if ( defined( my $value = $args->{'interactive'} ) ) {
-            $recce->[Marpa::XS::Internal::Recognizer::INTERACTIVE] =
-                $value ? 1 : 0;
-        }
 
         if ( defined( my $value = $args->{'leo'} ) ) {
 	    my $boolean = $value ? 1 : 0;
@@ -478,7 +470,8 @@ sub Marpa::XS::Recognizer::furthest_earleme {
 # Deprecated -- obsolete
 sub Marpa::XS::Recognizer::status {
     my ($recce) = @_;
-    return ( $recce->current_earleme(), $recce->terminals_expected() )
+    my $recce_c = $_[0]->[Marpa::XS::Internal::Recognizer::C];
+    return ( $recce_c->current_earleme(), $recce->terminals_expected() )
         if wantarray;
     return $recce->current_earleme();
 
@@ -720,7 +713,6 @@ use Marpa::XS::Offset qw(
     POSITION
     ORIGIN
     CURRENT
-    IS_LEO
 
 );
 
@@ -744,9 +736,10 @@ sub Marpa::XS::Recognizer::show_progress {
             "Marpa::XS::Recognizer::show_progress end index is $end_ix, must be in range 0-$last_ix";
     }
     my $text = q{};
-    for my $ix ( $start_ix .. $end_ix ) {
-        my $reports    = report_progress($recce, $ix);
-        my @sort_data;
+    for my $current ( $start_ix .. $end_ix ) {
+	my %by_rule_by_position = ();
+        my $reports = report_progress( $recce, $current );
+
         for my $report ( @{$reports} ) {
             my $rule_id =
                 $report->[Marpa::XS::Internal::Progress_Report::RULE_ID];
@@ -754,51 +747,50 @@ sub Marpa::XS::Recognizer::show_progress {
                 $report->[Marpa::XS::Internal::Progress_Report::POSITION];
             my $origin =
                 $report->[Marpa::XS::Internal::Progress_Report::ORIGIN];
-            my $current =
-                $report->[Marpa::XS::Internal::Progress_Report::CURRENT];
-            my $is_leo =
-                $report->[Marpa::XS::Internal::Progress_Report::IS_LEO];
-            my $rhs_length = $grammar_c->rule_length( $rule_id );
-            my $item_text;
-            my $type;
 
-            # flag indicating whether we need to show the dot in the rule
-            my $show_dotted;
-            if ( $position >= $rhs_length ) {
-                $item_text .= 'COMPLETED';
-                $type = 3;
-                $item_text .= q{ @} . $origin . q{-} . $current . q{ };
-                $is_leo and $item_text .= '(Leo) ';
-            } ## end if ( $position >= $rhs_length )
-            elsif ($position) {
-                $item_text .= 'BUILDING';
-                $type = 2;
-                $item_text .= q{ @} . $origin . q{-} . $current . q{ };
-                $show_dotted++;
-            } ## end elsif ($position)
-            else {
-                $item_text .= 'PREDICTING';
-                $type = 1;
-                $item_text .= q{ @} . $origin . q{ };
-            }
-            if ($show_dotted) {
-                $item_text .= $grammar->show_dotted_rule( $rule_id, $position );
-            }
-            else {
-                $item_text .= $grammar->brief_rule($rule_id);
-            }
-            push @sort_data,
-                [
-                ( pack 'N*', $type, $rule_id, $position, $origin ), $item_text
-                ];
+            $by_rule_by_position{$rule_id}->{$position}->{$origin}++;
         } ## end for my $report ( @{$reports} )
-        $text .= (
-            join "\n", map { $_->[1] } sort { $a->[0] cmp $b->[0] } @sort_data
-        ) . "\n";
-    } ## end for my $ix ( $start_ix .. $end_ix )
+        for my $rule_id ( sort { $a <=> $b } keys %by_rule_by_position ) {
+            my $by_position = $by_rule_by_position{$rule_id};
+            for my $position ( sort { $a <=> $b } keys %{$by_position} ) {
+		my $raw_origins = $by_position->{$position};
+                my @origins = sort { $a <=> $b } keys %{$raw_origins};
+		my $origins_count = scalar @origins;
+                my $origin_desc;
+                if ( $origins_count <= 3 ) {
+                    $origin_desc = join q{,}, @origins;
+                }
+                else {
+                    $origin_desc = $origins[0] . q{...} . $origins[-1];
+                } ## end else [ if ( scalar @{$origins} < 3 ) ]
+
+                my $rhs_length = $grammar_c->rule_length($rule_id);
+                my $item_text;
+
+                # flag indicating whether we need to show the dot in the rule
+                if ( $position >= $rhs_length ) {
+		    $item_text .= "F$rule_id";
+                } ## end if ( $position >= $rhs_length )
+                elsif ($position) {
+		    $item_text .= "R$rule_id:$position";
+                } ## end elsif ($position)
+                else {
+		    $item_text .= "P$rule_id";
+                }
+		$item_text .= " x$origins_count" if $origins_count > 1;
+		$item_text .= q{ @} . $origin_desc . q{-} . $current . q{ };
+		$item_text .= $grammar->show_dotted_rule( $rule_id, $position );
+                $text .= $item_text . "\n";
+            } ## end for my $postion ( sort { $a <=> $b } keys %{$by_position...})
+        } ## end for my $rule_id ( sort { $a <=> $b } keys ...)
+    } ## end for my $current ( $start_ix .. $end_ix )
     return $text;
 } ## end sub Marpa::XS::Recognizer::show_progress
 
+# This function may return duplicates.  In displaying the results,
+# it is usually # desirable to sort the results,
+# and that is the most convenient
+# point at which to eliminate duplicates.
 sub report_progress {
     my ($recce, $earleme) = @_;
     my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
@@ -810,7 +802,14 @@ sub report_progress {
     # composted of original rule, rule position, and
     # location in the parse.  This hash is to
     # quarantee that.
-    my %progress_report_hash = ();
+    my @progress_reports = ();
+    my @per_AHFA_item_data = ();
+
+    # Building the Leo expansion items immediately would
+    # require switching traced Earley sets and breaking
+    # the sequence of the earley items.  So we create a
+    # worklist of them for later.
+    my @leo_worklist = ();
 
     $recce_c->earley_set_trace($earleme);
     for (
@@ -820,7 +819,39 @@ sub report_progress {
         )
     {
         my $origin = $recce_c->earley_item_origin();
-        my $is_leo = defined $recce_c->first_leo_link_trace();
+	LEO_SOURCE: for (
+	    my $AHFA_state_id = $recce_c->first_leo_link_trace();
+	    defined $AHFA_state_id;
+	    $AHFA_state_id = $recce_c->next_leo_link_trace()
+	    )
+	{
+
+	    # The first Leo link is ignored, the current eim item
+	    # is a Leo completion and therefore the Leo expansion
+	    # of its own first Leo link
+	    my $leo_transition_symbol = $recce_c->source_leo_transition_symbol();
+	    next LEO_SOURCE if not defined $leo_transition_symbol;
+	    my $previous_lim_earleme = $recce_c->source_middle();
+	    push @leo_worklist, [$previous_lim_earleme, $leo_transition_symbol];
+	}
+	push @per_AHFA_item_data, [$origin, $AHFA_state_id];
+    }
+    for my $leo_workitem (@leo_worklist) {
+
+        my ( $leo_item_earleme, $leo_item_postdot_symbol ) = @{$leo_workitem};
+        LEO_ITEM: for ( ;; ) {
+            $recce_c->earley_set_trace($leo_item_earleme);
+            $recce_c->postdot_symbol_trace($leo_item_postdot_symbol);
+            my $expansion_ahfa = $recce_c->leo_expansion_ahfa();
+            push @per_AHFA_item_data, [ $leo_item_earleme, $expansion_ahfa ];
+            $leo_item_postdot_symbol =
+                $recce_c->leo_predecessor_symbol();
+            last LEO_ITEM if not defined $leo_item_postdot_symbol;
+            $leo_item_earleme = $recce_c->leo_base_origin();
+        } ## end for ( ;; )
+    } ## end for my $leo_workitem (@leo_worklist)
+    for my $per_AHFA_item_datum (@per_AHFA_item_data) {
+	my ($origin, $AHFA_state_id) = @{$per_AHFA_item_datum};
         my @AHFA_items = $grammar_c->AHFA_state_items($AHFA_state_id);
         AHFA_ITEM: for my $AHFA_item_id (@AHFA_items) {
             my $marpa_rule_id = $grammar_c->AHFA_item_rule($AHFA_item_id);
@@ -847,22 +878,10 @@ sub report_progress {
             } ## end if ( defined $chaf_start )
             $original_position //= $marpa_position;
             my $rule_id         = $original_rule_id;
-            my @data            = ( $rule_id, $original_position, $origin );
-            my $key             = join q{;}, @data;
-            my $progress_report = $progress_report_hash{$key};
-
-            # If an entry already exists, just update the Leo flag
-            if ( defined $progress_report ) {
-                if ($is_leo) {
-                    $progress_report
-                        ->[Marpa::XS::Internal::Progress_Report::IS_LEO] = 1;
-                }
-                next NFA_STATE;
-            } ## end if ( defined $progress_report )
-            $progress_report_hash{$key} = [ @data, $earleme, $is_leo ];
+            push @progress_reports, [ $rule_id, $original_position, $origin, $earleme ];
         } ## end for my $AHFA_item_id (@AHFA_items)
     } ## end for my $earley_item ( @{$earley_items} )
-    return [ values %progress_report_hash ];
+    return \@progress_reports;
 } ## end sub report_progress
 
 sub Marpa::XS::Recognizer::read {
@@ -893,23 +912,22 @@ sub Marpa::XS::Recognizer::alternative {
     my $slot = $slots->slot($value);
     $length //= 1;
 
-    my $current_earleme = $recce_c->current_earleme();
     my $result = $recce_c->alternative( $symbol_id, $slot, $length );
     Marpa::XS::exception(
-        qq{"$symbol_name" already scanned with length $length at location $current_earleme}
-    ) if $result == -3;
+        qq{"$symbol_name" already scanned with length $length at location },
+	$recce_c->current_earleme()
+    ) if defined $result and $result == -3;
 
     my $trace_terminals =
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_TERMINALS];
      if ($trace_terminals) {
-         my $verb = $result >=0 ? 'Accepted' : 'Rejected';
+         my $verb = defined $result ? 'Accepted' : 'Rejected';
+	 my $current_earleme = $result // $recce_c->current_earleme();
          say {$trace_fh} qq{$verb "$symbol_name" at $current_earleme-}
              . ( $length + $current_earleme )
              or Marpa::XS::exception("Cannot print: $ERRNO");
      }
 
-    # Return -1 as undef, other results directly
-    return if $result == -1;
     return $result;
 
 }
@@ -1011,14 +1029,7 @@ sub Marpa::XS::Recognizer::tokens {
 		    or Marpa::XS::exception("Cannot print: $ERRNO");
 	    }
 
-	    # Kludge alert!  Interactive mode in this deprecated interface and in the new one
-	    # are incompatible.  I temporarily reset the recce's interactive status
-	    # to be what tokens() needs.  Ugly, but this code is destined to be thrown
-	    # away.
-	    my $save_interactive_flag = $recce->[Marpa::XS::Internal::Recognizer::INTERACTIVE];
-	    $recce->[Marpa::XS::Internal::Recognizer::INTERACTIVE] = $interactive;
             my $result = $recce->alternative($symbol_name, $value, $length);
-	    $recce->[Marpa::XS::Internal::Recognizer::INTERACTIVE] = $save_interactive_flag;
 
             if ( not defined $result ) {
                 if ( not $interactive ) {
@@ -1097,26 +1108,9 @@ sub Marpa::XS::Recognizer::end_input {
 sub Marpa::XS::Recognizer::terminals_expected {
     my ($recce)   = @_;
     my $recce_c   = $recce->[Marpa::XS::Internal::Recognizer::C];
-    my $grammar   = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
-    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $current_earleme = $recce_c->current_earleme();
-    $recce_c->earley_set_trace($current_earleme);
-    my @terminals_expected = ();
-    PIM:
-    for (
-        my $postdot_symbol_id = $recce_c->first_postdot_item_trace();
-        defined $postdot_symbol_id;
-        $postdot_symbol_id = $recce_c->next_postdot_item_trace()
-        )
-    {
-        next PIM if !$grammar_c->symbol_is_terminal($postdot_symbol_id);
-        next PIM
-            if scalar @terminals_expected
-                and $terminals_expected[-1] == $postdot_symbol_id;
-        push @terminals_expected, $postdot_symbol_id;
-    } ## end for ( my $postdot_symbol_id = $recce_c->first_postdot_item_trace...)
-    return [ map { $symbols->[$_]->[Marpa::XS::Internal::Symbol::NAME] } @terminals_expected ];
+    my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
+    return [ map { $symbols->[$_]->[Marpa::XS::Internal::Symbol::NAME] } $recce_c->terminals_expected() ];
 } ## end sub Marpa::XS::Recognizer::terminals_expected
 
 sub Marpa::XS::Recognizer::earleme_complete {
@@ -1130,39 +1124,41 @@ sub Marpa::XS::Recognizer::earleme_complete {
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
     my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
 
-    my $completed_earleme = $recce_c->earleme_complete();
-    if (not defined $completed_earleme) {
+    my $no_of_terminals_expected = $recce_c->earleme_complete();
+    if (not defined $no_of_terminals_expected) {
         my $error = $recce_c->error();
         if ( $error eq "parse exhausted" ) {
             Marpa::XS::exception(
                 qq{parse exhausted}
             );
         }
-        Marpa::XS::exception( "Uncaught error from alternative(): ",
+        Marpa::XS::exception( "Uncaught error from earleme_complete(): ",
             $recce_c->error() );
     }
 
     if ($recce->[Marpa::XS::Internal::Recognizer::TRACE_EARLEY_SETS]) {
+	my $current_earleme = $recce_c->current_earleme();
         print {$Marpa::XS::Internal::TRACE_FH}
-            "=== Earley set $completed_earleme\n"
+            "=== Earley set $current_earleme\n"
             or Marpa::XS::exception("Cannot print: $ERRNO");
         print {$Marpa::XS::Internal::TRACE_FH}
-            Marpa::XS::show_earley_set($completed_earleme)
+            Marpa::XS::show_earley_set($current_earleme)
             or Marpa::XS::exception("Cannot print: $ERRNO");
     } ## end if ($trace_earley_sets)
 
-    my $terminals_expected = $recce->terminals_expected();
     my $trace_terminals =
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_TERMINALS] // 0;
     if ( $trace_terminals > 1 ) {
+	my $current_earleme = $recce_c->current_earleme();
+	my $terminals_expected = $recce->terminals_expected();
         for my $terminal (@{$terminals_expected}) {
             say {$Marpa::XS::Internal::TRACE_FH}
-                qq{Expecting "$terminal" at $completed_earleme}
+                qq{Expecting "$terminal" at $current_earleme}
                 or Marpa::XS::exception("Cannot print: $ERRNO");
         }
     } ## end if ( $trace_terminals > 1 )
 
-    return $terminals_expected;
+    return $no_of_terminals_expected;
 
 } ## end sub Marpa::XS::Recognizer::earleme_complete
 

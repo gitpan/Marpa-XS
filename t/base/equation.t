@@ -333,15 +333,10 @@ print $recce->show_progress()
 
 Marpa::XS::Test::is( ${$actual_ref},
     <<'END_OF_PROGRESS_REPORT', 'Ambiguous Equation Progress Report' );
-BUILDING @0-7 E -> E . Op E
-BUILDING @2-7 E -> E . Op E
-BUILDING @4-7 E -> E . Op E
-BUILDING @6-7 E -> E . Op E
-COMPLETED @0-7 0: E -> E Op E
-COMPLETED @2-7 0: E -> E Op E
-COMPLETED @4-7 0: E -> E Op E
-COMPLETED @6-7 1: E -> Number
-COMPLETED @0-7 2: E['] -> E
+R0:1 x4 @0...6-7 E -> E . Op E
+F0 x3 @0,2,4-7 E -> E Op E .
+F1 @6-7 E -> Number .
+F2 @0-7 E['] -> E .
 END_OF_PROGRESS_REPORT
 
 restore_stdout();

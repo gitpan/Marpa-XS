@@ -89,7 +89,8 @@ my $parser = Marpa::XS::Perl->new( \&gen_closure );
 
 my @tests;
 if ($utility) {
-    push @tests, do { local $RS = undef; <STDIN> };
+    my $string = do { local $RS = undef; <STDIN> };
+    @tests = ( [ $string, q{} ] );
 }
 else {
     @tests = (
@@ -122,6 +123,7 @@ END_OF_RESULT
 } ## end else [ if ($utility) ]
 
 TEST: for my $test (@tests) {
+
     my ( $string, $expected ) = @{$test};
     my @values = $parser->parse( \$string );
     my $result = 'Number of values: ' . scalar @values . "\n";
@@ -131,7 +133,11 @@ TEST: for my $test (@tests) {
     for my $location ( sort keys %codeblock ) {
         $result .= "Code block at $location\n";
     }
-    Marpa::XS::Test::is( $result, $expected, qq{Test of "$string"} );
+    if ($utility) {
+        say $result;
+    } else {
+	Marpa::XS::Test::is( $result, $expected, qq{Test of "$string"} );
+    }
     %hash      = ();
     %codeblock = ();
 } ## end for my $test (@tests)

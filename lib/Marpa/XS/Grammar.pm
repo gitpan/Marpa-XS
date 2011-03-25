@@ -1555,6 +1555,9 @@ sub shadow_AHFA {
 
     STATE:
     for ( my $state_id = 0; $state_id < $AHFA_state_count; $state_id++ ) {
+	next STATE
+	    if $grammar_c->AHFA_state_is_predict($state_id)
+		and $state_id > 0;
 	my $state = $AHFA->[$state_id] = [];
 	my @items = $grammar_c->AHFA_state_items($state_id);
 	my $complete_rules;

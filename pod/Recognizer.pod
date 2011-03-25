@@ -151,19 +151,12 @@ next call to C<read>.
 The strings are the terminal names.
 Applications can use this list
 to change the input "on the fly".
+If the parser rejected the token,
+C<read> returns a Perl C<undef>.
 
-If the parser rejected the token, C<read> throws
-an exception, unless the recognizer is in interactive
-mode.
-If the parser rejected the token
-in interactive mode, C<read> returns a Perl C<undef>.
-
-The C<read> method implements
-the "token stream" interface.
-This is the standard model for input to compilers and parsers.
-The token stream model is all that most users will be interested in,
-at least at first.
-Marpa, however, allows non-traditional models of the input.
+The C<read> method implements Marpa's default input model,
+which is all many users will be interested in.
+Marpa allows other, non-traditional models of the input.
 The adventurous will find these described
 in L<a separate
 document|Marpa::XS::Advanced::Models>.
@@ -175,8 +168,8 @@ the application can change it on the fly.
 This is called Ruby Slippers parsing, because all the parser has to do is
 wish, and whatever it wishes for happens.
 For detail on how to use the list of expected tokens,
-see L<the section on interactive
-input|/"RUBY SLIPPERS PARSING">.
+see L<the section on Ruby Slippers
+parsing|/"RUBY SLIPPERS PARSING">.
 
 It is possible for the list of expected tokens to be empty.
 When this happens in the default input model, the recognizer
@@ -272,17 +265,6 @@ The C<grammar> named argument is required.  Its
 value must be
 a precomputed Marpa grammar object.
 
-=head2 interactive
-
-A boolean.  Unset by default.
-When set,
-the L<C<Marpa::XS::Recognizer::read>|/read> call
-return a Perl C<undef> when a token is rejected.
-The default is for
-L<C<Marpa::XS::Recognizer::read>|/read> to throw
-an exception when the token name provided is not
-one that the parser will accept.
-
 =head2 ranking_method
 
 The value must be a string:
@@ -377,7 +359,7 @@ partial: 1
 normalize-whitespace: 1
 
     $recce =
-        Marpa::XS::Recognizer->new( { grammar => $grammar, interactive => 1 } );
+        Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
     my @tokens = (
         [ 'Number', 42 ],
@@ -405,21 +387,14 @@ If a
 L<C<Marpa::XS::Recognizer::read>|/read> call fails,
 Marpa can simply retry it, changing the input.
 
-By default, when a token is rejected, Marpa throws an exception.
-But if an application is doing Ruby Slippers parsing,
-it may be more convenient to set the recognizer's
-C<interactive> option.
-When the 
-C<interactive> option is set,
-if a token is rejected, the
+By default, when a token is rejected,
+the
 L<C<Marpa::XS::Recognizer::read>|/read> call returns a
 Perl C<undef>.
-The list of acceptable tokens will be that returned by the
-previous 
-L<C<Marpa::XS::Recognizer::read>|/read> call.
-The list of acceptable tokens may be explicitly
-requested with the
-L<C<Marpa::XS::Recognizer::expected_terminals>|/expected_terminals> call.
+At this point, an application can always retry input,
+using a different token.
+The L<C<Marpa::XS::Recognizer::expected_terminals>|/expected_terminals> call
+returns the list of tokens that <b>will</b> be accepted at any point.
 
 =head2 An Example
 

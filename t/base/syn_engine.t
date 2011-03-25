@@ -115,7 +115,7 @@ while ( defined( my $ambiguous_value_ref = $ambiguous_recce->value() ) ) {
 Test::More::is( $value, 49, 'Unambiguous Value' );
 Test::More::is_deeply( [ sort @values ], [ 336, 49 ], 'Ambiguous Values' );
 
-# An example of interactive lexing, using
+# An example of "Ruby Slippers" lexing, using
 # the unambiguous grammar.
 
 sub fix_things {
@@ -126,7 +126,7 @@ sub fix_things {
 # name: Engine Synopsis Interactive Parse
 
 $recce =
-    Marpa::XS::Recognizer->new( { grammar => $grammar, interactive => 1 } );
+    Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
 my @tokens = (
     [ 'Number', 42 ],

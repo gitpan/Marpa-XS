@@ -88,7 +88,8 @@ DELETE_UNDEF_CONSTANT: for my $ix ( 0 .. $#{$unfreed_proberefs} ) {
 
     if ($verbose) {
         require Devel::Peek;
-        say STDERR "Unfreed: ", $unfreed_proberefs->[$ix];
+        say {*STDERR} 'Unfreed: ', $unfreed_proberefs->[$ix]
+            or die 'Cannot write to STDERR';
         Devel::Peek::Dump( $unfreed_proberefs->[$ix] );
     }
 

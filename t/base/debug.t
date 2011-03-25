@@ -93,7 +93,7 @@ sub My_Actions::do_multiply {
 sub My_Actions::first_arg { shift; return shift; }
 
 my $recce = Marpa::XS::Recognizer->new(
-    { grammar => $grammar, interactive => 1, trace_terminals => 2 } );
+    { grammar => $grammar, trace_terminals => 2 } );
 
 my $token_ix = 0;
 
@@ -117,25 +117,24 @@ Test::More::is( $value, 42, 'value' );
 # start-after-line: END_PROGRESS_REPORT
 # end-before-line: '^END_PROGRESS_REPORT$'
 
-Test::More::is( $progress_report,
+Marpa::XS::Test::is( $progress_report,
     <<'END_PROGRESS_REPORT', 'progress report' );
-PREDICTING @0 0: Expression -> Factor
-PREDICTING @0 2: Factor -> Number
-PREDICTING @0 4: Factor -> Factor Multiply Factor
-PREDICTING @0 5: Expression['] -> Expression
-BUILDING @0-1 Factor -> Factor . Multiply Factor
-COMPLETED @0-1 0: Expression -> Factor
-COMPLETED @0-1 2: Factor -> Number
-COMPLETED @0-1 5: Expression['] -> Expression
-PREDICTING @2 2: Factor -> Number
-PREDICTING @2 4: Factor -> Factor Multiply Factor
-BUILDING @0-2 Factor -> Factor Multiply . Factor
-BUILDING @0-3 Factor -> Factor . Multiply Factor
-BUILDING @2-3 Factor -> Factor . Multiply Factor
-COMPLETED @0-3 0: Expression -> Factor
-COMPLETED @2-3 2: Factor -> Number
-COMPLETED @0-3 4: Factor -> Factor Multiply Factor
-COMPLETED @0-3 5: Expression['] -> Expression
+P0 @0-0 Expression -> . Factor
+P2 @0-0 Factor -> . Number
+P4 @0-0 Factor -> . Factor Multiply Factor
+P5 @0-0 Expression['] -> . Expression
+F0 @0-1 Expression -> Factor .
+F2 @0-1 Factor -> Number .
+R4:1 @0-1 Factor -> Factor . Multiply Factor
+F5 @0-1 Expression['] -> Expression .
+P2 @2-2 Factor -> . Number
+P4 @2-2 Factor -> . Factor Multiply Factor
+R4:2 @0-2 Factor -> Factor Multiply . Factor
+F0 @0-3 Expression -> Factor .
+F2 @2-3 Factor -> Number .
+R4:1 x2 @0,2-3 Factor -> Factor . Multiply Factor
+F4 @0-3 Factor -> Factor Multiply Factor .
+F5 @0-3 Expression['] -> Expression .
 END_PROGRESS_REPORT
 
 # Marpa::XS::Display::End
@@ -145,7 +144,7 @@ END_PROGRESS_REPORT
 # start-after-line: END_TRACE_OUTPUT
 # end-before-line: '^END_TRACE_OUTPUT$'
 
-Test::More::is( $trace_output, <<'END_TRACE_OUTPUT', 'trace output' );
+Marpa::XS::Test::is( $trace_output, <<'END_TRACE_OUTPUT', 'trace output' );
 Inaccessible symbol: Add
 Inaccessible symbol: Term
 Setting trace_terminals option

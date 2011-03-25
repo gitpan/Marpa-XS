@@ -3908,27 +3908,6 @@ Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
      Marpa_AHFA_State_ID AHFA_state_id,
 	guint item_ix);
 
-@ @<Function definitions@> =
-gint
-marpa_AHFA_state_transition_count(struct marpa_g* g, AHFAID AHFA_state_id)
-{ @<Return |-2| on failure@>@;
-    AHFA state;
-    AHFA* to_ahfa_ary; 
-    gint ix, to_ahfa_count, symbol_count;
-    @<Fail if grammar not precomputed@>@/
-    @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_by_ID(AHFA_state_id);
-    to_ahfa_ary = state->t_to_ahfa_ary; 
-    to_ahfa_count = 0;
-    symbol_count = SYM_Count_of_G(g);
-    for (ix = 0; ix < symbol_count; ix++) {
-        if (to_ahfa_ary[ix]) to_ahfa_count++;
-    }
-    return to_ahfa_count;
-}
-@ @<Public function prototypes@> =
-gint marpa_AHFA_state_transition_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
-
 @*0 Symbol Transitions of AHFA State.
 @
 Complexity is fine --- $O(1)$ in the length of the input,
@@ -3959,48 +3938,39 @@ But I expect the trend will also be for grammars to get larger,
 and the space required by the 2-dimensional array is roughly
 $O(n^2)$ in the size of the grammar.
 
-@ This is the external version of the transition
-structure.
-@<Public structures@> =
-struct marpa_AHFA_transition {
-     Marpa_Symbol_ID marpa_transition_symbol;
-     Marpa_AHFA_State_ID marpa_to_ahfa_state_id;
-};
+@ @<Public function prototypes@> =
+gint marpa_AHFA_state_transitions(struct marpa_g* g,
+    Marpa_AHFA_State_ID AHFA_state_id,
+    GArray *result);
+@ @<Function definitions@> =
+gint marpa_AHFA_state_transitions(struct marpa_g* g,
+    Marpa_AHFA_State_ID AHFA_state_id,
+    GArray *result) {
 
-@
-It is up to the caller to ensure there is enough space in |buffer|.
-|marpa_AHFA_state_transition_count()| is available for this purpose.
-@<Function definitions@> =
-struct marpa_AHFA_transition* marpa_AHFA_state_transitions(struct marpa_g* g,
-    AHFAID AHFA_state_id,
-    struct marpa_AHFA_transition* buffer) {
-
-    @<Return |NULL| on failure@>@;
+    @<Return |-2| on failure@>@;
     AHFA from_ahfa_state;
     AHFA* to_ahfa_array;
     SYMID symid;
     gint symbol_count;
-    struct marpa_AHFA_transition* p_buffer;
 
     @<Fail if grammar not precomputed@>@;
     @<Fail if grammar |AHFA_state_id| is invalid@>@;
-    p_buffer = buffer;
+    @<Fail grammar if elements of |result| are not |sizeof(gint)|@>@;
     from_ahfa_state = AHFA_by_ID(AHFA_state_id);
     to_ahfa_array = from_ahfa_state->t_to_ahfa_ary; 
     symbol_count = SYM_Count_of_G(g);
+    g_array_set_size(result, 0);
     for (symid = 0; symid < symbol_count; symid++) {
         AHFA to_ahfa_state = to_ahfa_array[symid];
 	if (!to_ahfa_state) continue;
-	p_buffer->marpa_transition_symbol = symid;
-	p_buffer->marpa_to_ahfa_state_id = ID_of_AHFA(to_ahfa_state);
-	p_buffer++;
+
+G_DEBUG3("symid=%d to_ahfa_state=%p", symid, to_ahfa_state);
+
+	g_array_append_val (result, symid);
+	g_array_append_val (result, ID_of_AHFA(to_ahfa_state));
     }
-    return buffer;
+    return result->len;
 }
-@ @<Public function prototypes@> =
-struct marpa_AHFA_transition* marpa_AHFA_state_transitions(struct marpa_g* g,
-    Marpa_AHFA_State_ID AHFA_state_id,
-    struct marpa_AHFA_transition* buffer);
 
 @*0 Empty Transition of AHFA State.
 @d Empty_Transition_of_AHFA(state) ((state)->t_empty_transition)
@@ -5128,7 +5098,7 @@ is finished.
   r->t_workarea2 = g_malloc(2u * sym_workarea_size);
 }
 
-@*0 A Working Bit Vectors for Symbols.
+@*0 Working Bit Vectors for Symbols.
 These are two bit vectors, sized to the number of symbols
 in the grammar,
 for utility purposes.
@@ -5171,6 +5141,34 @@ can tell if there is a bit vector to be freed.
     r->t_bv_symid_is_expected = bv_create( (guint)symbol_count_of_g );
 @ @<Free working bit vectors for symbols@> =
 if (r->t_bv_symid_is_expected) { bv_free(r->t_bv_symid_is_expected); }
+@ Returns |-2| if there was a failure.
+There is a check that the expectations of this
+function and its caller about size of the |GArray| elements match.
+This is a check worth making.
+Mistakes happen,
+a mismatch might arise as a portability issue,
+and if I do not "fail fast" here the ultimate problem
+could be very hard to debug.
+@<Public function prototypes@> =
+gint marpa_terminals_expected(struct marpa_r* r, GArray* result);
+@ @<Function definitions@> =
+gint marpa_terminals_expected(struct marpa_r* r, GArray* result)
+{
+    @<Return |-2| on failure@>@;
+    guint min, max, start;
+    @<Fail recognizer if |GArray| elements are not |sizeof(gint)|@>@;
+    g_array_set_size(result, 0);
+    for (start = 0; bv_scan (r->t_bv_symid_is_expected, start, &min, &max);
+	 start = max + 2)
+      {
+	gint symid;
+	for (symid = (gint) min; symid <= (gint) max; symid++)
+	  {
+	    g_array_append_val (result, symid);
+	  }
+      }
+    return (gint)result->len;
+}
 
 @*0 Recognizer Boolean: Trace Earley Sets.
 A trace flag, set if we are tracing earley sets as they are created.
@@ -6140,6 +6138,11 @@ struct s_leo_item {
 typedef struct s_leo_item LIMD;
 typedef LIMD* LIM;
 
+@*0 Trace Functions.
+The functions in this section are all accessors.
+The trace Leo item is selected by setting the trace postdot item
+to a Leo item.
+
 @ @<Private function prototypes@> =
 Marpa_Symbol_ID marpa_leo_predecessor_symbol(struct marpa_r *r);
 @ @<Function definitions@> =
@@ -6149,7 +6152,7 @@ Marpa_Symbol_ID marpa_leo_predecessor_symbol(struct marpa_r *r)
   @<Return |-2| on failure@>@;
   PIM postdot_item = r->t_trace_postdot_item;
   LIM predecessor_leo_item;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!postdot_item) {
       R_ERROR("no trace pim");
       return failure_indicator;
@@ -6171,7 +6174,7 @@ Marpa_Earleme marpa_leo_base_origin(struct marpa_r *r)
   @<Return |-2| on failure@>@;
   PIM postdot_item = r->t_trace_postdot_item;
   EIM base_earley_item;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!postdot_item) {
       R_ERROR("no trace pim");
       return failure_indicator;
@@ -6180,10 +6183,7 @@ Marpa_Earleme marpa_leo_base_origin(struct marpa_r *r)
   base_earley_item = Base_EIM_of_LIM(LIM_of_PIM(postdot_item));
   return Origin_ID_of_EIM(base_earley_item);
 }
-@*0 Trace Functions.
-The functions in this section are all accessors.
-The trace Leo item is selected by setting the trace postdot item
-to a Leo item.
+
 @ @<Private function prototypes@> =
 Marpa_AHFA_State_ID marpa_leo_base_state(struct marpa_r *r);
 @ @<Function definitions@> =
@@ -6193,7 +6193,7 @@ Marpa_AHFA_State_ID marpa_leo_base_state(struct marpa_r *r)
   @<Return |-2| on failure@>@;
   PIM postdot_item = r->t_trace_postdot_item;
   EIM base_earley_item;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!postdot_item) {
       R_ERROR("no trace pim");
       return failure_indicator;
@@ -6201,6 +6201,55 @@ Marpa_AHFA_State_ID marpa_leo_base_state(struct marpa_r *r)
   if (EIM_of_PIM(postdot_item)) return pim_is_not_a_leo_item;
   base_earley_item = Base_EIM_of_LIM(LIM_of_PIM(postdot_item));
   return AHFAID_of_EIM(base_earley_item);
+}
+
+@ This function
+returns the "Leo expansion AHFA" of the current trace Leo item.
+@<Private function prototypes@> =
+Marpa_AHFA_State_ID marpa_leo_expansion_ahfa(struct marpa_r *r);
+@ The {\bf Leo expansion AHFA} is the AHFA
+of the {\bf Leo expansion Earley item}.
+for this Leo item.
+{\bf Leo expansion Earley items}, when
+the context makes the meaning clear,
+are also called {\bf Leo expansion items}
+or simply {\bf Leo expansions}.
+@ Every Leo item has a unique Leo expansion Earley item,
+because for this purpose
+the process of
+Leo expansion is seen from a non-recursive point of view.
+In practice, Leo expansion is recursive,
+andl creation of the Leo expansion Earley item for
+one Leo item
+implies
+the Leo expansion of all of the predecessors of that
+Leo item.
+@ Note that expansion of the Leo item at the top
+of a Leo path is not needed---%
+if a Leo item is the predecessor in
+a Leo source for a Leo completion item,
+the Leo completion item is the expansion of that Leo item.
+@ @<Function definitions@> =
+Marpa_AHFA_State_ID marpa_leo_expansion_ahfa(struct marpa_r *r)
+{
+    const Marpa_Earleme pim_is_not_a_leo_item = -1;
+    @<Return |-2| on failure@>@;
+    const PIM postdot_item = r->t_trace_postdot_item;
+    @<Fail recognizer if not trace-safe@>@;
+    if (!postdot_item)
+      {
+	R_ERROR ("no trace pim");
+	return failure_indicator;
+      }
+    if (!EIM_of_PIM (postdot_item))
+      {
+	const LIM leo_item = LIM_of_PIM (postdot_item);
+	const EIM base_earley_item = Base_EIM_of_LIM (leo_item);
+	const SYMID postdot_symbol = Postdot_SYMID_of_LIM (leo_item);
+	const AHFA to_ahfa = To_AHFA_of_EIM_by_SYMID (base_earley_item, postdot_symbol);
+	return ID_of_AHFA(to_ahfa);
+      }
+    return pim_is_not_a_leo_item;
 }
 
 
@@ -6316,7 +6365,7 @@ marpa_postdot_symbol_trace (struct marpa_r *r,
   PIM* pim_sym_p;
   PIM pim;
   @<Clear trace postdot item data@>@;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   @<Fail if recognizer |symid| is invalid@>@;
   if (!current_es) {
       R_ERROR("no pim");
@@ -6352,7 +6401,7 @@ marpa_first_postdot_item_trace (struct marpa_r *r)
   PIM pim;
   PIM* pim_sym_p;
   @<Clear trace postdot item data@>@;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!current_earley_set) {
       @<Clear trace Earley item data@>@;
       R_ERROR("no trace es");
@@ -6393,7 +6442,7 @@ marpa_next_postdot_item_trace (struct marpa_r *r)
       R_ERROR("no trace pim");
       return failure_indicator;
   }
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!current_set) {
       R_ERROR("no trace es");
       return failure_indicator;
@@ -6420,7 +6469,7 @@ Marpa_AHFA_State_ID marpa_postdot_item_symbol(struct marpa_r *r)
 {
   @<Return |-2| on failure@>@;
   PIM postdot_item = r->t_trace_postdot_item;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!postdot_item) {
       R_ERROR("no trace pim");
       return failure_indicator;
@@ -6803,7 +6852,7 @@ Marpa_Symbol_ID marpa_first_token_link_trace(struct marpa_r *r)
    SRC source;
    guint source_type;
     EIM item = r->t_trace_earley_item;
-    @<Fail if recognizer not trace-safe@>@;
+    @<Fail recognizer if not trace-safe@>@;
     @<Set |item|, failing if necessary@>@;
     source_type = Source_Type_of_EIM (item);
     switch (source_type)
@@ -6847,7 +6896,7 @@ Marpa_Symbol_ID marpa_next_token_link_trace(struct marpa_r *r)
    @<Return |-2| on failure@>@;
    SRCL full_link;
     EIM item;
-    @<Fail if recognizer not trace-safe@>@;
+    @<Fail recognizer if not trace-safe@>@;
     @<Set |item|, failing if necessary@>@;
     if (r->t_trace_source_type != SOURCE_IS_TOKEN) {
 	trace_source_link_clear(r);
@@ -6880,7 +6929,7 @@ Marpa_Symbol_ID marpa_first_completion_link_trace(struct marpa_r *r)
    SRC source;
    guint source_type;
     EIM item = r->t_trace_earley_item;
-    @<Fail if recognizer not trace-safe@>@;
+    @<Fail recognizer if not trace-safe@>@;
     @<Set |item|, failing if necessary@>@;
     switch ((source_type = Source_Type_of_EIM (item)))
       {
@@ -6924,7 +6973,7 @@ Marpa_Symbol_ID marpa_next_completion_link_trace(struct marpa_r *r)
    SRC source;
    SRCL completion_link; 
     EIM item;
-    @<Fail if recognizer not trace-safe@>@;
+    @<Fail recognizer if not trace-safe@>@;
     @<Set |item|, failing if necessary@>@;
     if (r->t_trace_source_type != SOURCE_IS_COMPLETION) {
 	trace_source_link_clear(r);
@@ -6959,7 +7008,7 @@ marpa_first_leo_link_trace (struct marpa_r *r)
   SRC source;
   guint source_type;
   EIM item = r->t_trace_earley_item;
-  @<Fail if recognizer not trace-safe@>@;
+  @<Fail recognizer if not trace-safe@>@;
   @<Set |item|, failing if necessary@>@;
   switch ((source_type = Source_Type_of_EIM (item)))
 	{
@@ -7006,7 +7055,7 @@ marpa_next_leo_link_trace (struct marpa_r *r)
   SRCL full_link;
   SRC source;
   EIM item;
-  @<Fail if recognizer not trace-safe@>@/
+  @<Fail recognizer if not trace-safe@>@/
   @<Set |item|, failing if necessary@>@/
   if (r->t_trace_source_type != SOURCE_IS_LEO)
     {
@@ -7061,7 +7110,7 @@ AHFAID marpa_source_predecessor_state(struct marpa_r *r)
    @<Return |-2| on failure@>@/
    guint source_type;
    SRC source;
-    @<Fail if recognizer not trace-safe@>@/
+    @<Fail recognizer if not trace-safe@>@/
    source_type = r->t_trace_source_type;
     @<Set source, failing if necessary@>@/
     switch (source_type)
@@ -7098,7 +7147,7 @@ Marpa_Symbol_ID marpa_source_leo_transition_symbol(struct marpa_r *r)
    @<Return |-2| on failure@>@/
    guint source_type;
    SRC source;
-    @<Fail if recognizer not trace-safe@>@/
+    @<Fail recognizer if not trace-safe@>@/
    source_type = r->t_trace_source_type;
     @<Set source, failing if necessary@>@/
     switch (source_type)
@@ -7146,7 +7195,7 @@ Marpa_Earleme marpa_source_middle(struct marpa_r* r)
    const Marpa_Earleme no_predecessor = -1;
    guint source_type;
    SRC source;
-    @<Fail if recognizer not trace-safe@>@/
+    @<Fail recognizer if not trace-safe@>@/
    source_type = r->t_trace_source_type;
     @<Set source, failing if necessary@>@/
     switch (source_type)
@@ -7186,7 +7235,7 @@ gboolean marpa_source_token_value(struct marpa_r* r, gpointer* value_p)
    @<Return |FALSE| on failure@>@;
    guint source_type;
    SRC source;
-    @<Fail if recognizer not trace-safe@>@;
+    @<Fail recognizer if not trace-safe@>@;
    source_type = r->t_trace_source_type;
     @<Set source, failing if necessary@>@;
     if (source_type == SOURCE_IS_TOKEN) {
@@ -7520,6 +7569,25 @@ Large stacks may needed for very ambiguous grammars.
     DSTACK_INIT (r->completion_stack, EIM ,
 	     MAX (1024, r->earley_item_warning_threshold));
 @ @<Destroy recognizer elements@> = DSTACK_DESTROY(r->completion_stack);
+@ This function returns the number of terminals expected on success.
+On failure, it returns |-2|.
+If the completion of the earleme left the parse exhausted, 0 is
+returned.
+@
+While, if the completion of the earleme left the parse exhausted, 0 is
+returned, the converse is not true if tokens may be longer than one earleme.
+In those alternative input models, it is possible that no terminals are
+expected at the current earleme, but other terminals might be expected
+at later earlemes.
+That means that the parse can be continued---%
+it is not exhausted.
+In those alternative input models,
+if the distinction between zero terminals expected and an
+exhausted parse is significant to the higher layers,
+they must explicitly check the phase whenever this function
+returns zero.
+@<Public function prototypes@> =
+Marpa_Earleme marpa_earleme_complete(struct marpa_r* r);
 @ @<Function definitions@> =
 Marpa_Earleme
 marpa_earleme_complete(struct marpa_r* r)
@@ -7528,6 +7596,7 @@ marpa_earleme_complete(struct marpa_r* r)
   Marpa_Earleme new_current_earleme;
   EIM* cause_p;
   ES current_earley_set;
+  gint count_of_expected_terminals;
     @<Initialize a new current Earley set@>@;
     @<Pre-populate the completion stack@>@;
     while ((cause_p = DSTACK_POP(r->completion_stack, EIM))) {
@@ -7536,22 +7605,16 @@ marpa_earleme_complete(struct marpa_r* r)
     }
     postdot_items_create(r, current_earley_set);
 
-G_DEBUG2("bv count = %d", bv_count (r->t_bv_symid_is_expected));
-G_DEBUG2("id of current ES = %d", ID_of_ES(current_earley_set));
-G_DEBUG2("Furthest earleme = %d", Furthest_Earleme(r));
-
-    if (bv_count (r->t_bv_symid_is_expected) <= 0
+    count_of_expected_terminals = bv_count (r->t_bv_symid_is_expected);
+    if (count_of_expected_terminals <= 0
 	&& ID_of_ES (current_earley_set) >= Furthest_Earleme (r))
       { /* If no terminals are expected, and there are no Earley items in
            uncompleted Earley sets, we can make no further progress.
 	   The parse is "exhausted". */
 	r->t_phase = exhausted_phase;
       }
-G_DEBUG2("Returning %d from earleme_complete", new_current_earleme);
-    return new_current_earleme;
+    return count_of_expected_terminals;
 }
-@ @<Public function prototypes@> =
-Marpa_Earleme marpa_earleme_complete(struct marpa_r* r);
 
 @ @<Initialize a new current Earley set@> = {
   ES dummy;
@@ -8023,8 +8086,6 @@ for (lim_chain_ix--; lim_chain_ix >= 0; lim_chain_ix--) {
 }
 
 @ @<Populate |lim_to_process| from |predecessor_lim|@> = {
-char BUF1[100]; 
-char BUF2[100]; 
 LV_Predecessor_LIM_of_LIM(lim_to_process) = predecessor_lim;
 LV_Origin_of_LIM(lim_to_process) = Origin_of_LIM(predecessor_lim);
 LV_Top_AHFA_of_LIM(lim_to_process) = Top_AHFA_of_LIM(predecessor_lim);
@@ -8049,7 +8110,6 @@ of the base EIM.
 }
 
 @ @<Copy PIM workarea to postdot item array@> = {
-G_DEBUG2("t_postdot_sym_count=%d", current_earley_set->t_postdot_sym_count);
     PIM *postdot_array
 	= current_earley_set->t_postdot_ary
 	= obstack_alloc (&r->obs,
@@ -8174,16 +8234,16 @@ gint leo_completion_expand(RECCE r, EIM leo_completion)
 must be created.
 @<Expand LIMs above the bottom of the chain@> =
 {
-  const EIM predecessor_of_next_eim = Base_EIM_of_LIM (this_lim);
+  const EIM base_eim_of_this_lim = Base_EIM_of_LIM (this_lim);
   const SYMID postdot_symbol_of_this_lim = Postdot_SYMID_of_LIM (this_lim);
   EIM new_eim_for_this_path =
     earley_item_assign (r, earley_set_of_this_path,
 			ES_of_LIM (next_lim),
-			To_AHFA_of_EIM_by_SYMID (predecessor_of_next_eim,
+			To_AHFA_of_EIM_by_SYMID (base_eim_of_this_lim,
 						 postdot_symbol_of_this_lim));
   leo_path_lengths++;
   completion_link_add (r, new_eim_for_this_path,
-      predecessor_of_next_eim,
+      base_eim_of_this_lim,
       previous_eim_on_this_path);
   previous_eim_on_this_path = new_eim_for_this_path;
 }
@@ -8209,7 +8269,7 @@ gint marpa_leo_completion_expand(struct marpa_r *r)
 {
   @<Return |-2| on failure@>@;
   EIM item = r->t_trace_earley_item;
-  @<Fail if recognizer initial@>@;
+  @<Fail recognizer if not trace-safe@>@;
   if (!item) {
       @<Clear trace Earley item data@>@;
       R_ERROR("no trace eim");
@@ -9243,6 +9303,13 @@ if (!AHFA_state_id_is_valid(g, AHFA_state_id)) {
     g->error = "invalid AHFA state id";
     return failure_indicator;
 }
+@ @<Fail grammar if elements of |result| are not |sizeof(gint)|@> =
+if (sizeof(gint) != g_array_get_element_size(result)) {
+     g_context_clear(g);
+     g_context_int_add(g, "expected size", sizeof(gint));
+     g->error = "garray size mismatch";
+     return failure_indicator;
+}
 @ @<Fail with internal grammar error@> = {
     g_context_clear(g);
     g->error = "internal error";
@@ -9267,7 +9334,7 @@ if (r->t_phase != active_phase) {
     R_ERROR("recce not active");
     return failure_indicator;
 }
-@ @<Fail if recognizer not trace-safe@> =
+@ @<Fail recognizer if not trace-safe@> =
 switch (r->t_phase) {
 default:
     R_ERROR("recce not trace-safe");
@@ -9288,6 +9355,13 @@ if (!symbol_is_valid(G_of_R(r), symid)) {
     r_context_int_add(r, "symid", symid);
     R_ERROR_CXT("invalid symid");
     return failure_indicator;
+}
+@ @<Fail recognizer if |GArray| elements are not |sizeof(gint)|@> =
+if (sizeof(gint) != g_array_get_element_size(result)) {
+     r_context_clear(r);
+     r_context_int_add(r, "expected size", sizeof(gint));
+     R_ERROR_CXT("garray size mismatch");
+     return failure_indicator;
 }
 @ @<Fail with internal recognizer error@> = 
 {

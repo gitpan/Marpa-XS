@@ -73,19 +73,21 @@ Test::More::ok( $value_ref, 'Parse ok?' );
 
 Marpa::XS::Test::is( $progress_report,
     <<'END_PROGRESS_REPORT', 'sorted progress report' );
-PREDICTING @20 1: Top_sequence -> Top Top_sequence
-PREDICTING @20 2: Top_sequence -> Top
-PREDICTING @20 3: Top -> Upper_Middle
-PREDICTING @20 4: Upper_Middle -> Lower_Middle
-PREDICTING @20 5: Lower_Middle -> Bottom
-PREDICTING @20 6: Bottom -> T
-BUILDING @19-20 Top_sequence -> Top . Top_sequence
-COMPLETED @0-20 0: S -> Top_sequence
-COMPLETED @0-20 (Leo) 1: Top_sequence -> Top Top_sequence
-COMPLETED @19-20 2: Top_sequence -> Top
-COMPLETED @19-20 (Leo) 3: Top -> Upper_Middle
-COMPLETED @19-20 6: Bottom -> T
-COMPLETED @0-20 7: S['] -> S
+F0 @0-20 S -> Top_sequence .
+P1 @20-20 Top_sequence -> . Top Top_sequence
+R1:1 @19-20 Top_sequence -> Top . Top_sequence
+F1 x20 @0...19-20 Top_sequence -> Top Top_sequence .
+P2 @20-20 Top_sequence -> . Top
+F2 @19-20 Top_sequence -> Top .
+P3 @20-20 Top -> . Upper_Middle
+F3 @19-20 Top -> Upper_Middle .
+P4 @20-20 Upper_Middle -> . Lower_Middle
+F4 @19-20 Upper_Middle -> Lower_Middle .
+P5 @20-20 Lower_Middle -> . Bottom
+F5 @19-20 Lower_Middle -> Bottom .
+P6 @20-20 Bottom -> . T
+F6 @19-20 Bottom -> T .
+F7 @0-20 S['] -> S .
 END_PROGRESS_REPORT
 
 # Marpa::XS::Display::End
