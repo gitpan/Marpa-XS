@@ -18,6 +18,12 @@ use 5.010;
 use strict;
 use warnings;
 
+# This test case was originally developed as an example
+# for the debugging of grammars with Leo items.  Fortunately,
+# I found how to create
+# much more user-friendly tools for debugging these grammars,
+# so now these are simply Leo-oriented regression tests.
+
 use Fatal qw(open close);
 use Test::More tests => 8;
 
@@ -28,9 +34,6 @@ BEGIN {
 }
 
 ## no critic (Subroutines::RequireArgUnpacking)
-
-# Marpa::XS::Display
-# name: Leo Example
 
 my $grammar = Marpa::XS::Grammar->new(
     {   start          => 'Statement',
@@ -107,16 +110,9 @@ sub My_Actions::do_Expression {
 
 sub My_Actions::first_arg { return $_[1] }
 
-# Marpa::XS::Display::End
-
 ## use critic
 
 my $show_symbols_output = $grammar->show_symbols();
-
-# Marpa::XS::Display
-# name: Leo Example show_symbols Output
-# start-after-line: END_SYMBOLS
-# end-before-line: '^END_SYMBOLS$'
 
 Marpa::XS::Test::is( $show_symbols_output,
     <<'END_SYMBOLS', 'Leo Example Symbols' );
@@ -131,14 +127,7 @@ Marpa::XS::Test::is( $show_symbols_output,
 8: Statement['], lhs=[7] rhs=[]
 END_SYMBOLS
 
-# Marpa::XS::Display::End
-
 my $show_rules_output = $grammar->show_rules();
-
-# Marpa::XS::Display
-# name: Leo Example show_rules Output
-# start-after-line: END_RULES
-# end-before-line: '^END_RULES$'
 
 Marpa::XS::Test::is( $show_rules_output, <<'END_RULES', 'Leo Example Rules' );
 0: Statement -> Expression
@@ -151,14 +140,7 @@ Marpa::XS::Test::is( $show_rules_output, <<'END_RULES', 'Leo Example Rules' );
 7: Statement['] -> Statement /* vlhs real=1 */
 END_RULES
 
-# Marpa::XS::Display::End
-
 my $show_AHFA_output = $grammar->show_AHFA();
-
-# Marpa::XS::Display
-# name: Leo Example show_AHFA Output
-# start-after-line: END_AHFA
-# end-before-line: '^END_AHFA$'
 
 Marpa::XS::Test::is( $show_AHFA_output, <<'END_AHFA', 'Leo Example AHFA' );
 * S0:
@@ -222,14 +204,7 @@ Expression -> Lvalue MinusAssignOp Expression .
 Expression -> Lvalue MultiplyAssignOp Expression .
 END_AHFA
 
-# Marpa::XS::Display::End
-
 my $show_earley_sets_output_before = $recce->show_earley_sets();
-
-# Marpa::XS::Display
-# name: Leo Example show_earley_sets "Before" Output
-# start-after-line: END_EARLEY_SETS
-# end-before-line: '^END_EARLEY_SETS$'
 
 Marpa::XS::Test::is( $show_earley_sets_output_before,
     <<'END_EARLEY_SETS', 'Leo Example Earley Sets "Before"' );
@@ -284,8 +259,6 @@ S4@8-9 [p=S7@8-8; c=S5@8-9]
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 END_EARLEY_SETS
 
-# Marpa::XS::Display::End
-
 my $trace_output;
 open my $trace_fh, q{>}, \$trace_output;
 my $value_ref = $recce->value( { trace_fh => $trace_fh, trace_values => 1 } );
@@ -295,11 +268,6 @@ my $value = ref $value_ref ? ${$value_ref} : 'No Parse';
 Marpa::XS::Test::is( $value, 'a=42 b=42 c=-5 d=6 e=3', 'Leo Example Value' );
 
 my $show_earley_sets_output_after = $recce->show_earley_sets();
-
-# Marpa::XS::Display
-# name: Leo Example show_earley_sets "After" Output
-# start-after-line: END_EARLEY_SETS
-# end-before-line: '^END_EARLEY_SETS$'
 
 Marpa::XS::Test::is( $show_earley_sets_output_after,
     <<'END_EARLEY_SETS', 'Leo Example Earley Sets "After"' );
@@ -357,13 +325,6 @@ S4@8-9 [p=S7@8-8; c=S5@8-9]
 S5@8-9 [p=S7@8-8; s=Variable; t=\'e']
 END_EARLEY_SETS
 
-# Marpa::XS::Display::End
-
-# Marpa::XS::Display
-# name: Leo Example trace_values Output
-# start-after-line: END_TRACE_OUTPUT
-# end-before-line: '^END_TRACE_OUTPUT$'
-
 Marpa::XS::Test::is( $trace_output,
     <<'END_TRACE_OUTPUT', 'Leo Example Trace Output' );
 Pushed value from a18 T@0-1_Variable: Variable = \'a'
@@ -398,8 +359,6 @@ Calculated and pushed value: 'a=42 b=42 c=-5 d=6 e=3'
 New Virtual Rule: a0 F0@0-9, rule: 7: Statement['] -> Statement
 Symbol count is 1, now 1 rules
 END_TRACE_OUTPUT
-
-# Marpa::XS::Display::End
 
 1;    # In case used as "do" file
 

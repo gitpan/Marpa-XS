@@ -351,7 +351,13 @@ my %expected_value = (
 
 # Set max at 10 just in case there's an infinite loop.
 # This is for debugging, after all
+
+# Marpa::XS::Display
+# name: Recognizer set Synopsis
+
 $recce->set( { max_parses => 10, } );
+
+# Marpa::XS::Display::End
 
 my $i = 0;
 while ( defined( my $value = $recce->value() ) ) {

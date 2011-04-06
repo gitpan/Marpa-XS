@@ -1,3 +1,4 @@
 cd html
-prove -Ilib -I../lib -I../devlib/xsshim -I../blib/arch --verbose xt
-prove -Ilib -I../lib -I../devlib/xsshim -I../blib/arch t
+PERL5LIB=lib:../lib:../devlib/xsshim:../blib/arch:$PERL5LIB
+prove --verbose xt
+prove t

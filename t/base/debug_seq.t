@@ -20,7 +20,7 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 
 use English qw( -no_match_vars );
 use Fatal qw( open close );
@@ -51,6 +51,15 @@ my @tokens = ( ( ['Stuff'] ) x 3 );
 
 my $recce =
     Marpa::XS::Recognizer->new( { grammar => $grammar, mode => 'stream' } );
+
+# Marpa::XS::Display
+# name: Recognizer check_terminal Synopsis
+
+my $is_document_a_terminal = $recce->check_terminal('Document');
+
+# Marpa::XS::Display::End
+
+Test::More::ok( !$is_document_a_terminal, 'LHS terminal?' );
 
 my $token_ix = 0;
 

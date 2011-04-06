@@ -65,7 +65,12 @@ my $grammar = Marpa::XS::Grammar->new(
 open my $trace_fh, q{>}, \( my $trace_output = q{} );
 ## use critic
 
+# Marpa::XS::Display
+# name: Grammar set Synopsis
+
 $grammar->set( { trace_file_handle => $trace_fh } );
+
+# Marpa::XS::Display::End
 
 # Marpa::XS::Display
 # name: Debug Example Part 2

@@ -23,6 +23,9 @@ Marpa::Grammar::show_productive_symbols
 Marpa::Grammar::unproductive_symbols
 Marpa::Grammar::show_NFA
 
+# No longer tested -- probably should eliminate
+Recognizer Named Argument: trace_earley_sets
+
 Marpa::Recognizer::status
 
 Terminal Property: ranking_action

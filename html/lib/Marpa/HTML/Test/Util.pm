@@ -49,11 +49,9 @@ sub run_command {
 
     my ( $stdout, $stderr ) = run_with_stderr( $command, @args );
 
-    SKIP: { skip "Drops core on Darwin", 1;
     Test::More::is( $stderr, q{},
         "Should have no output to stderr: $command @args" )
         or Test::More::diag("STDERR:\n$stderr");
-    }
 
     return $stdout;
 } ## end sub run_command

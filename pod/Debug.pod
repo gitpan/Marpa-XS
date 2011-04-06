@@ -55,7 +55,11 @@ and location relative to the parse's input stream.
 Let's look at an example of a rule in a context-free grammar.
 Here's the rule for assignment from the Perl distribution's C<perly.y>
 
-S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop ::= term ASSIGNOP term>>
+S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop -E<gt> term ASSIGNOP term>>
+
+C<ASSIGNOP> is C<perly.y>'s internal name for
+the assignment operator.
+In plain Perl terms, this is the "C<=>" character.
 
 In parsing this rule, we can be at any of four possible locations.
 One location is at the beginning, before all of the symbols.
@@ -69,29 +73,29 @@ a pair, a rule and a dot location are called a B<dotted rule>.
 
 Here's our rule with a dot location indicated:
 
-S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop ::= E<middot> term ASSIGNOP term>>
+S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop -E<gt> E<middot> term ASSIGNOP term>>
      
 The dot location in this dotted rule is at the beginning.
 A dot location at the beginning of a dotted rule means
 that we have not recognized any symbols in the rule yet.
 All we are doing is predicting that the rule will occur.
-A dotted rule with the dot before all of its symbols is called a B<prediction>.
+A dotted rule with the dot before all of its symbols is called a B<prediction>
+or a B<predicted rule>.
 
 Here's another dotted rule:
 
-S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop ::= term E<middot> ASSIGNOP term>>
+S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop -E<gt> term E<middot> ASSIGNOP term>>
 
 In this dotted rule,
 we are saying we have seen a C<term>, but have not yet recognized
-an C<ASSIGNOP>.  (C<ASSIGNOP> is C<perly.y>'s internal name for
-the assignment operator.
-In plain Perl terms, this is the "C<=>" character.)
+an C<ASSIGNOP>.
 
 There's another special kind of dotted rule, a completion.
-A B<completion> is a dotted rule with the dot after all of the symbols.
-Here's the completed version of the example we've been using:
+A B<completion> (also called a B<completed rule>)
+is a dotted rule with the dot after all of the symbols.
+Here is the completion for the rule that we have been using as an example:
 
-S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop ::= term ASSIGNOP term E<middot>>>
+S<C<E<nbsp>E<nbsp>E<nbsp>E<nbsp>termbinop -E<gt> term ASSIGNOP term E<middot>>>
 
 A completion indicates that a rule has been fully recognized.
 
@@ -104,29 +108,31 @@ To associate input stream location and dotted rules, Earley's algorithm uses wha
 A convenient way to think of an B<Earley item> is as a triple, or 3-tuple,
 consisting of dotted rule, origin and current location.
 The B<origin> is the location in the input stream where the dotted rule starts.
-The B<current location> is the location in the input stream which corresponds to the
+The B<current location> (also called the B<dot location>)
+is the location in the input stream which corresponds to the
 dot position.
 
 Two noteworthy consequences
-follow from way in which origin and current location are defined.
+follow from the way in which origin and current location are defined.
 First,
-if a dotted rule is a prediction, origin and current location will always be the same.
+if a dotted rule is a prediction,
+then origin and current location will always be the same.
 Second,
 the input stream location where a rule ends is not tracked unless the
 dotted rule is a completion.
 In other cases,
 we don't know if the rule will
-be completed,
+ever be completed,
 much less at which location.
 
-=head1 THE BASE EXAMPLE
+=head1 THE EXAMPLE
 
 For this example of debugging,
 I've taken a very common example
 of a grammar
 and deliberately introduced a problem.
 (All the code and the full trace outputs
-for this base example are in the Appendix.)
+for this example are in the Appendix.)
 I've commented out the correct start rule:
 
 =for Marpa::XS::Display
@@ -155,7 +161,7 @@ where the problem is,
 and use the Marpa diagnostics and tracing facilities
 to "discover" it.
 
-=head1 AN EARLY WARNING
+=head1 THE FIRST WARNING
 
 Right off the bat, we get two warning messages:
 
@@ -190,7 +196,7 @@ and that we miss the significance of these warning messages.
 =head1 THE trace_terminals OUTPUT
 
 Before looking at Marpa's progress reports,
-it usually best to orient yourself by looking
+it is usually best to orient yourself by looking
 at the output from
 L<C<trace_terminals>|Marpa::XS::Recognizer/trace_terminals>.
 Typically, you will be interested in what were the last tokens
@@ -201,7 +207,7 @@ where the problem is.
 
 The full 
 L<C<trace_terminals>|Marpa::XS::Recognizer/trace_terminals>
-output for this base example is in the Appendix.
+output for this example is in the Appendix.
 We see that the recognizer seems to accept "C<42*1>" but it fails
 when it confronts the plus sign ("C<+>").
 The last two lines are:
@@ -225,7 +231,6 @@ But Marpa allows other input models, and in those models the information
 about start and end location of the token is important.
 
 Returning to the problem at hand:
-debugging the grammar.
 We notice that at earleme 3 we are expecting a C<Multiply> operator,
 but not an C<Add> operator.
 That should strike us as strange,
@@ -237,27 +242,22 @@ We move on.
 
 =head1 THE show_progress OUTPUT
 
-The last tool that you should ever need for debugging
-Marpa grammars are its progress reports.
-The progress reports show
-Earley items in their original form.
-Marpa does not actually use Earley's original items directly.
-But they underlie Marpa's algorithm
-and Marpa reconstructs them for
-L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">.
-
+Marpa's most powerful tool for debugging
+grammars is its progress report, which
+shows the
+Earley items being worked on.
 In the Appendix, progress reports for the entire parse are shown.
-Our base example in this document is a very small one, so that's a
-reasonable thing to do in this case.
-If a parse is at all large, you'll often need to be selective.
+Our example in this document is a very small one,
+so that producing progress reports for the entire parse is
+a reasonable thing to do in this case.
+If a parse is at all large, you will usually need to be selective.
 
-Of most interest is the progress report for the "current"
-Earley set.
-In our example that's earleme 3.
-You can find out the current earleme either from
-the return value of the
-L<C<read> method|Marpa::XS::Recognizer/"read">
-or from the
+The progress report that is usually of most interest is
+the one for the Earley set
+that you were working on when the error occurred.
+This is called the "current earleme".
+In our example the current earleme is earleme 3.
+You can find out the current earleme using the
 L<C<current_earleme> method|Marpa::XS::Recognizer/"current_earleme">.
 But you can also simply call
 L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
@@ -283,14 +283,183 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-As an aside, we see that
-there is a completed rule for C<Expression[']>,
-which is Marpa's special start symbol.
-That indicates that if our input ended at earleme 3, it would be a valid sentence
+=head2 Progress Report Lines
+
+The last field of
+each Progress Report line shows,
+in fully expanded form,
+the dotted rule we were working on.
+Since that is the most important information,
+it may be tempting to skip the rest of this section,
+and move directly forward with the debugging.
+
+In fact, you might want to do exactly that --
+skip to the beginning of the next section.
+What follows talks about the details of the format of the
+first few fields in each progress report line.
+These first few fields, while helpful,
+are also usually one or more of obvious in their meaning,
+not relevant to our example,
+and repetitive of information which can
+be deduced from other fields.
+
+=for Marpa::XS::Display
+name: Debug Example Progress Report
+partial: 1
+normalize-whitespace: 1
+
+      F5 @0-3 Expression['] -> Expression .
+
+=for Marpa::XS::Display::End
+
+Prefixed to the dotted rule are two fields: "C<F5 @0-3>".
+The "C<F5>" says that this is a completed or B<final> rule,
+and that it is rule number 5.
+The rule number is used in
+other tracing and debugging output,
+when displaying the whole rule would take too much space.
+In what follows we won't need the rule number.
+
+The "C<@0-3>" describes the location of the dotted rule in
+the parse.  In its simplest form, the location field is two
+earleme numbers, separated by a hyphen.
+The first earleme number is the origin, the place where Marpa
+first started recognizing the rule.
+The last earleme number is the dot earleme, the earleme location
+of the dot in a dotted rule.
+"C<@0-3>" say that this rule began at earleme 0, and that the
+dot is at location 3.
+
+Earleme 3 is the current earleme and this is no coincidence.
+Whenever we are displaying the progress report for an earleme,
+all the progress report lines will have their dot location at
+that earleme.
+
+As an aside, notice that
+the left hand side symbol is C<Expression[']>.
+That is is Marpa's special start symbol.
+The presence of a completed start rule in our
+progress report indicates that if our input ended at earleme 3, it would be a valid sentence
 in the language of our grammar.
 
-More relevant for our purposes,
-we see that we have completed rules for C<Expression>, and C<Factor>,
+Let's look at another progress report line:
+
+=for Marpa::XS::Display
+name: Debug Example Progress Report
+partial: 1
+normalize-whitespace: 1
+
+      R4:1 x2 @0,2-3 Factor -> Factor . Multiply Factor
+
+=for Marpa::XS::Display::End
+
+Here the "C<R4:1>" indicates that this is rule number 4
+(the "C<R>" stands for rule number) and that its dot
+position is after the first symbol on the right hand side.
+Symbol positions are numbered using the
+ordinal of the symbol just before the position.
+Symbols are numbered starting with 1, and
+symbol position 1 is the position immediately after
+symbol 1.
+
+The next field ("C<x2>") is new.
+It is a count.
+A progress report can contain multiple instances
+of the same dotted rule, and when there is more
+than one, a count field is included in
+the progress report line.
+Here the "C<x2>" indicates that there are two
+instances of C<Factor -E<gt> Factor . Multiply Factor> at
+this earleme.
+
+Multiple instances of a dotted rule
+will differ in their origin,
+and where they do, this is shown in
+the location field of the
+progress report line.
+Here the location field is "C<@0,2-3>",
+which indicates that one instance of this dotted rule has
+its origin at earleme 0, and the other has its origin
+at earleme 2.
+All instances reported on a single progress report line
+will always have the same dot location, and in this case
+it is earleme 3.
+
+Predicted rules also appear in progress reports:
+
+=for Marpa::XS::Display
+name: Debug Example Progress Report
+partial: 1
+normalize-whitespace: 1
+
+    P2 @2-2 Factor -> . Number
+
+=for Marpa::XS::Display::End
+
+Here the "C<P>" in the summary field means "predicted".
+As with much of the information in the summary field,
+this only repeats what is obvious from the full expansion 
+of the dotted rule later in the line.
+But final (or completed) and predicted rules can be important
+and the initial C<"F"> and C<"P"> make these lines easy to spot.
+
+Notice that in the predicted rule,
+the origin is the same as the dot earleme.
+This will always be the case with predicted rules.
+
+For any given earleme,
+no predicted rule has more than one instance.
+For other dotted rules,
+there may be many instances of the dotted
+rule at a single earleme.
+In grammars with right recursion,
+the number of instances
+is limited only by the
+length of the recursion.
+The length of a recursion is limited primarily by
+the available memory.
+
+When there are many
+instances of a dotted rule at a single earleme location,
+it may be inconvenient to show all the origins in a comma-separated
+list.
+In that case the origins in the location field are shown as a
+range, with the earliest separated from the most recent
+by a "C<...>".
+The example is this document contains no lines with
+a large number of
+instances, but here is an example from another grammar.
+This is the progress report line for
+the completed rule in a right recursion of length 20.
+
+=for Marpa::XS::Display
+name: Debug Leo Example Progress Report
+partial: 1
+normalize-whitespace: 1
+
+    F1 x20 @0...19-20 Top_sequence -> Top Top_sequence .
+
+=for Marpa::XS::Display::End
+
+=head2 OK!  Now to Find the Bug
+
+Here again are progress reports
+at the earleme where things went wrong:
+
+=for Marpa::XS::Display
+name: Debug Example Progress Report
+partial: 1
+normalize-whitespace: 1
+
+      F0 @0-3 Expression -> Factor .
+      F2 @2-3 Factor -> Number .
+      R4:1 x2 @0,2-3 Factor -> Factor . Multiply Factor
+      F4 @0-3 Factor -> Factor Multiply Factor .
+      F5 @0-3 Expression['] -> Expression .
+
+=for Marpa::XS::Display::End
+
+We see that we have completed rules for C<Expression>, and C<Factor>,
 as expected.
 We also see two Earley items that show
 that we are in the process of building another C<Factor>,
@@ -302,15 +471,15 @@ C<Multiply> symbol.
 What we want to know is,
 why is the recognizer B<not> expecting an C<Add> symbol?
 Looking back at the grammar, we see that only one rule uses
-the C<Add> symbol: the rule "C<Term ::= Term Add Term>".
+the C<Add> symbol: the rule "C<Term -E<gt> Term Add Term>".
 The next step is to look at the Earley items for this rule.
 But there is a problem.
 We don't find any.
 
 Next, we ask ourselves, what is the earliest place the 
-"C<Term ::= Term Add Term>" rule should be appearing?
+"C<Term -E<gt> Term Add Term>" rule should be appearing?
 The answer is that 
-there should be a prediction of "C<Term ::= Term Add Term>" at earleme 0.
+there should be a prediction of "C<Term -E<gt> Term Add Term>" at earleme 0.
 So we look at the predictions at earleme 0.
 
 =for Marpa::XS::Display
@@ -325,9 +494,9 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-No "C<Term ::= Term Add Term>" rule.
-We are not even predicting a
-"C<Term ::= Term Add Term>" rule.
+No "C<Term -E<gt> Term Add Term>" rule.
+We are never even predicting a
+"C<Term -E<gt> Term Add Term>" rule.
 We look back at the grammar, and start from
 the beginning.
 
@@ -351,28 +520,31 @@ normalize-whitespace: 1
 =for Marpa::XS::Display::End
 
 Our special start symbol is C<Expression[']> and
-we do see a prediction for the rule with
+we do see a rule with
 C<Expression[']>
 on the left hand side.
-It in turn predicts an C<Expression> symbol,
-and we do see a prediction for the rule with C<Expression> on the left
+This rule in turn produces an C<Expression> symbol,
+and there is a rule with C<Expression> on the left
 hand side.
-C<Expression> in turn predicts a C<Factor> symbol,
-and we do see a prediction for both of the rules
+C<Expression> in turn produces a C<Factor> symbol,
+and there are two rules
 with C<Factor> on the left
 hand side.
 
-But we don't see anything predicting C<Term>.
-And then it hits us.
+But none of these rules ever produce a C<Term>.
+In fact, however far we follow the productions,
+no rule ever produces a C<Term>.
+At this point we see the problem:
 If we start at the start symbol,
 and follow the rules of our grammar, we will never get to a C<Term>
 symbol.
-That's what the warning message was trying to tell us.
+Which is exactly what that first warning message was saying.
 
-This makes us reread our grammar,
-and see that out C<Expression ::= Factor> rule is wrong.
-It should be C<Expression ::= Term>.
-We have found the source of our problem.
+Now that we know what is wrong,
+we can reread our grammar,
+and see that our C<Expression -E<gt> Factor> rule is wrong.
+It should be C<Expression -E<gt> Term>.
+Change that and the problem is fixed.
 
 =head1 COMPLICATIONS
 
@@ -380,14 +552,14 @@ Internally, Marpa rewrites Earley items and grammars.
 L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
 hides most of this from the user.
 But some aspects of Marpa's rewrites are relevant
-and useful to know.
+or useful to know.
 
 =head2 Special Symbols
 
 Marpa uses 
 a few special symbols internally which
 it is useful
-for the the user of
+for the user of
 L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
 to be aware of.
 To distinguish them,
@@ -400,7 +572,7 @@ which always ends in "C<[']>".
 Marpa augments all of its grammars with
 a special start rule, which will have the special start symbol
 on its left hand side.
-We saw this above with the C<Expression['] ::= Expression> rule.
+We saw this above with the C<Expression['] -E<gt> Expression> rule.
 
 If the empty, or null, string is a sentence in the language of
 the grammar,
@@ -412,17 +584,22 @@ The special null start symbol ends in "C<['][]>".
 
 =head2 Empty Rules
 
+Marpa removes all of the
+empty and nulling rules in the original grammar.
+Internally, Marpa marks symbols as nulling and this produces
+the same result much more efficiently.
+Outwardly, the effect is the same, so much so that you
+might not even notice the absence of the original
+grammar's nulling and empty rules from the progress reports.
 
-If you have empty rules in your grammar,
-you may notice that they never
-appear in the traces.
-That is because Marpa allows at most one empty rule in any
-grammar, and that rule is the one Marpa adds itself:
-the special empty start rule.
-Marpa removes all empty and nulling rules in the original grammar.
+To be precise, Marpa allows exactly one nulling rule,
+but this is a rule that it creates internally,
+not one specified by the user.
+If the grammar accepts the null string as valid input,
+Marpa creates a nulling start rule.
 
 Marpa's removal of nulling rules is recursive,
-at it needs to be.
+as it needs to be.
 Removing rules that are nulling
 reveals that the left hand side
 symbol of those rules is also nulling.
@@ -479,242 +656,14 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-=head2 Leo Items
-
-In the original Earley's algorithm,
-left recursion was very efficient,
-but right recursion required a completion Earley item
-for every step of the recursion in every Earley set
-where the right recursion might end.
-That made right recursion take O(I<n>**2) time
-and space, where I<n> was the length of the right
-recursion.
-
-Joop Leo figured out a way to get around this.
-Leo noted that most of the completions were trivial,
-in the sense
-that their only purpose was to create the topmost
-completion in a chain.
-He figured out how to get directly
-to the topmost completion
-and let that topmost completion
-stand in for the chain of trivial completions
-that produced it.
-This reduced the time and space
-required to O(I<n>).
-Marpa uses Leo's methods.
-
-The topmost completions are labeled 
-"C<(Leo)>" as we'll see below.
-These topmost completions
-stand in for
-zero or more trivial completions
-in the same Earley set.
-
-Here is a example.  First, the right recursive grammar:
-
-=for Marpa::XS::Display:
-name: Debug Leo Example
-perltidy: '-dcsc -sil=0'
-
-    my $grammar = Marpa::XS::Grammar->new(
-        {   start         => 'S',
-            strip         => 0,
-            lhs_terminals => 0,
-            rules         => [
-                { lhs => 'S', rhs => [qw/Top_sequence/] },
-                { lhs => 'Top_sequence', rhs => [qw/Top Top_sequence/] },
-                { lhs => 'Top_sequence', rhs => [qw/Top/] },
-                { lhs => 'Top', rhs => [ qw/Upper_Middle/ ] },
-                { lhs => 'Upper_Middle', rhs => [ qw/Lower_Middle/ ] },
-                { lhs => 'Lower_Middle', rhs => [ qw/Bottom/ ] },
-                { lhs => 'Bottom', rhs => [ qw/T/ ] },
-            ],
-        }
-    );
-
-=for Marpa::XS::Display::End
-
-And here is the progress report at earleme 20:
-
-=for Marpa::XS::Display
-name: Debug Leo Example Progress Report
-partial: 1
-normalize-whitespace: 1
-
-      F0 @0-20 S -> Top_sequence .
-      P1 @20-20 Top_sequence -> . Top Top_sequence
-      R1:1 @19-20 Top_sequence -> Top . Top_sequence
-      F1 x20 @0...19-20 Top_sequence -> Top Top_sequence .
-      P2 @20-20 Top_sequence -> . Top
-      F2 @19-20 Top_sequence -> Top .
-      P3 @20-20 Top -> . Upper_Middle
-      F3 @19-20 Top -> Upper_Middle .
-      P4 @20-20 Upper_Middle -> . Lower_Middle
-      F4 @19-20 Upper_Middle -> Lower_Middle .
-      P5 @20-20 Lower_Middle -> . Bottom
-      F5 @19-20 Lower_Middle -> Bottom .
-      P6 @20-20 Bottom -> . T
-      F6 @19-20 Bottom -> T .
-      F7 @0-20 S['] -> S .
-
-=for Marpa::XS::Display::End
-
-=head3 The First Leo Topmost Completion
-
-In these reports we see three Leo topmost completions.
-Let's look at the first one:
-
-=for Marpa::XS::Display
-name: Debug Leo Example Progress Report
-partial: 1
-normalize-whitespace: 1
-
-    COMPLETED @0-20 (Leo) 1: Top_sequence -> Top Top_sequence
-
-=for Marpa::XS::Display::End
-
-This is the top of a chain of 19 Earley items,
-all for the same rule:
-"C<Top_sequence ::= Top Top_sequence>".
-This topmost one spans the earleme range from 0 to 20 ("C<@0-20>").
-The other 18 in the chain are trivial completions,
-completions whose only purpose is to produce the topmost completion.
-The next one down in the chain (not shown in the 
-L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
-output) is identical, except for the origin,
-and so would look like this:
-
-=for Marpa::XS::Display
-ignore: 1
-
-    COMPLETED @1-20 1: Top_sequence -> Top Top_sequence
-
-=for Marpa::XS::Display::End
-
-Similarly,
-the remaining 17 Earley items
-would differ from the topmost one
-only in their origin,
-each one starting one earleme later than the one above it.
-The bottom of the chain is
-shown in the 
-L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
-output and is
-a completion of a different rule:
-
-=for Marpa::XS::Display
-name: Debug Leo Example Progress Report
-partial: 1
-normalize-whitespace: 1
-
-    COMPLETED @19-20 (Leo) 3: Top -> Upper_Middle
-
-=for Marpa::XS::Display::End
-
-This example illustrates the improvement introduced by
-the Leo method.
-In this example, without the Leo methods,
-there would have been 20 items
-in the chain at earleme 20.
-At earleme 100 there would be 100 items,
-and so forth --
-at earleme I<n> there would be I<n> items, all but
-two of them trivial.
-
-By earleme 100, there would have been a total (in all
-Earley sets up to that point) of over 4800 trivial Earley
-items.
-By earleme 1000, there would have been over 498,000,
-which would have made parsing with
-this grammar
-impractical for many applications.
-With the Leo methods, the number of Earley items in
-each set stays below a small constant.
-
-=head3 The Second Leo Topmost Completion
-
-The second Leo topmost completion was the bottom of the chain
-for the first topmost completion.
-It illustrates something to watch for:
-
-=for Marpa::XS::Display
-name: Debug Leo Example Progress Report
-partial: 1
-normalize-whitespace: 1
-
-    COMPLETED @19-20 (Leo) 3: Top -> Upper_Middle
-
-=for Marpa::XS::Display::End
-
-The chain of completions which the topmost item replaces
-can contain zero trivial completions.
-In other words, sometimes no completions are actually eliminated.
-That is the case here.
-This topmost completion stands in only for itself.
-
-=head3 The Third Leo Topmost Completion
-
-[ This section is no longer applicable. ]
-
-Our third Leo topmost completion illustrates a final point to watch for:
-
-=for Marpa::XS::Display
-ignore: 1
-
-    COMPLETED @19-20 (Leo) 4: Upper_Middle -> Lower_Middle
-
-=for Marpa::XS::Display::End
-
-Unlike the second Leo completion,
-this one does stand in for an trivial
-completion, one that was eliminated.
-If this trivial completion had appeared in the
-L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
-output, it would have looked like this:
-
-=for Marpa::XS::Display
-ignore: 1
-
-    COMPLETED @19-20 4: Lower_Middle -> Bottom
-
-=for Marpa::XS::Display::End
-
-For the first Leo topmost completion, all the trivial completions
-that were eliminated were for the same rule as the topmost completion.
-That is B<not> always the case.
-Leo's methods catches and optimizes right recursion, even when it is
-indirect, and passes through a series of different rules.
-In this example,
-the trivial completion which was eliminated is not for the same rule
-as the rule in the Leo topmost completion
-which stands in for it.
-
-=head3 Futures
-
-In future versions of Marpa,
-L<C<show_progress>|Marpa::XS::Recognizer/"show_progress">
-may say more about with the missing trivial completions.
-It is not yet clear
-how much information, and what kind of information,
-to provide.
-Simply printing out all the eliminated, trivial completions
-does not seem to
-really be an option.
-When a right recursion is thousands of steps long,
-which it can easily be,
-there will often be millions of trivial completions.
-Nonetheless, more can be done in letting the user know
-about eliminated, trivial completions.
-
-=head1 APPENDIX: FULL TRACES AND CODE FOR THE BASE EXAMPLE
+=head1 APPENDIX: FULL CODE AND OUTPUT FOR THE EXAMPLE
 
 Below are the code, the trace outputs
 and the progress report
-for the base example used in this
+for the example used in this
 document.
 
-=head2 Code for the example
+=head2 Code
 
 =for Marpa::XS::Display:
 name: Debug Example Part 1

@@ -51,11 +51,12 @@ sub test_grammar {
     my $added_args = {};
     if ($trace_result) {
         $trace = q{};
+        ## no critic (InputOutput::RequireBriefOpen)
         open $memory, q{>}, \$trace;
         $added_args = { trace_file_handle => $memory };
-    }
+    } ## end if ($trace_result)
     my $eval_ok = eval {
-        my $grammar = Marpa::XS::Grammar->new($grammar_args, $added_args);
+        my $grammar = Marpa::XS::Grammar->new( $grammar_args, $added_args );
         $grammar->precompute();
         1;
     };
@@ -63,7 +64,8 @@ sub test_grammar {
     defined $trace_result and close $memory;
     if ($eval_ok) {
         Test::More::fail("Failed to catch problem: $test_name");
-    } elsif ( index( $eval_error, $expected_error ) < 0 ) {
+    }
+    elsif ( index( $eval_error, $expected_error ) < 0 ) {
         my $diag_message =
             "Failed to find expected message, was expecting:\n";
         my $temp;
@@ -78,7 +80,8 @@ sub test_grammar {
         $diag_message .= "$temp\n";
         Test::More::diag($diag_message);
         Test::More::fail("Unexpected message: $test_name");
-    } else {
+    } ## end elsif ( index( $eval_error, $expected_error ) < 0 )
+    else {
         Test::More::pass("Successfully caught problem: $test_name");
     }
     return if not defined $trace_result;
@@ -97,7 +100,7 @@ sub test_grammar {
         $diag_message .= "$temp\n";
         Test::More::diag($diag_message);
         Test::More::fail("Unexpected trace: $test_name");
-    }
+    } ## end if ( index( $trace, $trace_result ) < 0 )
     else {
         Test::More::pass("Tracing OK: $test_name");
     }
@@ -106,9 +109,9 @@ sub test_grammar {
 
 my $counted_nullable_grammar = {
     rules => [
-        {   lhs    => 'S',
-            rhs    => ['Seq'],
-            min    => 0,
+        {   lhs => 'S',
+            rhs => ['Seq'],
+            min => 0,
         },
         {   lhs => 'Seq',
             rhs => [qw(A B)],
@@ -121,10 +124,11 @@ my $counted_nullable_grammar = {
 };
 
 test_grammar(
-    'counted nullable', $counted_nullable_grammar,
-    'Grammar has 1 problems:
-Nullable symbol "Seq" is on rhs of counted rule
-Counted nullables confuse Marpa::XS -- please rewrite the grammar '
+    'counted nullable',
+    $counted_nullable_grammar,
+    "Grammar has 1 problems:\n"
+        . qq{Nullable symbol "Seq" is on rhs of counted rule\n}
+        . q{Counted nullables confuse Marpa::XS -- please rewrite the grammar}
 );
 
 my $duplicate_rule_grammar = {
@@ -139,44 +143,46 @@ my $duplicate_rule_grammar = {
         },
         { lhs => 'Item', rhs => ['a'] },
     ],
-    start             => 'Top',
+    start => 'Top',
 };
 test_grammar( 'duplicate rule',
     $duplicate_rule_grammar, 'Duplicate rule: Dup -> Item ' );
 
 my $lhs_terminal_grammar = {
     rules => [
-        {   lhs    => 'Top', rhs    => ['Bad']},
-        {   lhs    => 'Bad', rhs    => ['Good']},
+        { lhs => 'Top', rhs => ['Bad'] },
+        { lhs => 'Bad', rhs => ['Good'] },
     ],
     start         => 'Top',
-    terminals => ['Bad'],
+    terminals     => ['Bad'],
     lhs_terminals => 0,
 };
-test_grammar( 'illegal lhs terminal', $lhs_terminal_grammar,
-'lhs_terminals option is off, but Symbol Bad is both an LHS and a terminal');
+test_grammar(
+    'illegal lhs terminal',
+    $lhs_terminal_grammar,
+    'lhs_terminals option is off, but Symbol Bad is both an LHS and a terminal'
+);
 
 my $no_start_grammar = {
-    rules => [ { lhs => 'Top', rhs => ['Bad'] }, ],
+    rules     => [ { lhs => 'Top', rhs => ['Bad'] }, ],
     terminals => ['Bad'],
 };
-test_grammar( 'no start symbol',
-    $no_start_grammar, 'No start symbol' );
+test_grammar( 'no start symbol', $no_start_grammar, 'No start symbol' );
 
 my $start_not_lhs_grammar = {
-    rules => [ { lhs => 'Top', rhs => ['Bad'] }, ],
+    rules     => [ { lhs => 'Top', rhs => ['Bad'] }, ],
     terminals => ['Bad'],
-    start => 'Bad',
+    start     => 'Bad',
 };
 test_grammar( 'start symbol not on lhs',
     $start_not_lhs_grammar, 'Start symbol "Bad" not on LHS of any rule' );
 
 my $unproductive_start_grammar = {
     rules => [
-        { lhs => 'Top', rhs => ['Bad'] },
-        { lhs => 'Bad', rhs => ['Worse'] },
+        { lhs => 'Top',   rhs => ['Bad'] },
+        { lhs => 'Bad',   rhs => ['Worse'] },
         { lhs => 'Worse', rhs => ['Bad'] },
-        { lhs => 'Top', rhs => ['Good'] },
+        { lhs => 'Top',   rhs => ['Good'] },
     ],
     terminals => ['Good'],
     start     => 'Bad',

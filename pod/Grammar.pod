@@ -47,22 +47,20 @@ normalize-whitespace: 1
 
 =head1 DESCRIPTION
 
-Marpa's grammar objects are
-created with the C<new> method.
-Rules and other named arguments
-may be specified
-when the grammar is created, or later using
-the C<set> method.
+To create a Marpa grammar object,
+use the C<new> method.
+Rules and symbols may be specified when the grammar is created.
 
-The C<precompute> method
-adds data structures that the recognizer will need
-to the grammar object.
-After precomputation
-a grammar is "frozen".
-The C<set> method and some tracing accessors may be called after 
-precomputation, but
+To change a Marpa grammar object,
+use the C<set> method.
+New rules may be added until a grammar is precomputed.
+
+A grammar cannot be used for parsing until it is precomputed.
+To precompute a Marpa grammar object,
+use the C<precompute> method.
+After precomputation,
 no new rules may added and
-most other named arguments are no longer valid.
+most other changes are forbidden.
 
 =head2 Symbol Names
 
@@ -106,8 +104,6 @@ it must either directly mark its terminals,
 or must unset 
 the L<C<lhs_terminals> named argument|/"lhs_terminals">.
 
-For most grammars, the default can be taken, in which case
-all symbols are terminals.
 One advantage of not taking the default is efficiency.
 Precomputation is faster for grammars
 which mark their terminals.
@@ -179,7 +175,7 @@ normalize-whitespace: 1
 
 A C<min> of zero indicates a sequence that repeats zero or more times.
 This is the equivalent of using the star quantifier
-("C<item*>") in the
+("C<*>") in the
 standard regular expression notation.
 
 =for Marpa::XS::Display
@@ -193,7 +189,7 @@ normalize-whitespace: 1
 
 A C<min> of one indicates a sequence that repeats one or more times.
 This is the equivalent of using the plus quantifier
-("C<item+>") in the
+("C<+>") in the
 standard regular expression notation.
 
 Sequences can have a separator, specified
@@ -315,6 +311,14 @@ returns the grammar object or throws an exception.
 
 =head2 set
 
+=for Marpa::XS::Display
+name: Grammar set Synopsis
+normalize-whitespace: 1
+
+    $grammar->set( { trace_file_handle => $trace_fh } );
+
+=for Marpa::XS::Display::End
+
 The arguments to the
 C<set> method are
 references to hashes of named arguments.
@@ -345,11 +349,11 @@ perltidy: '-dcsc -sil=0'
 
 =for Marpa::XS::Display::End
 
-Returns a multi-line string listing the states of the AHFA
-with the LR(0) items, LR(0) NFA states,
-and the transitions for each.
+Not of interest to most users.
+Returns a multi-line string listing the states of
+an internal data structure called the
+Aycock-Horspool Finite Automaton.
 Not useful before the grammar is precomputed.
-Useful in debugging, but requires knowledge of Marpa internals.
 
 =head2 show_problems
 
@@ -362,6 +366,8 @@ perltidy: '-dcsc -sil=0'
 
 =for Marpa::XS::Display::End
 
+Usually the application does not call this method
+directly.
 Returns a string describing any serious but non-fatal
 problems a grammar had in the precomputation phase.
 A serious problem is one that will prevent parsing.
@@ -380,8 +386,6 @@ the user would have to
 fix them one at a time
 -- very tedious.
 
-Usually the application does not call this method
-directly.
 The recognizer
 throws an exception
 when the user attempts
@@ -406,9 +410,7 @@ Returns a string listing the rules.
 Each rule is shown with B<comments> which
 indicate either rule properties
 or internal settings.
-C<show_rules> is often useful in debugging grammars.
-Much of its information requires no knowledge of
-the Marpa internals to interpret.
+C<show_rules> is useful in debugging grammars.
 
 Marpa does extensive rewriting of its grammars,
 and both the original rules and the rewritten rules
@@ -454,8 +456,7 @@ indicating whether they were
 terminal, nulling, nullable, unproductive or inaccessible.
 Also shown is a list of rules with that symbol on the left hand side,
 and a list of rules which have that symbol anywhere on the right hand side.
-Often useful and much of the information requires no knowledge of
-the Marpa internals to interpret.
+Useful for debugging grammars.
 
 =head1 NAMED ARGUMENTS
 
@@ -508,7 +509,7 @@ normalize-whitespace: 1
 =for Marpa::XS::Display::End
 
 The C<default_action> named argument specifies
-the semantic action
+the value action name
 for rules without an L<C<action> property|/"action">.
 Details are given in
 L<the document on semantics|Marpa::XS::Semantics>.
@@ -614,20 +615,6 @@ The value of the C<start> named argument must be a symbol name.
 It will be used as the start symbol for the grammar.
 The C<start> named argument is required.
 
-=head2 strip
-
-The value is a Boolean.
-If true, after precomputation Marpa "strips" the grammar
-of all data structures
-not needed for further processing.
-This saves space and time.
-Stripping is the default behavior.
-
-If C<strip> is set to false, the grammar object
-is not stripped.
-The data that would have been stripped remains
-available for tracing and debugging.
-
 =head2 symbols
 
 The value of the C<symbols> named
@@ -666,7 +653,6 @@ By default the trace file handle is C<STDERR>.
 Traces rules as they are added to the grammar.
 Useful, but you will usually
 prefer the C<show_rules> method.
-Does not require knowledge of Marpa internals.
 
 A C<trace_rules> setting becomes effective
 within the named argument hash which sets it.
@@ -892,16 +878,16 @@ Two rules are considered duplicates if
 
 =back
 
-Note that
-a sequence rule and a non-sequence rule are considered
-duplicates if both have
-identical left and right hand sides.
-Similarly, two sequence rules
-can be duplicates even if they have
-have different separators and/or different counts.
-Sequence separators and counts
+This definition applies to sequence rules, as well as to
+ordinary rules.
+As a consequence,
+sequence separators and counts
 play no role
 in determining if the rule is a duplicate.
+Sequence rules can be considered
+duplicates even when they
+have different separators
+and/or different minimum counts.
 
 =head1 SYMBOL DESCRIPTORS
 

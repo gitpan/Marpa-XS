@@ -8284,6 +8284,27 @@ Work on the evaluation code is not yet really underway,
 but some relevant notes are by-products of other work.
 These are collected here.
 
+@*1 Statistics on Completed LHS Symbols per AHFA State.
+An AHFA state may contain completions for more than one LHS,
+but that is rare in practical use, and the number of completed
+LHS symbols in the exceptions remains low.
+The very complex perl AHFA contains 271 states with completions.
+Of these 268 have only one completed symbol.
+The other three AHFA states complete only two different LHS symbols.
+Two states have completions with both
+a |term_hi| and a |indirob| on the LHS.
+One state has completions for both a
+|sideff| and an |mexpr|.
+@ My HTML test grammars make the
+same point more strongly.
+My HTML parser generates grammars on the fly.
+These HTML grammars can differ from each other.
+because Marpa takes the HTML input into account when
+generating the grammar.
+In my HTML test suite,
+14,782 of the AHFA states include one or more completions.
+Not a single one has more than one completed LHS symbol.
+
 @*1 Relationship of Earley Items to Or-Nodes.
 Several Earley items may be the source of the same or-node,
 but the or-node only keeps track of one.  This is sufficient,

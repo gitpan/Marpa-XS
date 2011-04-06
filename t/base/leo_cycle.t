@@ -194,12 +194,10 @@ my $expected_size = 4;
 Marpa::XS::Test::is( $max_size, $expected_size,
     "size $max_size" );
 
-my $show_earley_sets_output = do { local $RS = undef; <DATA>; };
+my $show_earley_sets_output = do { local $RS = undef; readline(*DATA); };
 
-Marpa::XS::Test::is(
-    $recce->show_earley_sets(1), $show_earley_sets_output,
-        "Leo cycle PP Earley sets"
-);
+Marpa::XS::Test::is( $recce->show_earley_sets(1),
+    $show_earley_sets_output, 'Leo cycle PP Earley sets' );
 
 my $value_ref = $recce->value( {} );
 my $value = $value_ref ? ${$value_ref} : 'No parse';

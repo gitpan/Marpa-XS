@@ -189,11 +189,18 @@ TEST: for my $test_data (@test_data) {
 
     my $input_length = length $test_input;
     pos $test_input = 0;
-    my ( $current_earleme, $expected_terminals ) = $recce->status();
+
+# Marpa::XS::Display
+# name: Recognizer terminals_expected Synopsis
+
+    my $terminals_expected = $recce->terminals_expected();
+
+# Marpa::XS::Display::End
+
     for ( my $pos = 0; $pos < $input_length; $pos++ ) {
         my @tokens = ();
         TOKEN_TYPE: while ( my ( $token, $regex ) = each %regexes ) {
-            next TOKEN_TYPE if not $token ~~ $expected_terminals;
+            next TOKEN_TYPE if not $token ~~ $terminals_expected;
             pos $test_input = $pos;
             next TOKEN_TYPE
                 if not $test_input =~ m{ \G \s* (?<match>$regex) }xgms;
@@ -203,7 +210,7 @@ TEST: for my $test_data (@test_data) {
                 [ $token, $+{match}, ( ( pos $test_input ) - $pos ), 0 ];
 
         } ## end while ( my ( $token, $regex ) = each %regexes )
-        ( $current_earleme, $expected_terminals ) =
+        ( undef, $terminals_expected ) =
             $recce->tokens( \@tokens );
     } ## end for ( my $pos = 0; $pos < $input_length; $pos++ )
     $recce->end_input();

@@ -87,6 +87,36 @@ earleme location in other ways.
 The purpose of this document is to discuss alternatives
 to the token stream model.
 
+=head2 Duplicates
+
+A duplicate token occurs when two tokens of the same and the
+same length are read at the same earleme.
+Duplicate tokens are impossible in the default, token-stream,
+model.
+This is because in the token-stream model only one token is
+read at each earleme.
+
+In alternative models, more than one token may be read at
+an earleme, and duplicates become possible.
+This implementation of Marpa expects that duplicate
+tokens indicate
+an application error and treats them
+as "hard errors" -- Marpa throws an exception
+when it sees a duplicate token.
+
+However, in the Marpa algorithm, duplicate tokens are recoverable
+errors just like rejected tokens.
+Marpa does not treat rejected tokens as exceptions because the
+use of, and retry after,
+rejected tokens is an important part of Ruby Slippers parsing.
+Rejected tokens are treated as a "soft failure",
+indicated by returning a Perl C<undef>.
+An application can also catch the exception thrown for
+a duplicate token and retry the input.
+In the future, if recovery from duplicate tokens is found
+to be a useful technique, Marpa may implement an option to return
+a soft failures in the case of a duplicate token.
+
 =head1 METHODS
 
 =head2 earleme_complete

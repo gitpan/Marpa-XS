@@ -14,8 +14,6 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# Debug Leo Example
-
 use 5.010;
 use strict;
 use warnings;
@@ -31,9 +29,6 @@ BEGIN {
 }
 
 my $progress_report = q{};
-
-# Marpa::XS::Display
-# name: Debug Leo Example
 
 my $grammar = Marpa::XS::Grammar->new(
     {   start         => 'S',
