@@ -546,7 +546,7 @@ or may simply wish to deal with them later.
 Takes as its value a string specifying what Marpa
 should do if it discovers that
 its grammar is infinitely
-ambigious.
+ambiguous.
 The value must be one of
 "C<fatal>",
 "C<warn>" or

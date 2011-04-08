@@ -108,22 +108,66 @@
 @i copyright_page_license.w
 
 @** About This Document.
-This document is a work very much
-in progress.
-It and the code it describes are
-being written together.
-Sometimes the code gets ahead of the documentation.
-Sometimes the document describes things that
-have not yet happened,
-or perhaps might never happen,
-in the code.
-@ Conventions and format for both code and
-document are evolving as I get more experience with Cweb.
-This means that, while this is a work in progress,
-the reader will encounter code and documentation
-whose conventions are not consistent,
-either with each other
-or internally.
+This document is very much under construction,
+enough so that readers may question why I make it
+available at all.  Two reasons:
+\li Despite its problems, it is the best way to read the source code
+at this point.
+\li Since it is essential to changing the code, not making it available
+could be seen to violate the spirit of the open source.
+@ This will eventually become a real book describing the
+code.
+It is already approaching that in size.
+Quality is another story.
+Much rewriting and reorganization is being left until the end.
+\par
+Marpa is a very unusual C library -- no system calls, no floating
+point and almost no arithmetic.  A lot of data structures
+and pointer twiddling.
+I have found that a lot of good coding practices in other
+contexts are not in this one.
+\par
+For example, I intended to fully to avoid abbreviations.
+This is good practice -- in most cases all abbreviations save is
+some typing, at a very high cost in readability.
+In |libmarpa|, however, spelling things out usually does
+{\bf not} make them more readable.
+To be sure, |To_AHFA_of_EIM_by_SYMID| is pretty incomprehensible.
+But is
+$$Aycock\_Horspool\_Finite\_Automaton\_To\_State\_of\_Earley\_Item\_by\_Symbol\_ID$$
+better?
+At this point, I have a lot of practice coming back to pages of both, cold, 
+and trying to figure them out.
+Both are daunting, but the abbreviations, are more elegant, and look
+better on the page, while unabbreviated names routinely pose almost insoluble
+problems for Cweb's \TeX{} typesetting.
+\par
+Whichever is used, it must be kept systematic and
+documented, and that is easier with the abbreviations.
+In general, I believe abbreviations are used in code
+far more than they should be.  But they have their place
+and |libmarpa| is one of them.
+\par
+Because I realized that abbreviations were going to be not
+just better, but almost essential if I ever was to finish this
+project, I changed from a "no abbreviation" policy to one
+of "abbreviate when necessary and it is necessary a lot" half
+way through.
+Thus the code is highly inconsistent in this respect.
+At the moment,
+that's true of a lot of my other coding conventions.
+\par
+To summarize, the reader who has not yet been scared off,
+needs to be aware that the coding conventions are not yet
+consistent internally, and not yet consistent with their
+documentation.
+@
+The Cweb is being written along with the code.
+If the code works right off the bat, its accompanying text
+will be a first draft.
+The more trouble I had understanding an issue,
+and writing the code,
+the more thorough the documentation.
 
 @** Coding conventions.
 @*0 Naming conventions.

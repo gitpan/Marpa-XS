@@ -140,25 +140,41 @@ B<derives> the symbol string
 "C<A B C D>".
 
 A B<derivation> is a sequence of derivation steps.
-The B<length> of a derivation is its length in steps.  A symbol string B<directly
-derives> another if and only if there is a derivation of length 1 from the first symbol
-string to the second string.  Every symbol string is said to derive itself in a derivation
+The B<length> of a derivation is its length in steps.
+
+=over
+
+=item *
+We say that 
+a first symbol string B<directly
+derives> a second symbol string if and only if there is a derivation of length 1 from the first symbol
+string to the second symbol string.
+
+=item *
+Every symbol string is said to derive itself in a derivation
 of length 0.  Such a zero length derivation is a B<trivial derivation>.
 
-If a derivation is not trivial or direct, that is, if it has more than one step,
-then it is an B<indirect> derivation.  A derivation which is not trivial
+=item * If a derivation is not trivial or direct, that is, if it has more than one step,
+then it is an B<indirect> derivation.
+
+=item * A derivation which is not trivial
 (that is,
 a derivation which has one or more steps)
 is a B<non-trivial> derivation.
 
-Where the symbol string beginning a derivation consists of a single symbol,
-we often say that symbol B<produces> the symbol string which results from the derivation.
-We say that the beginning symbol
-B<trivially>, B<non-trivially>, B<directly> or B<indirectly>
-produces
-the symbol string if the length of the derivation is respectively,
-0, greater than 0, 1, or greater than 1,
-just as we do when we say a symbol string derives another symbol string.
+=back
+
+If the symbol string of length 1
+derives a second symbol string of any length,
+then the symbol contained in the first string
+is said to derive the second symbol string.
+A derivation from a symbol is said to be
+B<trivial>,
+B<non-trivial>, B<direct> or B<indirect>,
+according to whether
+the derivation from the symbol string of length 1 containing that
+symbol is B<trivial>.
+B<non-trivial>, B<direct> or B<indirect>.
 When a symbol produces or derives a symbol string,
 we also say that the symbol B<matches> the symbol string,
 or that the symbol string B<matches> the symbol.
@@ -234,17 +250,16 @@ and grammars
 which contain both left- and right-recursion.
 
 A B<cycle> is a non-trivial derivation
-from any symbol to the string of symbols
-which contains only itself.
+from a string of symbols to itself.
 Since the result of a cycle is exactly the same as the beginning of
 a cycle, a cycle is the parsing equivalent of an infinite loop.
 A grammar which contains no cycles is B<cycle-free>.
 
-A grammar which contains a cycle is called B<infinitely ambigious>,
+A grammar which contains a cycle is called B<infinitely ambiguous>,
 because a grammar with a cycle can repeat that cycle in a derivation
 an arbitrary number of times.
 Marpa can handle cycles,
-and will produce parses even for
+and can produce parses for
 infinitely ambiguous grammars.
 
 =head2 Structure
@@ -270,13 +285,13 @@ A B<nulled node> is one that represents a nulled symbol.
 If, for a given grammar and a given input,
 more than one derivation tree is possible,
 we say that parse is B<ambiguous>.
-The standard definition of an ambigious grammar is that,
+The standard definition of an ambiguous grammar is that,
 if any parse from a grammar is ambiguous,
 the grammar is B<ambiguous>.
 
 Marpa is unusual in that it allows ambiguous B<input>,
 so for Marpa this definition needs to be modified.
-In the Marpa context, a grammar is called ambigious,
+In the Marpa context, a grammar is called ambiguous,
 if for any unambiguous input,
 some parse from that grammar is ambiguous.
 Marpa can handle ambiguous grammars, whether ambiguity
@@ -292,13 +307,6 @@ and what the user actually wants is the B<value> of the parse
 according to the semantics.
 
 The tree representation is especially useful when evaluating a parse.
-The rest of this section describes the traditional textbook method
-of evaluating parse trees.
-In practice trees can be transformed and evaluated in many ways,
-but the traditional method is very much in use and in practical
-applications the traditional method is usually the first considered,
-if not the one ultimately used.
-
 In the traditional method of evaluating a parse tree,
 every node which represents a terminal symbol
 has a value associated with it on input.

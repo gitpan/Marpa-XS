@@ -15,7 +15,20 @@
 
 =head1 NAME
 
-Marpa::XS::Advanced::Implementation - Marpa Implementation
+Marpa::XS::Advanced::Implementation - (OBSOLETE) Marpa Implementation
+
+=head1 THIS DOCUMENT IS OBSOLETE
+
+This document is obsolete.
+It will be eliminated in its current form,
+and has not been updated for the current release.
+
+With the creation of C<show_progress> for debugging
+user grammars,
+users no longer have any need to get into the internals
+to the extent presented in this document.
+Most of this material will be moved into the
+libmarpa documentation, or eliminated.
 
 =head1 OVERVIEW
 
@@ -1079,9 +1092,7 @@ normalize-whitespace: 1
 =for Marpa::XS::Display::End
 
 (Ignore the "leo-c" notation for now.
-It indicates that S12 is what's called a Leo completion.
-The Leo logic is dealt in L<another
-document|Marpa::XS::Advanced::Leo>.)
+It indicates that S12 is what's called a Leo completion.)
 
 The completed symbol is C<Factor>,
 with origin
@@ -1380,15 +1391,6 @@ C<vrhs> means that the right hand side contains
 a virtual symbol.
 C<real> is an integer, indicating the number of real (that is, non-virtual)
 symbols on the right hand side.
-
-=head1 THE LEO LOGIC
-
-Marpa uses the ideas from L<an algorithm developed
-by Joop Leo|Marpa::XS::Advanced::Bibliography/"Leo 1991"> to deal
-with right recursion.
-The Leo logic is complex enough to merit its own
-example, and so is presented in L<a separate
-document|Marpa::XS::Advanced::Leo>.
 
 =head1 DETERMINING WHETHER A PARSE IS SUCCESSFUL
 

@@ -97,8 +97,15 @@ $recce = Marpa::XS::Recognizer->new(
 );
 
 sub duplicate_terminal_1 {
+
+# Marpa::XS::Display
+# name: Recognizer alternative Synopsis
+
     defined $recce->alternative( 'a', 42, 1 )
         or return 'First alternative failed';
+
+# Marpa::XS::Display::End
+
     return $recce->alternative( 'a', 711, 1 );
 }
 
@@ -140,7 +147,13 @@ sub duplicate_terminal_2 {
         or return 'alternative a at 0 failed';
     defined $recce->alternative( 'b', 12, 1 )
         or return 'alternative b at 0 failed';
+
+# Marpa::XS::Display
+# name: Recognizer earleme_complete Synopsis
+
     $recce->earleme_complete();
+
+# Marpa::XS::Display::End
 
     # Should be OK, because different lengths
     defined $recce->alternative( 'a', 21, 3 )

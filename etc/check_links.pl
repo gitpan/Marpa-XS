@@ -35,9 +35,9 @@ use constant OK => 200;
 my $most_recent_distribution = pop @ARGV;
 if ( not $most_recent_distribution ) {
     my @distributions =
-        grep     {/\A Marpa [-] \d /xms}
+        grep     {/\A Marpa [-] XS [-] \d /xms}
         sort map { $_->[2] }
-        CPAN::Shell->expand( 'Author', 'JKEGL' )->ls( 'Marpa-*', 2 );
+        CPAN::Shell->expand( 'Author', 'JKEGL' )->ls( 'Marpa-XS-*', 2 );
     $most_recent_distribution = pop @distributions;
     $most_recent_distribution =~ s/\.tar\.gz$//xms;
 } ## end if ( not $most_recent_distribution )
@@ -72,7 +72,8 @@ my @doc_urls = ();
         map { $_->[2] }
         grep { $_->[0] eq 'a' and $_->[1] eq 'href' and $_->[2] !~ /^[#]/xms }
         $p->links();
-    @doc_urls = grep {/^lib\//xms} @links;
+
+    @doc_urls = grep {/^pod\//xms} @links;
 }
 
 my %url_seen = ();

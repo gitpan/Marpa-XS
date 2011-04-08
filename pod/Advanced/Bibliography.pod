@@ -49,8 +49,6 @@ Aycock and Horspool 2002 is B<not> easy reading.
 I have been following
 this particular topic on and off for years
 and nonetheless found this paper very heavy going.
-Readers who want to delve into Aycock and Horspool 2002
-might find it helpful to read the Marpa documentation first.
 
 =head2 Dominus 2005
 
@@ -59,7 +57,7 @@ by Mark Jason Dominus's I<Higher Order Perl>,
 Mark's treatment of parsing is an excellent introduction to parsing,
 especially in a Perl context.
 His focus on just about every other technique B<except>
-general parsing is pretty much standard, and
+general BNF parsing is pretty much standard, and
 will help a beginner understand how unconventional
 Marpa's approach is.
 
@@ -147,13 +145,8 @@ Joop M.I.M. Leo's
 Time on Every LR(k) Grammar Without Using Lookahead",
 I<Theoretical Computer Science>,
 Vol. 82, No. 1, 1991, pp 165-176.
-Unfortunately,
-there is no copy of this paper on-line.
-
 This is a difficult paper.
-At a minimum,
-readers will want to already be familiar with
-Earley's algorithm.
+Unfortunately, there is no copy of it on-line.
 
 =head2 Wikipedia
 

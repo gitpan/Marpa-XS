@@ -67,7 +67,22 @@ normalize-whitespace: 1
 
 =head1 OVERVIEW
 
-Marpa's semantics will be
+Marpa's semantics is of two kinds:
+
+=over
+
+=item * The value semantics.
+This is the semantics which produces the value of the parse tree.
+
+=item * The ranking semantics, which is used
+to rank ambiguous parse results, but which can be exploited for
+its side effects.
+
+=back
+
+=head2 Value Semantics
+
+Marpa's value semantics will be
 familiar
 to those who have used traditional
 methods to evaluate parses.
@@ -86,18 +101,23 @@ Nodes in Marpa's virtual parse trees are of three kinds:
 
 =over
 
-=item * Token Nodes
+=item * Token Nodes, which have a constant semantics,
+initialized when the token is read.
 
-=item * Rule Nodes
+=item * Rule Nodes, which have a dynamic semantics,
+based on action names and actions, as described below.
 
-=item * Null Nodes
+=item * Null Nodes, which have a constant semantics,
+initialized when the recognizer is created.
 
 =back
 
-=head2 Action Names and Semantic Closures
+=head2 Action Names and Actions
 
 When a Marpa grammar is created,
-semantics are specified as B<action names>.
+much of its value semantics and ranking semantics
+is 
+specified indirectly, as B<action names>.
 Marpa does not allow semantics to be 
 specified directly as Perl closures
 until the evaluation phase.
@@ -107,13 +127,22 @@ I discovered the wisdom of having an additonal layer
 of abstraction
 the hard way.
 
-At evaluation time,
-action names
-are resolved to actions,
-which are Perl closures.
-Action names and actions are used for producing
-node values, for ranking nodes,
-and in creating the per-parse variable.
+To implement its semantics of action names and
+actions,
+Marpa must do three things:
+
+=over
+
+=item * Determine the action name.
+
+=item * Resolve the action name to an action.
+An action is a Perl closure.
+
+=item * Call the Perl closure to produce the
+actual result.
+
+=back
+
 The action names and actions used to produce the
 node value are called
 B<value action names> and
@@ -122,6 +151,15 @@ The action names and actions used to rank nodes
 are called
 B<ranking action names> and
 B<ranking actions>.
+
+An action name
+and action is also used
+to create the per-parse variable,
+as L<described
+below|/"THE PER-PARSE VARIABLE">.
+The per-parse variable is a special case,
+but it is intended to be used as part of
+the value semantics.
 
 =head1 NODES
 
@@ -198,11 +236,13 @@ an alternative.
 
 By default, if a sequence rule has separators,
 the separators are thrown away before
-the value action is called --
-They do not appear in its C<@_> array.
+the value action is called.
+This means that separators do not appear in the C<@_> array
+of the Perl closure which is the value action.
 If the value of the C<keep> rule property
 is a Perl true value, separators are kept,
 and do appear in the
+value action's
 C<@_> array.
 
 =head2 Null Nodes
@@ -259,7 +299,7 @@ Nullable rules derive their values from two different
 sources, depending on whether they are nulled or not.
 If a nullable rule node B<is not> nulled, its value comes from the
 semantics of its rule.
-If a nullable rule node B<is> nulled, its values is the null value
+If a nullable rule node B<is> nulled, its value is the null value
 of the rule's LHS symbol.
 
 It is up to the application to make sure that, for nullable rules,
@@ -280,26 +320,6 @@ A sequence rule is nullable if
 the minimum number of items in it is zero.
 A nullable sequence which is nulled has the null value of its LHS symbol.
 A nullable sequence which is not nulled has the semantics of its rule.
-
-=head1 AN OVERVIEW OF MARPA'S SEMANTICS
-
-The null semantics uses constants.
-The rest of Marpa's semantics is dynamic.
-Marpa's dynamic semantics is implemented using action names,
-which it later resolves to Perl closures.
-To implement its dynamic semantics,
-Marpa does three things:
-
-=over
-
-=item * Determine the action name.
-
-=item * Resolve the action name to an action.
-An action is a Perl closure.
-
-=item * Call the Perl closure to produce a value.
-
-=back
 
 =head1 SEMANTIC PHASES
 
@@ -358,9 +378,9 @@ before any Series Setup Phase.
 During the Series Setup Phase
 all value action names are resolved to Perl closures --
 the value actions.
-The value actions are never called in the Series Setup Phase --
-they will not be called
-until the Tree Traversal Phase.
+The value actions are never called in the Series Setup Phase.
+Value actions are called
+in the Tree Traversal Phase.
 
 Exactly one Series Setup Phase occurs for each parse
 series.
@@ -438,6 +458,43 @@ seen from the point of view of the individual nodes of the parse tree.
 If a node has a semantic Perl closure,
 it is called at Node Evaluation Time.
 
+=head2 Summary of the Phases
+
+While processing a recognizer, we have
+
+=over 
+
+=item * A Recognizer Setup Phase, followed by
+
+=item * the processing of zero or more parse series.
+
+=back
+
+While processing a parse series, we have:
+
+=over
+
+=item * A Series Setup Phase, followed by
+
+=item * an optional Ranking Phase, followed by
+
+=item * the processing of zero or more parse results.
+
+=back
+
+While processing a parse result, we have:
+
+=over
+
+=item * A Result Setup Phase, followed by
+
+=item * a Tree Traveral Phase.
+
+=back
+
+Within the Tree Traversal Phase, from the point of view of
+each rule node, we have Node Evaluation Time.
+
 =head1 FINDING THE ACTION FOR A RULE
 
 Marpa finds the action for each rule based on
@@ -492,9 +549,9 @@ C<action_object> named argument of the Marpa grammar.
 
 =head2 Explicit Resolution
 
-The C<closures> named argument
+The recognizer's C<closures> named argument
 allows the user to directly control the mapping from action names
-to semantic Perl closures.
+to actions.
 The value of the C<closures> named argument
 is a reference to a hash whose keys are
 action names and whose hash values are CODE refs.
@@ -593,9 +650,9 @@ If the grammar's C<action_object> named argument is not defined,
 the per-parse variable is initialized to an empty hash ref.
 
 Most data for
-the rule node semantic Perl closures
+the value actions of the rules
 will be passed up the parse tree.
-The semantic Perl closures will see the values of their child nodes
+The actions will see the values of the rule node's child nodes
 as arguments,
 and will return their own value to be seen as an argument
 by their parent node.
@@ -636,7 +693,7 @@ object constructor name.
 In particular, bypass via
 explicit resolution applies to
 the action object constructor.
-If the the action object constructor name is
+If the action object constructor name is
 a hash key in the
 evaluator's C<closures> named argument,
 then 
@@ -677,11 +734,11 @@ perltidy: '-dcsc -sil=0'
 Ranking Perl closures
 have
 available a set of B<context-aware static methods>.
-A closure can use these methods to learn
+A ranking action can use these methods to learn
 about the context in which it is called.
 As of this writing, the context-aware
 static methods are available for the
-ranking Perl closures only.
+ranking actions only.
 This may change in the future.
 
 =head2 Marpa::XS::location

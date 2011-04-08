@@ -13,15 +13,9 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-PLEASE DO NOT TRY TO USE THIS PACKAGE.
-Please use the Marpa package instead.
-
-* Marpa::XS is currrently being assembled, and won't prove useful to anyone
-* for anything.  Marpa::XS is put on CPAN because in this initial phase
-* the cpantesters feedback is important.  Thanks for understanding.
-
 Revision history for Marpa::XS
 
+0.001_033 Thu Apr  7 19:02:04 PDT 2011
 0.001_032 Wed Mar 30 22:40:49 PDT 2011
 0.001_031 Thu Mar 24 20:44:19 PDT 2011
 0.001_030 Wed Feb 23 11:31:54 PST 2011
@@ -53,5 +47,5 @@ Revision history for Marpa::XS
 0.001_002 Mon Aug 30 08:16:05 PDT 2010
 0.001_001 Mon Aug 30 08:11:41 PDT 2010
 
-* A series of developer's releases. Timestamps are usually not that of the
-CPAN upload.
+* A series of developer's releases. Timestamps are not necessarily
+that of the CPAN upload -- in fact, usually not.

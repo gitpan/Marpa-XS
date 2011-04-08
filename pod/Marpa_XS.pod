@@ -15,7 +15,7 @@
 
 =head1 NAME
 
-Marpa::XS - Future XS extension of Marpa
+Marpa::XS - XS extension of Marpa
 
 =head1 SYNOPSIS
 
@@ -66,26 +66,6 @@ normalize-whitespace: 1
     my $value = $value_ref ? ${$value_ref} : 'No Parse';
 
 =for Marpa::XS::Display::End
-
-=head1 PLEASE DO NOT USE THIS MODULE
-
-PLEASE DO NOT USE THIS MODULE.
-As of now THIS MODULE CONTAINS NOTHING USEFUL.
-When complete, it will be the XS extension for
-the Marpa parser.
-
-Marpa::XS resides on CPAN
-so that the cpantesters can give me feedback
-on the very early development versions.
-This will help ensure that
-the final version of Marpa::XS
-is as bug-free on
-as wide a variety of platforms
-as possible.
-Especially with C code,
-it's easier and safer to make it portable
-right from the start,
-rather than to let portability be an afterthought.
 
 =head1 DESCRIPTION
 
@@ -226,12 +206,14 @@ Peeking ahead,
 the C<default_action> named argument
 will be interpreted
 as an B<action name>.
-This action name will resolve to a Perl closure
-that implements the semantics for rules
-without a per-rule semantics.
-C<actions> will be the name
-of a Perl package where Marpa looks for
-the B<semantic Perl closures>.
+This action name will resolve to an action --
+a Perl closure that implements semantics.
+The action specified by C<default_action>
+is used as the action for rules
+with no action of their own.
+C<actions> provides the name
+of a Perl package where Marpa will look for
+its B<actions>.
 
 =head3 The rules Named Argument
 
@@ -353,8 +335,7 @@ rules,
 and therefore are free to use any symbol in the
 grammar as a token name.
 For more on terminals,
-including how to explicitly mark terminal symbols
-when the grammar contains empty rules,
+including how to explicitly mark terminal symbols,
 see L<Marpa::XS::Grammar/"Terminals">.
 
 The B<token value>
@@ -393,14 +374,13 @@ C<undef>.
 The first thing C<Marpa::XS::Recognizer::value> needs to do is
 to resolve the semantics.
 B<Resolving the semantics> means
-mapping the action names into
-semantic Perl closures.
-B<Semantic Perl closures> are Perl
+mapping the action names into actions.
+B<Actions> are Perl
 closures which directly implement semantics.
 In this example,
-the C<actions> named argument is interpreted as
-a Perl package name.
-Marpa will look for its semantic Perl closures
+the C<actions> named argument is specified.
+C<actions> is a Perl package name.
+Marpa will look for actions
 in that package.
 
 =for Marpa::XS::Display
@@ -467,8 +447,8 @@ For example, in the first rule in the above display,
 Marpa will look for a Perl closure with the fully qualified
 name "C<My_Actions::Expression>".
 When Marpa does not find a closure by that name,
-Marpa will fall back to trying to find a semantic Perl closure
-using the default action.
+Marpa will fall back to trying to use
+the default action.
 
 The other two rules in the above display work similarly.
 Marpa will look for Perl closures
@@ -495,7 +475,7 @@ default_action is specified as "C<first_arg>"
 and resolves to
 C<My_Actions::first_arg>.
 
-=head2 Semantic Perl Closures
+=head2 Actions
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
@@ -518,10 +498,10 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-The semantic Perl closures are callbacks,
-called when each node in a parse tree is evaluated.
-The callbacks receive one or more arguments.
-The first argument to a semantic Perl closure is always a per-parse-result
+Value actions are Perl closures used as callbacks.
+Value actions are called when nodes in a parse tree are evaluated.
+A value action receives one or more arguments.
+The first argument to a value action is always a per-parse-result
 object, which the callbacks can use as a scratchpad.
 In these examples, the per-parse-result object is not used.
 
@@ -531,10 +511,10 @@ the values,
 in lexical order,
 of the symbols on the right hand side of
 the rule.
-If the semantic Perl closure is for an empty rule,
+If the action is for an empty rule,
 the per-parse-result object will be its only argument.
 
-Every semantic Perl closure is expected to return a value.
+Every value action is expected to return a value.
 With one exception,
 this value is passed up to a parent node
 as an argument.
@@ -556,13 +536,13 @@ Rather than give multiplication precedence over
 addition,
 the rewritten calculator allows any order of operations.
 In this example,
-the semantic Perl closures (C<My_Actions::do_add>, etc.)
+the actions (C<My_Actions::do_add>, etc.)
 and the C<@tokens> array remain
 the same as before.
 
 Eliminating precedence makes the grammar shorter,
 but it also means there can be multiple parse results,
-and the different parse results can have different values.
+and that the different parse results can have different values.
 In this application we decide, for each input,
 to return the value for every one of the parse results.
 
@@ -681,13 +661,6 @@ are described in the
 L<Marpa::XS::Tracing> document and the
 L<Marpa::XS::Debug> document.
 
-=head2 Advanced Documents
-
-The L<Marpa::XS::Advanced::Implementation> describes Marpa's internals.
-The L<Marpa::XS::Advanced::Models> document (yet to be written)
-will provide details about alternative models
-of the input for Marpa.
-
 =head2 Academic Documents
 
 For those with a theoretical bent,
@@ -703,7 +676,8 @@ Jeffrey Kegler
 
 Marpa is the name of the greatest of the Tibetan "translators".
 In his time (the 11th century AD) Indian Buddhism was
-at its height.  A generation of scholars was devoting
+at its height.
+Marpa's generation of scholars devoted
 itself to producing Tibetan versions of Buddhism's Sanskrit scriptures.
 Marpa became the greatest of them,
 and today is known as Marpa Lotsawa: "Marpa the Translator".

@@ -15,7 +15,15 @@
 
 =head1 NAME
 
-Marpa::XS::Advanced::Algorithm - The Marpa Algorithm
+Marpa::XS::Advanced::Algorithm - (OUTDATED) The Marpa Algorithm
+
+=head1 THIS DOCUMENT IS OUTDATED
+
+With Marpa::XS, I made many changes to the algorithm, and
+this document is in need of a thorough revision.
+It may not, in fact, be kept in its present form.
+A lot of the material is very academic, and I plan to move
+most of the academics into the libmarpa documentation.
 
 =head1 DESCRIPTION
 
@@ -26,7 +34,7 @@ that break new ground.
 It is not a comprehensive description of the Marpa algorithm.
 Marpa owes its existence to previous work by
 other researchers.
-Their work is cited in L<Marpa's bibliography|Marpa::XS::Bibliography>.
+Their work is cited in L<Marpa's bibliography|Marpa::XS::Advanced::Bibliography>.
 This document is intended to supplement their writings.
 
 I hope to have

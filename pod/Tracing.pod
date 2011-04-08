@@ -44,26 +44,6 @@ for both the grammar and the recognizer
 are turned on.
 Warnings are on by default.
 
-=head2 Turn off Stripping
-
-When Marpa "strips" its objects,
-it removes data that is not
-needed for subsequent processing.
-This saves time and memory, but data that is not
-needed for processing
-can be extremely valuable for debugging.
-When objects are stripped,
-many of Marpa's tracing methods will return
-partial information or no information at all.
-
-You should turn off Marpa's C<strip> named argument to the grammar.
-Grammar stripping is on by default.
-If you are
-using the
-L<recognizer's C<strip> method|Marpa::XS::Recognizer/"strip">
-to strip the recognizer,
-stop doing that.
-
 =head2 Trace Terminals
 
 Turn on the C<trace_terminals> recognizer named argument.
@@ -108,8 +88,7 @@ not what you expected.
 
 =head2 Other Traces
 
-C<trace_actions> will show you how action names resolve to semantic
-Perl closures.
+C<trace_actions> will show you how action names resolve to actions.
 Setting the C<trace_values> evaluator named argument to a trace level of 1
 traces the values of the parse tree nodes as they are pushed on, and 
 popped off, the evaluation stack.
@@ -122,10 +101,6 @@ includes the following:
 =over 4
 
 =item * Make sure the C<warnings> option is turned on.  It is on by default.
-
-=item * Turn off the C<strip> Marpa named argument.  By default, it is on.
-
-=item * Make sure you're not stripping the recognizer.
 
 =item * Turn on the C<trace_terminals> recognizer named argument.
 
@@ -147,35 +122,6 @@ the outputs from
 C<trace_terminals>,
 C<show_progress>,
 and C<trace_values>
-will be very lengthy.
-You want to work with short inputs if at all possible.
-
-=head1 ADVANCED TECHNIQUES
-
-Most users can skip this section.
-Marpa's advanced traces should not be necessary for debugging application
-grammars.
-They are documented for those
-who want to delve into
-internals.
-
-Marpa's internals are described in 
-the L<implementation document|Marpa::XS::Advanced::Implementation>.
-The internal traces are
-L<C<Marpa::XS::Recognizer::show_earley_sets>
-|Marpa::XS::Recognizer/"show_earley_sets">,
-and L<C<Marpa::XS::Grammar::show_AHFA>
-|Marpa::XS::Grammar/"show_AHFA">.
-The L<implementation document|Marpa::XS::Advanced::Implementation>
-has example outputs from
-the
-C<show_earley_sets> and
-C<show_AHFA>
-methods,
-and explains how to read them.
-Note that,
-if the input text to the grammar is large,
-the output from C<show_earley_sets>
 will be very lengthy.
 You want to work with short inputs if at all possible.
 

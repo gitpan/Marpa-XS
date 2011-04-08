@@ -107,17 +107,31 @@ while ( my ( $lexical_class, $words ) = each %lexical_class ) {
 
 for my $data ( 'time flies like an arrow', 'fruit flies like a banana' ) {
 
-    my $recce = Marpa::XS::Recognizer->new(
-        { grammar => $grammar, mode => 'stream' } );
+    my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
     die 'Failed to create recognizer' if not $recce;
 
     for my $word ( split q{ }, $data ) {
-        defined $recce->tokens(
-            [ map { [ $_, $word, 1, 0 ] } @{ $vocabulary{$word} } ] )
-            or die 'Recognition failed';
+
+# Marpa::XS::Display
+# name: Recognizer exhausted Synopsis
+
+	$recce->exhausted() and die 'Recognizer exhausted';
+
+# Marpa::XS::Display::End
+
+	for my $type (@{ $vocabulary{$word} } ) {
+	    defined $recce->alternative( $type, $word, 1 )
+		or die 'Recognition failed';
+        }
+	$recce->earleme_complete();
     }
 
+# Marpa::XS::Display
+# name: Recognizer end_input Synopsis
+
     $recce->end_input();
+
+# Marpa::XS::Display::End
 
     while ( defined( my $value_ref = $recce->value() ) ) {
         my $value = $value_ref ? ${$value_ref} : 'No parse';

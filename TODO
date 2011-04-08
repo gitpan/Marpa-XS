@@ -1,25 +1,2 @@
-Docs to review, for incorporating new interface
-    pod/Advanced/Models.pod
-    pod/Advanced/Algorithm.pod
-    pod/Advanced/Leo.pod
-
-Checklist of documents to update for official release:
-    pod/Advanced/Algorithm.pod
-    pod/Advanced/Bibliography.pod
-    pod/Advanced/Implementation.pod
-    pod/Advanced/Leo.pod
-    pod/Advanced/Models.pod
-READY pod/Debug.pod
-READY pod/Grammar.pod
-    pod/Marpa_XS.pod
-    pod/Parse_Terms.pod
-READY pod/Recognizer.pod
-    pod/Semantics.pod
-READY pod/Semantics/Infinite.pod
-READY pod/Semantics/Null.pod
-READY pod/Semantics/Order.pod
-    pod/Support.pod
-    pod/Tracing.pod
-
 When (if?) I convert Marpa to use Marpa::XS,
 make sure the "interactive" flag works.
