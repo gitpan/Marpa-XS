@@ -21,6 +21,10 @@ use warnings;
 use Carp;
 use English qw( -no_match_vars );
 
+use vars qw(@ISA);
+@ISA = qw( DynaLoader );
+sub dl_load_flags { $^O eq 'darwin' ? 0x00 : 0x01 }
+
 use Marpa::XS::Version;
 
 # Sensible defaults if not defined
@@ -38,12 +42,11 @@ if ( ! $Marpa::XS::USE_PP and ! $Marpa::XS::USE_XS ) {
 
 if ( $Marpa::XS::USE_XS ) {
 
-    # PERL_DL_NONLAZY must be false, or any errors in loading will just
-    # cause the perl code to be tested
-    local $ENV{PERL_DL_NONLAZY} = 0 if $ENV{PERL_DL_NONLAZY};
     eval {
-        require XSLoader;
-        XSLoader::load( 'Marpa::XS' => $Marpa::XS::STRING_VERSION );
+        package DynaLoader;
+        my @libs = split q{ }, ExtUtils::PkgConfig->libs("glib-2.0");
+	@DynaLoader::dl_resolve_using = dl_findfile(@libs);
+        bootstrap Marpa::XS $Marpa::XS::STRING_VERSION;
         1;
     } or do {
         Carp::croak("Could not load XS version of Marpa: $EVAL_ERROR");

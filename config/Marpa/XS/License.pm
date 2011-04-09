@@ -200,6 +200,8 @@ sub check_tag {
 
 my %files_by_type = (
     'LICENSE'  => \&license_problems_in_license_file,
+    'META.json' => sub {;}
+    ,    # not source, and not clear how to add license at top
     'META.yml' => sub {;}
     ,    # not source, and not clear how to add license at top
     'ppport.h'       => sub {;},    # copied from CPAN, just leave it alone

@@ -27,7 +27,7 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_xs_version = '0.001_033';
+my $marpa_xs_version = '0.001_034';
 
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
@@ -47,7 +47,7 @@ my %configure_requires =
     qw( ExtUtils::PkgConfig Module::Build Glib );
 my %requires =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) }
-    qw( Scalar::Util List::Util Task::Weaken Carp Data::Dumper Storable Glib );
+    qw( Scalar::Util List::Util Task::Weaken Carp Data::Dumper Storable ExtUtils::PkgConfig Glib );
 my %recommends =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( PPI Test::Weaken );
 

@@ -21,6 +21,7 @@ Changes
 LICENSE
 MANIFEST
 META.yml
+META.json
 Makefile.PL
 README
 TODO
@@ -299,3 +300,4 @@ t/xs/wall.t
 t/xs/weaken.t
 typemap
 xs/XS.xs
+META.json

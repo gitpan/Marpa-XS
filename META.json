@@ -1,0 +1,87 @@
+{
+   "abstract" : "XS Version of Marpa (Experimental)",
+   "author" : [
+      "Jeffrey Kegler"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110930",
+   "license" : [
+      "unknown"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Marpa-XS",
+   "no_index" : {
+      "directory" : [
+         "config",
+         "inc",
+         "t",
+         "html",
+         "devlib",
+         "libmarpa",
+         "author.t"
+      ],
+      "namespace" : [
+         "Marpa::XS::Recognizer",
+         "Marpa::XS::Grammar",
+         "Marpa::XS::Perl",
+         "Marpa::XS::Offset",
+         "Marpa::XS::Test",
+         "Marpa::XS::Display",
+         "Marpa::XS::Internal"
+      ],
+      "package" : [
+         "Marpa::XS::Perl",
+         "Marpa::XS::Offset",
+         "Marpa::XS::Test",
+         "Marpa::XS::Display",
+         "Marpa::XS::Internal"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "ExtUtils::CBuilder" : "0.27",
+            "Test::More" : "0.94"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::PkgConfig" : "1.12",
+            "Glib" : "1.223",
+            "Module::Build" : "0.3601"
+         }
+      },
+      "runtime" : {
+         "recommends" : {
+            "PPI" : "1.206",
+            "Test::Weaken" : "3.004000"
+         },
+         "requires" : {
+            "Carp" : "1.08",
+            "Data::Dumper" : "2.125",
+            "ExtUtils::PkgConfig" : "1.12",
+            "Glib" : "1.223",
+            "List::Util" : "1.21",
+            "Scalar::Util" : "1.21",
+            "Storable" : "2.21",
+            "Task::Weaken" : 0
+         }
+      }
+   },
+   "provides" : {
+      "Marpa::XS" : {
+         "file" : "lib/Marpa/XS.pm",
+         "version" : "0.001_034"
+      }
+   },
+   "release_status" : "testing",
+   "resources" : {
+      "repository" : {
+         "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
+      }
+   },
+   "version" : "0.001_034"
+}
