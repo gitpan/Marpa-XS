@@ -74,14 +74,14 @@
    "provides" : {
       "Marpa::XS" : {
          "file" : "lib/Marpa/XS.pm",
-         "version" : "0.001_034"
+         "version" : "0.002000"
       }
    },
-   "release_status" : "testing",
+   "release_status" : "stable",
    "resources" : {
       "repository" : {
          "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
       }
    },
-   "version" : "0.001_034"
+   "version" : "0.002000"
 }
