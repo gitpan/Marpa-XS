@@ -1059,34 +1059,6 @@ OUTPUT:
     RETVAL
 
 void
-is_trace_earley_sets_set( r_wrapper, boolean )
-    R_Wrapper *r_wrapper;
-    int boolean;
-PPCODE:
-{
-  struct marpa_r *r = r_wrapper->r;
-  gboolean result =
-    marpa_is_trace_earley_sets_set (r, (boolean ? TRUE : FALSE));
-  if (!result)
-    {
-      croak ("Problem in is_use_leo_set(): %s", marpa_r_error (r));
-    }
-}
-XSRETURN_YES;
-
-void
-is_trace_earley_sets( r_wrapper )
-    R_Wrapper *r_wrapper;
-PPCODE:
-    { struct marpa_r* r = r_wrapper->r;
-     gint boolean = marpa_is_trace_earley_sets( r );
-     if (boolean < 0) { 
-	 croak("Problem in is_trace_earley_sets(): %s", marpa_r_error(r)); }
-    if (boolean) XSRETURN_YES;
-    XSRETURN_NO;
-    }
-
-void
 is_use_leo_set( r_wrapper, boolean )
     R_Wrapper *r_wrapper;
     int boolean;

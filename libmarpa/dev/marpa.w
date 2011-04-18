@@ -299,21 +299,20 @@ incomplete and sometimes inaccurate.
 \li bv: Bit Vector.
 \li cmp: Compare.
 Usually as |_cmp|, the suffix or "verb" of a function name.
-\li D: As a suffix of a type name, this means "direct".
-See the entry
-for "direct".
-\li direct: When there is a choice,
+\li \_Object: As a suffix of a type name, this means an object,
+as opposed to a pointer.
+When there is a choice,
 most complex types are considered to be pointers
 to structures or unions, rather than the structure or
 union itself.
 When it's necessary to have a type which
 refers to the actual structure
 or union {\bf directly}, not via a pointer,
-that type is called the "direct" form of the
+that type is called the "object" form of the
 type.  As an example, look at the definitions
-of |EIM| and |EIMD|.
+of |EIM| and |EIM_Object|.
 \li EIM: Earley item.
-\li EIMD: Earley item (direct).
+\li |EIM_Object|: Earley item (object).
 \li EIX: Earley item index.
 \li EIXD: Earley item index (direct).
 \li ES: Earley set.
@@ -4140,18 +4139,19 @@ Here the length is the first subkey, because
 that will be enough to order most predicted states.
 The discovered states will be efficient to compute because
 they will tend either to be short,
-or else to be quickly differentiated
-based on length.
+or quickly differentiated
+by length.
 \par
 Note that this function is not used for discovered AHFA states of
 size 1.
 Checking those for duplicates is optimized, using an array
 indexed by the ID of their only AHFA item.
-@<Function definitions@> =
+@<Private function prototypes@> =
+static gint AHFA_state_cmp(gconstpointer a, gconstpointer b);
+@ @<Function definitions@> =
 static gint AHFA_state_cmp(
     gconstpointer ap,
-    gconstpointer bp,
-    gpointer user_data @, G_GNUC_UNUSED)
+    gconstpointer bp)
 {
     guint i;
     AIM* items_a;
@@ -4170,9 +4170,6 @@ static gint AHFA_state_cmp(
 }
 return 0;
 }
-@ @<Private function prototypes@> =
-static gint AHFA_state_cmp(gconstpointer a, gconstpointer b,
-    gpointer user_data @, G_GNUC_UNUSED);
 
 @*0 AHFA State Mutators.
 @<Function definitions@> =
@@ -4185,7 +4182,7 @@ void create_AHFA_states(struct marpa_g* g) {
    guint no_of_rules = rule_count(g);
    Bit_Matrix prediction_matrix;
    RULE* rule_by_sort_key = g_new(RULE, no_of_rules);
-    GSequence* duplicates;
+    GTree* duplicates;
     AHFA* singleton_duplicates;
    DQUEUE_DECLARE(states);
     @<Initialize duplicates data structures@>@;
@@ -4239,14 +4236,14 @@ NEXT_AHFA_STATE: ;
 
 @ @<Initialize duplicates data structures@> = { guint item_id;
 guint no_of_items_in_grammar = g->no_of_items;
-duplicates = g_sequence_new(NULL);
+duplicates = g_tree_new(AHFA_state_cmp);
 singleton_duplicates = g_new(AHFA, no_of_items_in_grammar);
 for ( item_id = 0; item_id < no_of_items_in_grammar; item_id++) {
     singleton_duplicates[item_id] = NULL; // All zero bits are not necessarily a NULL pointer
 } }
 @ @<Free duplicates data structures@> =
 g_free(singleton_duplicates);
-g_sequence_free(duplicates);
+g_tree_destroy(duplicates);
 
 @ @<Construct initial AHFA states@> = {
    AHFA p_initial_state = DQUEUE_PUSH(states, AHFAD);@/
@@ -4577,20 +4574,18 @@ When it does not exist, insert it
 in the sequence of states
 and return |NULL|.
 When it does exist, return a pointer to it.
-@<Function definitions@> =
-static inline AHFA
-assign_AHFA_state (AHFA state_p, GSequence * duplicates)
-{
-  gboolean match = FALSE; // Initialized to silence compiler warning
-  GSequenceIter *iter =
-    sequence_find (duplicates, state_p, AHFA_state_cmp, &match);
-  if (match) return g_sequence_get(iter);
-  g_sequence_insert_before (iter, state_p);
-  return NULL;
-}
 @ @<Private function prototypes@> =
 static inline AHFA assign_AHFA_state(
-AHFA state_p, GSequence* duplicates);
+AHFA state_p, GTree* duplicates);
+@ @<Function definitions@> =
+static inline AHFA
+assign_AHFA_state (AHFA sought_state, GTree* duplicates)
+{
+  const AHFA state_found = g_tree_lookup(duplicates, sought_state);
+  if (state_found) return state_found;
+  g_tree_insert(duplicates, sought_state, sought_state);
+  return NULL;
+}
 
 @ @<Calculate the predicted rule vector for this state
 and add the predicted AHFA state@> = {
@@ -4816,6 +4811,15 @@ for (sort_key = 0; sort_key < no_of_rules; sort_key++) {
     }
 }
 
+@ @<Private function prototypes@> =
+static AHFA
+create_predicted_AHFA_state(
+     struct marpa_g* g,
+     Bit_Vector prediction_rule_vector,
+     RULE* rule_by_sort_key,
+     struct dqueue* states_p,
+     GTree* duplicates
+     );
 @ @<Function definitions@> =
 static AHFA
 create_predicted_AHFA_state(
@@ -4823,7 +4827,7 @@ create_predicted_AHFA_state(
      Bit_Vector prediction_rule_vector,
      RULE* rule_by_sort_key,
      struct dqueue* states_p,
-     GSequence* duplicates
+     GTree* duplicates
      ) {
 AIM* item_list_for_new_state;
 AHFA p_new_state;
@@ -4851,10 +4855,9 @@ p_new_state = DQUEUE_PUSH((*states_p), AHFAD);@/
     p_new_state->t_items = item_list_for_new_state;
     p_new_state->t_item_count = no_of_items_in_new_state;
     { AHFA queued_AHFA_state = assign_AHFA_state(p_new_state, duplicates);
-	 /* The new state would be a duplicate
-	 Back it out the new state we were creating and
-       and return the one that already exists */
         if (queued_AHFA_state) {
+		 /* The new state would be a duplicate.
+		 Back it out and return the one that already exists */
 	    (void)DQUEUE_POP((*states_p), AHFAD);
 	    obstack_free(&g->obs, item_list_for_new_state);
 	    return queued_AHFA_state;
@@ -4871,15 +4874,6 @@ p_new_state = DQUEUE_PUSH((*states_p), AHFAD);@/
     @<Calculate postdot symbols for predicted state@>@/
     return p_new_state;
 }
-@ @<Private function prototypes@> =
-static AHFA
-create_predicted_AHFA_state(
-     struct marpa_g* g,
-     Bit_Vector prediction_rule_vector,
-     RULE* rule_by_sort_key,
-     struct dqueue* states_p,
-     GSequence* duplicates
-     );
 
 @ @<Calculate postdot symbols for predicted state@> =
 {
@@ -5039,24 +5033,31 @@ Marpa_Phase marpa_phase(struct marpa_r* r)
 { return r->t_phase; }
 
 @*0 Earley Set Container.
-@d Current_ES_Iter_of_R(r) ((r)->t_current_earley_set_iter)
-@d LV_Current_ES_Iter_of_R(r) Current_ES_Iter_of_R(r)
-@d ES_of_ES_Iter(iter) 
-    ((ES)g_sequence_get(iter))
+@d First_ES_of_R(r) ((r)->t_first_earley_set)
+@d LV_First_ES_of_R(r) First_ES_of_R(r)
 @<Widely aligned recognizer elements@> =
-GSequence* earley_sets;
+ES t_first_earley_set;
+ES t_current_earley_set;
 @ @<Initialize recognizer elements@> =
-r->earley_sets = g_sequence_new(earley_set_free);
+r->t_first_earley_set = NULL;
+r->t_current_earley_set = NULL;
 @ @<Destroy recognizer elements@> =
-g_sequence_free(r->earley_sets);
+{
+  ES set;
+  for (set = First_ES_of_R (r); set; set = Next_ES_of_ES (set))
+    {
+      earley_set_free (set);
+    }
+  if (r->t_earley_sets)
+    g_tree_destroy (r->t_earley_sets);
+  if (r->t_earley_items)
+    g_tree_destroy (r->t_earley_items);
+}
 
 @*0 Current Earleme.
-@d Current_ES_of_R(r)
-    (ES_of_ES_Iter(Current_ES_Iter_of_R(r)))
-@d Earleme_of_ES_Iter(iter) ID_of_ES(ES_of_ES_Iter(iter))
-@d Current_Earleme(r) (Earleme_of_ES_Iter(Current_ES_Iter_of_R(r)))
-@<Widely aligned recognizer elements@> =
-GSequenceIter* t_current_earley_set_iter;
+@d Current_ES_of_R(r) ((r)->t_current_earley_set)
+@d LV_Current_ES_of_R(r) Current_ES_of_R(r)
+@d Current_Earleme(r) (ID_of_ES(Current_ES_of_R(r)))
 @ @<Public function prototypes@> =
 guint marpa_current_earleme(struct marpa_r* r);
 @ @<Function definitions@> =
@@ -5214,36 +5215,29 @@ gint marpa_terminals_expected(struct marpa_r* r, GArray* result)
     return (gint)result->len;
 }
 
-@*0 Recognizer Boolean: Trace Earley Sets.
-A trace flag, set if we are tracing earley sets as they are created.
-@<Bit aligned recognizer elements@> = unsigned int t_is_trace_earley_sets:1;
+@*0 Tracing.
+A boolean, set if we are tracing earley sets.
+If set, a |GTree| is used to allow fast lookup
+of earley sets by earleme.
+Keeping this tree takes $O(n \log n)$ time,
+which means that the grammar's time complexity becomes
+$O( s(n) \cdot n \log n )$, where $s(n)$ is the time it takes to
+process an earley set.
+
+Without tracing the time complexity is
+$O( s(n) \cdot n )$, so tracing worsens the time complexity by
+a factor of $\log n$.
+Unless otherwise stated,
+time complexity results elsewhere in this document
+assume that tracing is not enabled.
+@<Bit aligned recognizer elements@> = unsigned int t_is_tracing:1;
+@ @<Widely aligned recognizer elements@> =
+GTree* t_earley_sets;
+GTree* t_earley_items;
 @ @<Initialize recognizer elements@> =
-r->t_is_trace_earley_sets = FALSE;
-@ Returns 1 is the "trace Earley sets" flag is set,
-0 if not,
-and |-2| if there was an error.
-@<Public function prototypes@> =
-gboolean marpa_is_trace_earley_sets(struct marpa_r* r);
-@ @<Function definitions@> =
-gboolean marpa_is_trace_earley_sets(struct marpa_r* r)
-{
-   @<Return |-2| on failure@>@;
-    @<Fail if recognizer has fatal error@>@;
-    return r->t_is_trace_earley_sets ? 1 : 0;
-}
-@ Returns |TRUE| on success,
-|FALSE| on failure.
-@<Function definitions@> =
-gboolean marpa_is_trace_earley_sets_set(
-struct marpa_r*r, gboolean value)
-{
-   @<Return |FALSE| on failure@>@;
-    @<Fail if recognizer has fatal error@>@;
-    r->t_is_trace_earley_sets = value;
-    return TRUE;
-}
-@ @<Public function prototypes@> =
-gboolean marpa_is_trace_earley_sets_set( struct marpa_r*r, gboolean value);
+r->t_is_tracing = FALSE;
+r->t_earley_sets = g_tree_new(earley_set_cmp);
+r->t_earley_items = g_tree_new(trace_earley_item_cmp);
 
 @*0 Leo-Related Booleans.
 @*1 Turning Leo Logic Off and On.
@@ -5468,27 +5462,32 @@ parse as the memories on those machines will be
 able to handle.
 @d EARLEME_THRESHOLD (G_MAXINT/4)
 @<Public typedefs@> = typedef gint Marpa_Earleme;
+@ @<Private typedefs@> = typedef Marpa_Earleme EARLEME;
 
 @** Earley Set (ES) Code.
 @ @<Incomplete private structures@> = struct s_earley_set;
 @
 @d EIM_Sequence_of_ES(set) ((set)->t_eims)
 @d EIM_Count_of_ES(set) ((set)->t_eim_count)
+@d Next_ES_of_ES(set) ((set)->t_next_earley_set)
+@d LV_Next_ES_of_ES(set) Next_ES_of_ES(set)
 @d Postdot_SYM_Count_of_ES(set) ((set)->t_postdot_sym_count)
 @d First_PIM_of_ES_by_SYMID(set, symid) (first_pim_of_es_by_symid((set), (symid)))
 @d PIM_SYM_P_of_ES_by_SYMID(set, symid) (pim_sym_p_find((set), (symid)))
 @<Private structures@> =
 struct s_earley_set_key {
-    Marpa_Earleme t_id;
+    EARLEME t_id;
 };
-typedef struct s_earley_set_key ESKD;
-typedef ESKD* ESK;
+typedef struct s_earley_set_key ESK_Object;
+typedef ESK_Object* ESK;
 struct s_earley_set {
-    ESKD t_key;
+    ESK_Object t_key;
     GSequence* t_eims;
+    EIM t_earley_items;
     union u_postdot_item** t_postdot_ary;
     gint t_postdot_sym_count;
     guint t_eim_count;
+    struct s_earley_set* t_next_earley_set;
 };
 @ @<Private typedefs@> =
 struct s_earley_set;
@@ -5496,28 +5495,30 @@ typedef struct s_earley_set *ES;
 
 @*0 Constructor.
 @<Private function prototypes@> =
-static inline ES earley_set_new (struct marpa_r *r,
-						    Marpa_Earleme id);
+static inline ES earley_set_new (RECCE r, Marpa_Earleme id);
 @ @<Function definitions@> =
 static inline ES
-earley_set_new( struct marpa_r* r, Marpa_Earleme id)
+earley_set_new( RECCE r, Marpa_Earleme id)
 {
-  ESKD key;
+  ESK_Object key;
   ES set;
   set = obstack_alloc (&r->obs, sizeof (*set));
   key.t_id = id;
   set->t_key = key;
   set->t_eims = g_sequence_new (NULL);
+  set->t_earley_items = NULL;
   set->t_postdot_ary = NULL;
   set->t_postdot_sym_count = 0;
   set->t_eim_count = 0;
+  LV_Next_ES_of_ES(set) = NULL;
+  if (r->t_is_tracing) {
+      g_tree_insert(r->t_earley_sets, set, set);
+  }
   return set;
 }
 
 @ @<Private function prototypes@> =
-static inline GSequenceIter* later_earley_set_assign(
-    struct marpa_r* r, Marpa_Earleme sought_earleme,
-    ES* set_p);
+static inline ES later_earley_set_assign( RECCE r, Marpa_Earleme sought_earleme);
 @
 {\bf Complexity:}
 Marpa, unlike other parsers, allows variable length tokens,
@@ -5542,7 +5543,8 @@ Since
 is called once per Earley set, that makes the
 complexity $O(n^2)$.
 Since this case is a subset
-of the highly ambiguous grammar of no
+of the highly ambiguous grammars,
+and one of no
 current practical interest,
 $O(n^2)$ is quite acceptable.
 @ In fact, in practice as of this writing, the number of token lengths in play at any
@@ -5556,60 +5558,53 @@ apples-to-apples comparison with other parsers, token length should be
 treated for theoretical purposes as always one.
 Hence the theoretical time complexity is $O(1)$.
 @<Function definitions@> =
-static inline GSequenceIter* later_earley_set_assign(
-    struct marpa_r* r, Marpa_Earleme sought_earleme,
-    ES* set_p)
+static inline ES later_earley_set_assign( RECCE r, Marpa_Earleme sought_earleme)
 {
-    GSequenceIter *iter = g_sequence_iter_next(Current_ES_Iter_of_R(r));
+    ES new_earley_set;
+    ES last_found_earley_set = Current_ES_of_R(r);
+    ES found_earley_set = Next_ES_of_ES(last_found_earley_set);
     for (;;) {
 	 Marpa_Earleme found_earleme;
-	 ES found_set;
-	 if (g_sequence_iter_is_end(iter)) {
+	 if (!found_earley_set) {
 	    LV_Furthest_Earleme(r) = sought_earleme;
 	    break;
 	 }
-	 found_set = g_sequence_get(iter);
-	 found_earleme = Earleme_of_ES(found_set);
+	 found_earleme = Earleme_of_ES(found_earley_set);
  G_DEBUG3("later_earley_set_assign, sought=%d, found=%d", sought_earleme, found_earleme);
-	 if (sought_earleme == found_earleme) {
-	     *set_p = found_set;
-	     return iter;
-	 }
-	 if (sought_earleme < found_earleme) {
-	     break;
-	 }
-	 iter = g_sequence_iter_next(iter);
+	 if (sought_earleme == found_earleme) return found_earley_set;
+	 if (sought_earleme < found_earleme) break;
+	 last_found_earley_set = found_earley_set;
+	 found_earley_set = Next_ES_of_ES(last_found_earley_set);
     }
-    *set_p = earley_set_new(r, sought_earleme);
-    return g_sequence_insert_before (iter, *set_p);
+    new_earley_set = earley_set_new (r, sought_earleme);
+    LV_Next_ES_of_ES(last_found_earley_set) = new_earley_set;
+    LV_Next_ES_of_ES(new_earley_set) = found_earley_set;
+    return new_earley_set;
 }
 
 @*0 Destructor.
 @<Function definitions@> =
-static inline void earley_set_free(gpointer p) {
-       GSequence *sequence;
-       ES set = p;
-       if ((sequence = set->t_eims)) g_sequence_free(sequence);
+static inline void
+earley_set_free (ES set)
+{
+  GSequence *sequence = set->t_eims;
+  if (sequence)
+    g_sequence_free (sequence);
 }
 @ @<Private function prototypes@> =
-static inline void earley_set_free(gpointer p);
+static inline void earley_set_free(ES set);
 
 @*0 Comparison Function.
 @<Function definitions@> =
 static gint 
-earley_set_cmp(
-	       gconstpointer ap,
-	       gconstpointer bp,
-	       gpointer user_data @, G_GNUC_UNUSED)
+earley_set_cmp( gconstpointer ap, gconstpointer bp)
 {
     const struct s_earley_set_key* set_key_a = ap;
     const struct s_earley_set_key* set_key_b = bp;
     return set_key_a->t_id - set_key_b->t_id;
 }
 @ @<Private function prototypes@> =
-static gint     earley_set_cmp(
-    gconstpointer a, gconstpointer b,
-    gpointer user_data @, G_GNUC_UNUSED);
+static gint earley_set_cmp( gconstpointer a, gconstpointer b);
 
 @*0 ID of Earley Set.
 @d ID_of_ES(set) ((set)->t_key.t_id)
@@ -5618,21 +5613,37 @@ static gint     earley_set_cmp(
 @*0 Earley Set by ID.
 Returns |NULL| if the set is not found.
 @d Earley_Set_by_ID(r, id) (earley_set_by_id((r), (id)))
-@<Function definitions@> =
-static inline ES
-earley_set_by_id(struct marpa_r *r, Marpa_Earleme earleme)
-{
-  GSequenceIter *iter;
-  ESKD key;
-  gboolean match = FALSE; // Initialized to silence compiler warning
-  key.t_id = earleme;
-  iter = sequence_find (r->earley_sets, &key,
-					      earley_set_cmp,
-					      &match);
-  return match ? (ES) g_sequence_get(iter) : NULL;
-}
-@ @<Private function prototypes@> =
+@<Private function prototypes@> =
 static inline ES earley_set_by_id(struct marpa_r * r, Marpa_Earleme earleme);
+@ @<Function definitions@> =
+static inline ES
+earley_set_by_id(RECCE r, Marpa_Earleme earleme)
+{
+  ESK_Object key;
+  if (!r->t_is_tracing) r_tracing_start(r);
+  key.t_id = earleme;
+  return g_tree_lookup(r->t_earley_sets, &key);
+}
+
+@*0 Start Tracing.
+Not mainstream logic, and should not be inlined.
+@<Private function prototypes@> =
+static void r_tracing_start(RECCE r);
+@ @<Function definitions@> =
+static void r_tracing_start(RECCE r) {
+    ES set;
+    GTree* es_tree = r->t_earley_sets;
+    GTree* eim_tree = r->t_earley_items;
+    for (set = First_ES_of_R(r); set; set = Next_ES_of_ES (set))
+      {
+	EIM eim;
+	g_tree_insert (es_tree, set, set);
+	  for (eim = set->t_earley_items; eim; eim = eim->t_next) {
+	      g_tree_insert(eim_tree, eim, eim);
+	  }
+      }
+    r->t_is_tracing = 1;
+}
 
 @*0 Trace Functions.
 Many of the
@@ -5643,12 +5654,12 @@ The "trace Earley set" is tracked separately
 from the current Earley set for the parse.
 The two may coincide, but should not be confused.
 @<Widely aligned recognizer elements@> =
-GSequenceIter* t_trace_earley_set_iter;
 struct s_earley_set* t_trace_earley_set;
 @ @<Initialize recognizer elements@> =
-r->t_trace_earley_set_iter = NULL;
 r->t_trace_earley_set = NULL;
-@ Sets the trace Earley set to the earleme indicated in
+
+@ This function sets
+the trace Earley set to the earleme indicated in
 the argument, or the next if there is no Earley set at
 that earleme.
 The actual earleme of the new trace Earley set is
@@ -5666,26 +5677,20 @@ marpa_earley_set_trace (struct marpa_r *r, Marpa_Earleme id);
 Marpa_Earleme
 marpa_earley_set_trace (struct marpa_r *r, Marpa_Earleme id)
 {
-  GSequenceIter * iter;
-  gboolean match = FALSE; // Initialized to silence compiler warning
-  ESKD key;
   ES set;
   @<Return |-2| on failure@>@/
   @<Fail if recognizer initial@>@/
   trace_earley_item_clear(r);
-  key.t_id = id;
-  iter = sequence_find (r->earley_sets, &key, earley_set_cmp, &match);
-  if (g_sequence_iter_is_end(iter)) {
+  set = Earley_Set_by_ID(r, id);
+  if (!set) {
       @<Clear trace earley set data@>@/
       return -1;
   }
-  r->t_trace_earley_set_iter = iter;
-  set = r->t_trace_earley_set = g_sequence_get(iter);
+  r->t_trace_earley_set = set;
   return Earleme_of_ES(set);
 }
 
 @ @<Clear trace earley set data@> =
-      r->t_trace_earley_set_iter = NULL;
       r->t_trace_earley_set = NULL;
 
 @ @<Public function prototypes@> =
@@ -5758,24 +5763,26 @@ be recopied to make way for pointers to the linked lists.
 when the Earley item is initialized.
 @d Earley_Item_is_Completion(item)
     (Complete_SYM_Count_of_EIM(item) > 0)
-@<Incomplete private structures@> = struct s_earley_item;
-@ @<Private typedefs@> =
-typedef struct s_earley_item EIMD;
-typedef EIMD* EIM;
+@<Incomplete private structures@> =
+struct s_earley_item;
+typedef struct s_earley_item* EIM;
+struct s_earley_item_key;
+typedef struct s_earley_item_key* EIK;
 
 @ @<Earley item structure@> =
 struct s_earley_item_key {
      AHFA t_state;
      ES t_origin;
-};
-typedef struct s_earley_item_key EIKD;
-typedef EIKD* EIK;
-struct s_earley_item {
-     EIKD t_key;
      ES t_set;
+};
+typedef struct s_earley_item_key EIK_Object;
+struct s_earley_item {
+     EIK_Object t_key;
+     struct s_earley_item* t_next;
      union u_source_container t_container;
      @<Bit aligned Earley item elements@>@/
 };
+typedef struct s_earley_item EIM_Object;
 
 @*0 Constructor.
 Find an Earley item object, creating it if it does not exist.
@@ -5784,48 +5791,50 @@ do we already
 know that the Earley item is unique in the set.
 These are not worth optimizing for.
 @<Private function prototypes@> =
-static inline EIM earley_item_new(struct marpa_r* r,
-    ES set, EIKD key);
+static inline EIM earley_item_new(RECCE r,
+    EIK_Object key);
 @ @<Function definitions@> =
-static inline EIM earley_item_new(struct marpa_r* r,
-    ES set, EIKD key)
+static inline EIM earley_item_new(RECCE r,
+    EIK_Object key)
 {
   EIM new_item;
+  ES set;
   new_item = obstack_alloc (&r->obs, sizeof (*new_item));
   new_item->t_key = key;
-  new_item->t_set = set;
+  set = ES_of_EIM(new_item);
   new_item->t_source_type = NO_SOURCE;
+  new_item->t_next = set->t_earley_items;
+  set->t_earley_items = new_item;
   LV_EIM_is_Leo_Expanded(new_item) = 1;
+  if (r->t_is_tracing) {
+      g_tree_insert(r->t_earley_items, new_item, new_item);
+  }
   return new_item;
 }
 
 @ @<Private function prototypes@> =
-static inline EIM earley_item_assign (struct marpa_r *r,
-						      ES set,
-						      ES origin,
-						      AHFA state);
+static inline
+EIM earley_item_assign (RECCE r, ES set, ES origin, AHFA state);
 @
 @<Function definitions@> =
-static inline EIM earley_item_assign (struct marpa_r *r,
-						      ES set,
-						      ES origin,
-						      AHFA state)
+static inline EIM earley_item_assign (RECCE r, ES set, ES origin, AHFA state)
 {
 @<Return |NULL| on failure@>@;
 EIM new_item;
 guint count;
 GSequenceIter *iter;
 gboolean match = FALSE;		// Initialized to silence compiler warning
-EIKD key;
+EIK_Object key;
 key.t_origin = origin;
 key.t_state = state;
+key.t_set = set;
 
     iter = sequence_find
       (set->t_eims, &key, own_earley_item_cmp, &match);
     if (match) return (EIM)g_sequence_get(iter);
   count = ++set->t_eim_count;
     @<Check count against Earley item thresholds@>@;
-  new_item = earley_item_new(r, set, key);
+  new_item = earley_item_new(r, key);
   g_sequence_insert_before (iter, new_item);
   return new_item;
 }
@@ -5864,6 +5873,17 @@ so it does not use any non-key elements.
   if (subkey) return subkey;
   return Origin_ID_of_EIM (eim_a) - Origin_ID_of_EIM (eim_b);
 }
+@ This function is for comparison of Earley items in the
+|GTree| used for tracing.
+@<Function definitions@> =
+static inline gint trace_earley_item_cmp(gconstpointer ap, gconstpointer bp)
+{
+  const EIM_Object* eim_a = ap;
+  const EIM_Object* eim_b = bp;
+  gint subkey = Earleme_of_EIM (eim_a) - Earleme_of_EIM (eim_b);
+  if (subkey) return subkey;
+  return earley_item_cmp(ap, bp, 0);
+}
 @ @<Function definitions@> =
 static gint
 own_earley_item_cmp (gconstpointer ap,
@@ -5877,9 +5897,10 @@ static gint own_earley_item_cmp(gconstpointer a, gconstpointer b,
     gpointer user_data @, G_GNUC_UNUSED);
 static inline gint earley_item_cmp(gconstpointer a, gconstpointer b,
     gpointer user_data @, G_GNUC_UNUSED);
+static inline gint trace_earley_item_cmp(gconstpointer a, gconstpointer b);
 
 @*0 The Earleme of the Earley Item.
-@d ES_of_EIM(item) ((item)->t_set)
+@d ES_of_EIM(item) ((item)->t_key.t_set)
 @d Earleme_of_EIM(item) ID_of_ES(ES_of_EIM(item))
 
 @*0 The AHFA State of the Earley Item.
@@ -5943,10 +5964,8 @@ trace functions use
 a "trace Earley item" which is
 tracked on a per-recognizer basis.
 @<Widely aligned recognizer elements@> =
-GSequenceIter* t_trace_earley_item_iter;
 EIM t_trace_earley_item;
 @ @<Initialize recognizer elements@> =
-r->t_trace_earley_item_iter = NULL;
 r->t_trace_earley_item = NULL;
 @ This function returns the AHFA state ID of an Earley item,
 and sets the trace Earley item,
@@ -5976,12 +5995,10 @@ marpa_earley_item_trace (struct marpa_r *r,
 {
   const gint no_match = -1;
   @<Return |-2| on failure@>@;
-  GSequenceIter* iter;
-  gboolean match = FALSE; // Initialized to silence warning
   ES current_set = r->t_trace_earley_set;
   ES origin_set;
   EIM item;
-  EIKD item_key;
+  EIK_Object item_key;
   GRAMMARC g = G_of_R(r);
   @<Fail if recognizer initial@>@;
   trace_source_link_clear(r);
@@ -5998,14 +6015,12 @@ marpa_earley_item_trace (struct marpa_r *r,
     }
   item_key.t_state = AHFA_by_ID (state_id);
   item_key.t_origin = origin_set;
-  iter = sequence_find
-    (current_set->t_eims, &item_key, own_earley_item_cmp, &match);
-  if (!match) {
+  item_key.t_set = current_set;
+  item = r->t_trace_earley_item = g_tree_lookup(r->t_earley_items, &item_key);
+  if (!item) {
       @<Clear trace Earley item data@>@/
       return no_match;
     }
-  r->t_trace_earley_item_iter = iter;
-  item = r->t_trace_earley_item = g_sequence_get (iter);
   return AHFAID_of_EIM(item);
 }
 
@@ -6024,7 +6039,6 @@ marpa_first_earley_item_trace (struct marpa_r *r);
 Marpa_AHFA_State_ID
 marpa_first_earley_item_trace (struct marpa_r *r)
 {
-  GSequenceIter* iter;
   ES current_set = r->t_trace_earley_set;
   EIM item;
   @<Return |-2| on failure@>@/
@@ -6035,13 +6049,11 @@ marpa_first_earley_item_trace (struct marpa_r *r)
       R_ERROR("no trace earley set");
       return failure_indicator;
   }
-  iter = g_sequence_get_begin_iter(current_set->t_eims);
-  if (g_sequence_iter_is_end(iter)) {
+  item = r->t_trace_earley_item = current_set->t_earley_items;
+  if (!item) {
       @<Clear trace Earley item data@>@/
       return -1;
     }
-  r->t_trace_earley_item_iter = iter;
-  item = r->t_trace_earley_item = g_sequence_get (iter);
   return AHFAID_of_EIM(item);
 }
 
@@ -6061,23 +6073,20 @@ marpa_next_earley_item_trace (struct marpa_r *r);
 AHFAID
 marpa_next_earley_item_trace (struct marpa_r *r)
 {
-  GSequenceIter* iter;
-  EIM item;
+  EIM item = r->t_trace_earley_item;
   @<Return |-2| on failure@>@/
   @<Fail if recognizer initial@>@/
   trace_source_link_clear(r);
-  iter = r->t_trace_earley_item_iter;
-  if (!iter) {
-      R_ERROR("no eim iter");
+  if (!item) {
+      R_ERROR("no trace eim");
       return failure_indicator;
   }
-  iter = g_sequence_iter_next(iter);
-  if (g_sequence_iter_is_end(iter)) {
+  item = item->t_next;
+  if (!item) {
       @<Clear trace Earley item data@>@/
       return -1;
     }
-  r->t_trace_earley_item_iter = iter;
-  item = r->t_trace_earley_item = g_sequence_get (iter);
+  r->t_trace_earley_item = item;
   return AHFAID_of_EIM(item);
 }
 
@@ -6088,7 +6097,6 @@ The difference between this code and
 that |trace_earley_item_clear| 
 also clears the source link.
 @<Clear trace Earley item data@> =
-      r->t_trace_earley_item_iter = NULL;
       r->t_trace_earley_item = NULL;
 
 @ @<Private function prototypes@> =
@@ -6331,19 +6339,9 @@ and a symbol ID.
 If successful, it
 returns that postdot item.
 If it fails, it returns |NULL|.
-@ @<Private function prototypes@> =
+@<Private function prototypes@> =
 static inline PIM* pim_sym_p_find(ES set, SYMID symid);
-@ As of now, there is no overflow protection.
-<.To Do@>
-The fatal threshold of Earley items does not fully protect this routine from
-overflow, because there may be multiple postdot symbols per EIM,
-and therefore multiple PIM's per EIM.
-Adding overflow protection does not seem worthwhile --
-memory will probably be exceeded before overflow occurs.
-Overflow logic here would be untestable.
-But I probably should limit the number of PIM's perl EIM,
-to make overflow in this logic impossible.
-@<Function definitions@> =
+@ @<Function definitions@> =
 static inline PIM*
 pim_sym_p_find (ES set, SYMID symid)
 {
@@ -6351,7 +6349,7 @@ pim_sym_p_find (ES set, SYMID symid)
   gint hi = Postdot_SYM_Count_of_ES(set) - 1;
   PIM* postdot_array = set->t_postdot_ary;
   while (hi >= lo) { // A binary search
-       gint trial = (hi+lo)/2;
+       gint trial = lo+(hi-lo)/2; // guards against overflow
        PIM trial_pim = postdot_array[trial];
        SYMID trial_symid = Postdot_SYMID_of_PIM(trial_pim);
        if (trial_symid == symid) return postdot_array+trial;
@@ -7305,14 +7303,13 @@ gboolean marpa_source_token_value(struct marpa_r* r, gpointer* value_p)
     AHFA state;
     GRAMMARC g = G_of_R(r);
     const gint symbol_count_of_g = SYM_Count_of_G(g);
-    GSequenceIter *current_iter;
     @<Return |FALSE| on failure@>@;
     @<Fail if recognizer not initial@>@;
     @<Allocate recognizer workareas@>@;
     @<Allocate recognizer's bit vectors for symbols@>@;
     set0 = earley_set_new(r, 0);
-    LV_Current_ES_Iter_of_R(r) = g_sequence_prepend (r->earley_sets, set0);
-    current_iter = Current_ES_Iter_of_R(r);
+    LV_Current_ES_of_R(r) = set0;
+    LV_First_ES_of_R(r) = set0;
     state = AHFA_by_ID(0);
     item = earley_item_assign(r, set0, set0, state);
     state = Empty_Transition_of_AHFA(state);
@@ -7463,7 +7460,7 @@ if (!postdot_earley_item)
     working_pim = Next_PIM_of_PIM (working_pim);
     postdot_earley_item = EIM_of_PIM (working_pim);
   }
-later_earley_set_assign (r, target_earleme, &target_earley_set);
+target_earley_set = later_earley_set_assign (r, target_earleme);
 
 @ @<Find target Earley item@> = {
     target_AHFA_state
@@ -7661,20 +7658,17 @@ marpa_earleme_complete(struct marpa_r* r)
 }
 
 @ @<Initialize a new current Earley set@> = {
-  ES dummy;
-  GSequenceIter* current_earley_set_iter = Current_ES_Iter_of_R (r);
+  current_earley_set = Current_ES_of_R(r);
   new_current_earleme
-      = Earleme_of_ES_Iter (current_earley_set_iter) + 1;
+      = Earleme_of_ES (current_earley_set) + 1;
   if (new_current_earleme > Furthest_Earleme (r))
     { /* Is this test necessary? */
 	r->t_phase = exhausted_phase;
 	R_ERROR("parse exhausted");
 	return failure_indicator;
      }
-    current_earley_set_iter
-        = LV_Current_ES_Iter_of_R (r)
-	@| = later_earley_set_assign (r, new_current_earleme, &dummy);
-    current_earley_set = g_sequence_get(current_earley_set_iter);
+    current_earley_set = later_earley_set_assign (r, new_current_earleme);
+    LV_Current_ES_of_R(r) = current_earley_set;
 G_DEBUG3("%d: Initialized a new current earley set: %d",
     __LINE__, ID_of_ES(current_earley_set));
 }
@@ -8208,9 +8202,9 @@ If an Earley item in a Leo path already exists, a new Earley
 item is not created ---
 instead a source link is added to the present Earley item.
 @<Private function prototypes@> =
-gint leo_completion_expand(RECCE r, EIM leo_completion);
+static gint leo_completion_expand(RECCE r, EIM leo_completion);
 @ @<Function definitions@> =
-gint leo_completion_expand(RECCE r, EIM leo_completion)
+static gint leo_completion_expand(RECCE r, EIM leo_completion)
 {
     gint leo_path_lengths = 0;
     const ES earley_set_of_this_path = ES_of_EIM(leo_completion);
