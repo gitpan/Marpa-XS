@@ -100,8 +100,6 @@
 @s gint int
 @s guint int
 @s gboolean int
-@s GSequenceIter int
-@s GSequence int
 
 @** License.
 \bigskip\noindent
@@ -335,12 +333,6 @@ without Leo items, a parse with right recursion
 can have the time comlexity |O(n^2)|.
 \li LIM: Leo item.
 \li LIMD: Leo item.
-\li own:
-"Own" means not inlined.
-Usually as |own_|, the prefix of a function name.
-Used when there are two versions of a function, one inlineable, one not.
-So called because another way of saying that is function was not compiled
-inline with another function is to say that it was compiled "on its own".
 \li PIM, pim: Postdot item.
 \li p: A Pointer.  Often as |_p|, as the end of a variable name, or as |p_| at
 the beginning of one.
@@ -373,12 +365,6 @@ and then deleted as development proceeds.
 @*1 Short Term To Do List.
 
 @*1 Long Term To Do List.
-
-@*1 Revisit List.
-
-@ Uses of GSequence should be revisited, and in particular the
-reliance on undocumented behaviors of |g_sequence_search|.
-See the section on GSequence.
 
 @*1 Development Note: Marpa layers.
 
@@ -3518,8 +3504,11 @@ the first AHFA item for that rule.
 @<Widely aligned grammar elements@> =
    AIM AHFA_items;
    AIM* AHFA_items_by_rule;
-@ @<Int aligned grammar elements@> =
-   guint no_of_items;
+@
+@d AIM_Count_of_G(g) ((g)->t_aim_count)
+@d LV_AIM_Count_of_G(g) AIM_Count_of_G(g) 
+@<Int aligned grammar elements@> =
+   guint t_aim_count;
 @ The space is allocated during precomputation.
 Because the grammar may be destroyed before precomputation,
 I test that |g->AHFA_items| is non-zero.
@@ -3553,7 +3542,7 @@ if (g->AHFA_items_by_rule) { g_free(g->AHFA_items_by_rule); };
 guint marpa_AHFA_item_count(struct marpa_g* g) {
     @<Return |-2| on failure@>@/
     @<Fail if grammar not precomputed@>@/
-    return g->no_of_items;
+    return AIM_Count_of_G(g);
 }
 @ @<Public function prototypes@> =
 guint marpa_AHFA_item_count(struct marpa_g* g);
@@ -3605,7 +3594,7 @@ gint marpa_AHFA_item_sort_key(struct marpa_g* g, Marpa_AHFA_Item_ID item_id);
 @<Function definitions@> =
 static inline gboolean item_is_valid(
 const struct marpa_g *g, Marpa_AHFA_Item_ID item_id) {
-return item_id < (Marpa_AHFA_Item_ID)g->no_of_items && item_id >= 0;
+return item_id < (Marpa_AHFA_Item_ID)AIM_Count_of_G(g) && item_id >= 0;
 }
 @ @<Private function prototypes@> =
 static inline gboolean item_is_valid(
@@ -3629,7 +3618,7 @@ void create_AHFA_items(struct marpa_g* g) {
 	@<Create the AHFA items for a rule@>@;
 	NEXT_RULE: ;
     }
-    no_of_items = g->no_of_items = current_item - base_item;
+    no_of_items = LV_AIM_Count_of_G(g) = current_item - base_item;
     g->AHFA_items = g_renew(struct s_AHFA_item, base_item, no_of_items);
     @<Set up the items-by-rule list@>@;
     @<Set up the AHFA item ids@>@;
@@ -4006,9 +3995,6 @@ gint marpa_AHFA_state_transitions(struct marpa_g* g,
     for (symid = 0; symid < symbol_count; symid++) {
         AHFA to_ahfa_state = to_ahfa_array[symid];
 	if (!to_ahfa_state) continue;
-
-G_DEBUG3("symid=%d to_ahfa_state=%p", symid, to_ahfa_state);
-
 	g_array_append_val (result, symid);
 	g_array_append_val (result, ID_of_AHFA(to_ahfa_state));
     }
@@ -4235,7 +4221,7 @@ NEXT_AHFA_STATE: ;
 }
 
 @ @<Initialize duplicates data structures@> = { guint item_id;
-guint no_of_items_in_grammar = g->no_of_items;
+guint no_of_items_in_grammar = AIM_Count_of_G(g);
 duplicates = g_tree_new(AHFA_state_cmp);
 singleton_duplicates = g_new(AHFA, no_of_items_in_grammar);
 for ( item_id = 0; item_id < no_of_items_in_grammar; item_id++) {
@@ -4946,9 +4932,11 @@ void AHFA_transition_add(AHFA from_ahfa, SYMID symid, AHFA to_ahfa);
 }
 
 @** Recognizer (RECCE) Code.
-@<Incomplete public structures@> = struct marpa_r;
-@ @<Private typedefs@> = typedef struct marpa_r* RECCE;
-@ @<Private structures@> = struct marpa_r {
+@<Incomplete public structures@> =
+struct marpa_r;
+typedef struct marpa_r* RECCE;
+@ @<Recognizer structure@> =
+struct marpa_r {
 @<Widely aligned recognizer elements@>@/
 @<Int aligned recognizer elements@>@/
 @<Bit aligned recognizer elements@>@/
@@ -5009,6 +4997,7 @@ gint marpa_r_id(struct marpa_r* r);
 @*0 The Grammar for the Recognizer.
 Initialized in |marpa_r_new|.
 @d G_of_R(r) ((r)->t_grammar)
+@d AIM_Count_of_R(r) AIM_Count_of_G(G_of_R(r))
 @ @<Widely aligned recognizer elements@> = const struct marpa_g *t_grammar;
 
 @*0 Recognizer Phase.
@@ -5043,11 +5032,6 @@ r->t_first_earley_set = NULL;
 r->t_current_earley_set = NULL;
 @ @<Destroy recognizer elements@> =
 {
-  ES set;
-  for (set = First_ES_of_R (r); set; set = Next_ES_of_ES (set))
-    {
-      earley_set_free (set);
-    }
   if (r->t_earley_sets)
     g_tree_destroy (r->t_earley_sets);
   if (r->t_earley_items)
@@ -5068,7 +5052,7 @@ guint marpa_current_earleme(struct marpa_r* r)
 @d DEFAULT_EIM_WARNING_THRESHOLD (100)
 @<Int aligned recognizer elements@> = guint earley_item_warning_threshold;
 @ @<Initialize recognizer elements@> =
-r->earley_item_warning_threshold = MAX(DEFAULT_EIM_WARNING_THRESHOLD, g->no_of_items*2);
+r->earley_item_warning_threshold = MAX(DEFAULT_EIM_WARNING_THRESHOLD, AIM_Count_of_G(g)*2);
 @ @<Public function prototypes@> =
 guint marpa_earley_item_warning_threshold(struct marpa_r* r);
 @ @<Function definitions@> =
@@ -5234,8 +5218,11 @@ assume that tracing is not enabled.
 @ @<Widely aligned recognizer elements@> =
 GTree* t_earley_sets;
 GTree* t_earley_items;
-@ @<Initialize recognizer elements@> =
-r->t_is_tracing = FALSE;
+@
+@d R_is_Tracing(r) ((r)->t_is_tracing)
+@d LV_R_is_Tracing(r) R_is_Tracing(r)
+@<Initialize recognizer elements@> =
+r->t_is_tracing = TRUE;
 r->t_earley_sets = g_tree_new(earley_set_cmp);
 r->t_earley_items = g_tree_new(trace_earley_item_cmp);
 
@@ -5465,33 +5452,31 @@ able to handle.
 @ @<Private typedefs@> = typedef Marpa_Earleme EARLEME;
 
 @** Earley Set (ES) Code.
-@ @<Incomplete private structures@> = struct s_earley_set;
-@
-@d EIM_Sequence_of_ES(set) ((set)->t_eims)
 @d EIM_Count_of_ES(set) ((set)->t_eim_count)
 @d Next_ES_of_ES(set) ((set)->t_next_earley_set)
 @d LV_Next_ES_of_ES(set) Next_ES_of_ES(set)
 @d Postdot_SYM_Count_of_ES(set) ((set)->t_postdot_sym_count)
 @d First_PIM_of_ES_by_SYMID(set, symid) (first_pim_of_es_by_symid((set), (symid)))
 @d PIM_SYM_P_of_ES_by_SYMID(set, symid) (pim_sym_p_find((set), (symid)))
-@<Private structures@> =
+@ @<Incomplete private structures@> =
+struct s_earley_set;
+struct s_earley_set_key;
+typedef struct s_earley_set *ES;
+typedef struct s_earley_set_key *ESK;
+@ @<Private structures@> =
 struct s_earley_set_key {
     EARLEME t_id;
 };
 typedef struct s_earley_set_key ESK_Object;
-typedef ESK_Object* ESK;
 struct s_earley_set {
     ESK_Object t_key;
-    GSequence* t_eims;
-    EIM t_earley_items;
-    union u_postdot_item** t_postdot_ary;
     gint t_postdot_sym_count;
     guint t_eim_count;
-    struct s_earley_set* t_next_earley_set;
+    EIM t_earley_items;
+    union u_postdot_item** t_postdot_ary;
+    ES t_next_earley_set;
+    @<Widely aligned Earley set elements@>@/
 };
-@ @<Private typedefs@> =
-struct s_earley_set;
-typedef struct s_earley_set *ES;
 
 @*0 Constructor.
 @<Private function prototypes@> =
@@ -5505,15 +5490,15 @@ earley_set_new( RECCE r, Marpa_Earleme id)
   set = obstack_alloc (&r->obs, sizeof (*set));
   key.t_id = id;
   set->t_key = key;
-  set->t_eims = g_sequence_new (NULL);
   set->t_earley_items = NULL;
   set->t_postdot_ary = NULL;
   set->t_postdot_sym_count = 0;
   set->t_eim_count = 0;
   LV_Next_ES_of_ES(set) = NULL;
-  if (r->t_is_tracing) {
+  if (R_is_Tracing(r)) {
       g_tree_insert(r->t_earley_sets, set, set);
   }
+  @<Initialize Earley set PSL data@>@/
   return set;
 }
 
@@ -5570,7 +5555,6 @@ static inline ES later_earley_set_assign( RECCE r, Marpa_Earleme sought_earleme)
 	    break;
 	 }
 	 found_earleme = Earleme_of_ES(found_earley_set);
- G_DEBUG3("later_earley_set_assign, sought=%d, found=%d", sought_earleme, found_earleme);
 	 if (sought_earleme == found_earleme) return found_earley_set;
 	 if (sought_earleme < found_earleme) break;
 	 last_found_earley_set = found_earley_set;
@@ -5581,18 +5565,6 @@ static inline ES later_earley_set_assign( RECCE r, Marpa_Earleme sought_earleme)
     LV_Next_ES_of_ES(new_earley_set) = found_earley_set;
     return new_earley_set;
 }
-
-@*0 Destructor.
-@<Function definitions@> =
-static inline void
-earley_set_free (ES set)
-{
-  GSequence *sequence = set->t_eims;
-  if (sequence)
-    g_sequence_free (sequence);
-}
-@ @<Private function prototypes@> =
-static inline void earley_set_free(ES set);
 
 @*0 Comparison Function.
 @<Function definitions@> =
@@ -5620,7 +5592,7 @@ static inline ES
 earley_set_by_id(RECCE r, Marpa_Earleme earleme)
 {
   ESK_Object key;
-  if (!r->t_is_tracing) r_tracing_start(r);
+  if (!R_is_Tracing(r)) r_tracing_start(r);
   key.t_id = earleme;
   return g_tree_lookup(r->t_earley_sets, &key);
 }
@@ -5642,7 +5614,7 @@ static void r_tracing_start(RECCE r) {
 	      g_tree_insert(eim_tree, eim, eim);
 	  }
       }
-    r->t_is_tracing = 1;
+    LV_R_is_Tracing(r) = 1;
 }
 
 @*0 Trace Functions.
@@ -5806,7 +5778,7 @@ static inline EIM earley_item_new(RECCE r,
   new_item->t_next = set->t_earley_items;
   set->t_earley_items = new_item;
   LV_EIM_is_Leo_Expanded(new_item) = 1;
-  if (r->t_is_tracing) {
+  if (R_is_Tracing(r)) {
       g_tree_insert(r->t_earley_items, new_item, new_item);
   }
   return new_item;
@@ -5820,23 +5792,18 @@ EIM earley_item_assign (RECCE r, ES set, ES origin, AHFA state);
 static inline EIM earley_item_assign (RECCE r, ES set, ES origin, AHFA state)
 {
 @<Return |NULL| on failure@>@;
-EIM new_item;
+EIM item;
 guint count;
-GSequenceIter *iter;
-gboolean match = FALSE;		// Initialized to silence compiler warning
 EIK_Object key;
 key.t_origin = origin;
 key.t_state = state;
 key.t_set = set;
 
-    iter = sequence_find
-      (set->t_eims, &key, own_earley_item_cmp, &match);
-    if (match) return (EIM)g_sequence_get(iter);
+    item = g_tree_lookup(r->t_earley_items, &key);
+    if (item) return item;
   count = ++set->t_eim_count;
     @<Check count against Earley item thresholds@>@;
-  new_item = earley_item_new(r, key);
-  g_sequence_insert_before (iter, new_item);
-  return new_item;
+  return earley_item_new(r, key);
 }
 
 @ The fatal threshold always applies.
@@ -5863,7 +5830,26 @@ The Earley item itself is on the obstack.
 @*0 Comparison Function.
 This must be valid for comparing Earley item keys,
 so it does not use any non-key elements.
-@ @<Function body for Earley item comparison@> =
+This function is for comparison of Earley items in the
+|GTree| used for tracing.
+@<Private function prototypes@> =
+static inline gint trace_earley_item_cmp(gconstpointer ap, gconstpointer bp);
+@ @<Function definitions@> =
+static inline gint trace_earley_item_cmp(gconstpointer ap, gconstpointer bp)
+{
+  const EIM_Object* eim_a = ap;
+  const EIM_Object* eim_b = bp;
+  gint subkey = Earleme_of_EIM (eim_a) - Earleme_of_EIM (eim_b);
+  if (subkey) return subkey;
+  return earley_item_cmp(ap, bp, 0);
+}
+@ @<Private function prototypes@> =
+static inline gint earley_item_cmp(gconstpointer ap,
+    gconstpointer bp,
+    gpointer user_data @, G_GNUC_UNUSED);
+@ @<Function definitions@> =
+static inline gint earley_item_cmp (gconstpointer ap,
+		 gconstpointer bp, gpointer user_data @, G_GNUC_UNUSED)
 {
   const struct s_earley_item* eim_a = ap;
   const struct s_earley_item* eim_b = bp;
@@ -5873,31 +5859,6 @@ so it does not use any non-key elements.
   if (subkey) return subkey;
   return Origin_ID_of_EIM (eim_a) - Origin_ID_of_EIM (eim_b);
 }
-@ This function is for comparison of Earley items in the
-|GTree| used for tracing.
-@<Function definitions@> =
-static inline gint trace_earley_item_cmp(gconstpointer ap, gconstpointer bp)
-{
-  const EIM_Object* eim_a = ap;
-  const EIM_Object* eim_b = bp;
-  gint subkey = Earleme_of_EIM (eim_a) - Earleme_of_EIM (eim_b);
-  if (subkey) return subkey;
-  return earley_item_cmp(ap, bp, 0);
-}
-@ @<Function definitions@> =
-static gint
-own_earley_item_cmp (gconstpointer ap,
-		 gconstpointer bp, gpointer user_data @, G_GNUC_UNUSED)
-@<Function body for Earley item comparison@>
-static inline gint earley_item_cmp (gconstpointer ap,
-		 gconstpointer bp, gpointer user_data @, G_GNUC_UNUSED)
-@<Function body for Earley item comparison@>
-@ @<Private function prototypes@> =
-static gint own_earley_item_cmp(gconstpointer a, gconstpointer b,
-    gpointer user_data @, G_GNUC_UNUSED);
-static inline gint earley_item_cmp(gconstpointer a, gconstpointer b,
-    gpointer user_data @, G_GNUC_UNUSED);
-static inline gint trace_earley_item_cmp(gconstpointer a, gconstpointer b);
 
 @*0 The Earleme of the Earley Item.
 @d ES_of_EIM(item) ((item)->t_key.t_set)
@@ -7669,27 +7630,20 @@ marpa_earleme_complete(struct marpa_r* r)
      }
     current_earley_set = later_earley_set_assign (r, new_current_earleme);
     LV_Current_ES_of_R(r) = current_earley_set;
-G_DEBUG3("%d: Initialized a new current earley set: %d",
-    __LINE__, ID_of_ES(current_earley_set));
 }
 
 @ @<Pre-populate the completion stack@> = {
-    GSequence *earley_item_sequence
-	= EIM_Sequence_of_ES (current_earley_set);
-    GSequenceIter *earley_item_iter;
+    EIM earley_item;
     DSTACK_REINIT(r->completion_stack);
-    for (earley_item_iter =
-	 g_sequence_get_begin_iter (earley_item_sequence);
-	 !g_sequence_iter_is_end (earley_item_iter);
-	 earley_item_iter = g_sequence_iter_next (earley_item_iter))
+    for (earley_item = current_earley_set->t_earley_items;
+         earley_item;
+	earley_item = earley_item->t_next)
       {
 	EIM* tos;
-	EIM item;
-	item = g_sequence_get (earley_item_iter);
-	if (!Earley_Item_is_Completion (item))
+	if (!Earley_Item_is_Completion (earley_item))
 	  continue;
 	tos = DSTACK_PUSH (r->completion_stack, EIM);
-	*tos = item;
+	*tos = earley_item;
       }
     }
 
@@ -7800,14 +7754,11 @@ postdot_items_create (struct marpa_r *r, ES current_earley_set)
 {
     gpointer * const pim_workarea = r->t_sym_workarea;
     GRAMMARC g = G_of_R(r);
-    GSequence *earley_item_sequence = EIM_Sequence_of_ES (current_earley_set);
     Marpa_Earleme current_earley_set_id = ID_of_ES(current_earley_set);
-    GSequenceIter *earley_item_iter;
     Bit_Vector bv_pim_symbols = r->t_bv_sym;
     Bit_Vector bv_lim_symbols = r->t_bv_sym2;
     bv_clear (bv_pim_symbols);
     bv_clear (bv_lim_symbols);
-    G_DEBUG2 ("postdot_items_create, set=%d", ID_of_ES (current_earley_set));
     @<Start EIXes in PIM workarea@>@;
     if (r->t_is_using_leo) {
 	@<Start LIMs in PIM workarea@>@;
@@ -7819,14 +7770,13 @@ postdot_items_create (struct marpa_r *r, ES current_earley_set)
 
 @ This code creates the Earley indexes in the PIM workarea.
 At this point there are no Leo items.
-@<Start EIXes in PIM workarea@> =
-  for (earley_item_iter =
-       g_sequence_get_begin_iter (earley_item_sequence);
-       !g_sequence_iter_is_end (earley_item_iter);
-       earley_item_iter = g_sequence_iter_next (earley_item_iter))
+@<Start EIXes in PIM workarea@> = {
+    EIM earley_item;
+    for (earley_item = current_earley_set->t_earley_items;
+         earley_item;
+	earley_item = earley_item->t_next)
     {
-      EIM item = g_sequence_get (earley_item_iter);
-      AHFA state = AHFA_of_EIM (item);
+      AHFA state = AHFA_of_EIM (earley_item);
       gint symbol_ix;
       gint postdot_symbol_count = Postdot_SYM_Count_of_AHFA (state);
       Marpa_Symbol_ID *postdot_symbols =
@@ -7839,7 +7789,7 @@ At this point there are no Leo items.
 	  new_pim = obstack_alloc (&r->obs, sizeof (EIXD));
 	  symid = postdot_symbols[symbol_ix];
 	  LV_Postdot_SYMID_of_PIM(new_pim) = symid;
-	  LV_EIM_of_PIM(new_pim) = item;
+	  LV_EIM_of_PIM(new_pim) = earley_item;
 	  if (bv_bit_test(bv_pim_symbols, (guint)symid))
 	      old_pim = pim_workarea[symid];
 	  if (old_pim) {
@@ -7852,6 +7802,7 @@ At this point there are no Leo items.
 	  bv_bit_set(bv_pim_symbols, (guint)symid);
 	}
     }
+}
 
 @ This code creates the Earley indexes in the PIM workarea.
 The Leo items do not contain predecessors or have the
@@ -9140,47 +9091,165 @@ In particular, it should always be followed by a semicolon.
 @<Private structures@> =
 struct dqueue { gint current; struct dstack s; };
 
-@** GSequences.
-|libmarpa| makes considerable use of the |GSequence| ADT
-of glib.
-One possible optimization is to replace this with an
-inlined binary tree library which does its memory allocation
-using obstacks.
-@ The |GSequence| ADT does not have a real "find" function.
-Instead it requires a sequence of calls to have the same effect.
-This inlined "helper" function implements that sequence of calls.
-It returns the data if the
-key is found, otherwise |NULL|.
-As a side effect, 
-|insertion_point_p| is set to a |GSequenceIter*|
-at which data with that key can be added.
-@ |libmarpa| relies on |g_sequence_search|,
-when several elements of the list match the key,
-finding the position after the last of these.
-This behavior is not documented, but it seems
-as if |glib| is committed to it.
-(On this,
-see the code and GNOME Bugzilla,'s Bug 548666.)
-|g_sequence_lookup| will also make things simpler,
-but that function is not yet in any stable version of glib.
-@<Function definitions@> =
-static inline GSequenceIter *
-sequence_find (GSequence * sequence,
-	       void *key, GCompareDataFunc compare, gboolean * match)
-{
-  void *data = NULL;
-  GSequenceIter *found;
-  GSequenceIter *insertion_point =
-    g_sequence_search (sequence, key, compare, NULL);
-  if (g_sequence_iter_is_begin (insertion_point))
-    return insertion_point;
-  found = g_sequence_iter_prev (insertion_point);
-  data = g_sequence_get (found);
-  return (*match = !compare (data, key, NULL)) ? found : insertion_point;
+@** Per-Earley-Set Lists (PSLs).
+There are several cases where it is needed to
+look up a triple $<s,s',k>$,
+where $s$ and $s'$ are earlemes, and $0<k<n$,
+where $n$ is the number of AHFA items.
+Earley items, or-nodes and and-nodes are examples.
+In order to preserve Marpa's time complexity claims,
+it is necessary that lookup for these be $O(1)$.
+@
+To obtain $O(1)$,
+Marpa uses a special data structure which
+takes advantage of these facts:
+\li In these cases, it can be arranged so
+that only one $s'$ is in being considered at a time,
+so that we are in fact looking up a duple $<s,k>$.
+\li Only a few Earley sets will usually be involved.
+\li Only a few values of $k$ are usually involved.
+Each Earley set has a list of those keys, $k$, with their value.
+@ @d NO_OF_PSARS 1
+@d Size_of_PSL(r) (sizeof(PSL_Object) + (AIM_Count_of_R(r) - 1) * sizeof(PSIM_Object))
+@<Incomplete private structures@> =
+struct s_per_earley_set_item;
+typedef struct s_per_earley_set_item *PSIM;
+@ @<Private structures@> =
+struct s_per_earley_set_item {
+     gint t_key;
+     gpointer t_value;
+};
+typedef struct s_per_earley_set_item PSIM_Object;
+@ The PSL's are kept in a linked list.
+Each contains |Size_of_PSL| PSIM's, of
+which |t_length| are actually in use.
+Owner is the address of the location,
+which "owns" this PSL.
+That location will be NULL'ed
+when deallocating.
+@<Incomplete private structures@> =
+struct s_per_earley_set_list;
+typedef struct s_per_earley_set_list *PSL;
+@ @<Private structures@> =
+struct s_per_earley_set_list {
+    PSL t_next;
+    gint t_length;
+    PSL* t_owner;
+    PSIM_Object t_psims[1];
+};
+typedef struct s_per_earley_set_list PSL_Object;
+@ The per-Earley-set lists are allcated from per-Earley-set arenas.
+@<Incomplete private structures@> =
+struct s_per_earley_set_arena;
+typedef struct s_per_earley_set_arena *PSAR;
+@ @<Private structures@> =
+struct s_per_earley_set_arena {
+      PSL t_first_psl;
+      PSL t_first_free_psl;
+};
+typedef struct s_per_earley_set_arena PSAR_Object;
+@ @<Widely aligned recognizer elements@> =
+struct s_per_earley_set_arena t_psars[NO_OF_PSARS];
+@ @<Initialize recognizer elements@> = {
+    gint psar_id;
+    for (psar_id = 0; psar_id < NO_OF_PSARS; psar_id++) {
+          psar_init(r, r->t_psars+psar_id);
+    }
+}
+@ @<Destroy recognizer elements@> = {
+    gint psar_id;
+    for (psar_id = 0; psar_id < NO_OF_PSARS; psar_id++) {
+          psar_destroy(r, r->t_psars+psar_id);
+    }
 }
 @ @<Private function prototypes@> =
-static inline GSequenceIter* sequence_find(GSequence* sequence, void *key,
-    GCompareDataFunc compare, gboolean* match);
+static inline void psar_init(RECCE r, PSAR psar);
+static inline void psar_destroy(RECCE r, PSAR psar);
+static inline PSL psl_new(RECCE r);
+static inline void psl_free(RECCE r, PSL per_earley_set_list);
+@ @<Function definitions@> =
+static inline void psar_init(RECCE r, PSAR psar)
+{
+     psar->t_first_psl =
+     psar->t_first_free_psl = psl_new(r);
+}
+@ The "owners" of the PSL's are not zeroed.
+The assumption is that the calling
+environment ensures that will not be dereferences
+after this point.
+@<Function definitions@> =
+static inline void psar_destroy(RECCE r, PSAR psar)
+{
+     PSL psl = psar->t_first_psl;
+     while (psl) {
+	  PSL next_psl = psl->t_next;
+          psl_free(r, psl);
+	  psl = next_psl;
+     }
+}
+static inline PSL psl_new(RECCE r) {
+     PSL new_psl = g_slice_alloc(Size_of_PSL(r));
+G_DEBUG2("Allocated PSL at %p", new_psl);
+     new_psl->t_length = 0;
+     new_psl->t_next = NULL;
+     new_psl->t_owner = NULL;
+     return new_psl;
+}
+static inline void psl_free(RECCE r, PSL per_earley_set_list) {
+G_DEBUG2("Freeing PSL at %p", per_earley_set_list);
+     g_slice_free1(Size_of_PSL(r), per_earley_set_list);
+}
+@ @<Widely aligned Earley set elements@> =
+    PSL t_psls[NO_OF_PSARS];
+@ @<Initialize Earley set PSL data@> =
+{
+  gint i;
+  for (i = 0; i < NO_OF_PSARS; i++)
+    {
+      set->t_psls[i] = NULL;
+    }
+}
+@ @<Private function prototypes@> =
+static inline void psar_reset(PSAR psar);
+@ @<Function definitions@> =
+static inline void psar_reset(PSAR psar) {
+    PSL psl = psar->t_first_free_psl = psar->t_first_psl;
+    while (psl) {
+	PSL* owner = psl->t_owner;
+	if (!owner) break;
+        psl->t_length = 0;
+	(*owner) = NULL;
+	psl->t_owner = NULL;
+    }
+}
+@ This function "claims" a PSL.
+The address of the claimed PSL and the PSAR
+from which to claim it are arguments.
+If there is already a PSL at claiming address,
+this function is a no-op.
+@<Private function prototypes@> =
+static inline void psl_claim(RECCE r, PSL* psl, PSAR psar);
+@ @<Function definitions@> =
+static inline void psl_claim(RECCE r, PSL* psl_owner, PSAR psar) {
+     PSL new_psl = psl_alloc(r, psar);
+     (*psl_owner) = new_psl;
+     new_psl->t_owner = psl_owner;
+}
+
+@ This function "allocates" a PSL.
+It gets a free PSL from the PSAR, creating one if necessary.
+@ @<Private function prototypes@> =
+static inline PSL psl_alloc(RECCE r, PSAR psar);
+@ @<Function definitions@> =
+static inline PSL psl_alloc(RECCE r, PSAR psar) {
+    PSL free_psl = psar->t_first_free_psl;
+    PSL next_psl = free_psl->t_next;
+    if (!next_psl) {
+        next_psl = free_psl->t_next = psl_new(r);
+    }
+    psar->t_first_free_psl = next_psl;
+    return free_psl;
+}
 
 @** Memory Allocation.
 
@@ -9711,6 +9780,7 @@ So I add such a comment.
 @<Private global variables@>@;
 @<Private utility structures@>@;
 @<Private structures@>@;
+@<Recognizer structure@>@;
 @<Source object structure@>@;
 @<Earley item structure@>@;
 @<Private function prototypes@>@;

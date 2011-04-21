@@ -23,6 +23,8 @@ Marpa::XS - XS extension of Marpa
 name: Engine Synopsis Unambiguous Parse
 normalize-whitespace: 1
 
+    use Marpa::XS;
+
     my $grammar = Marpa::XS::Grammar->new(
         {   start   => 'Expression',
             actions => 'My_Actions',
@@ -549,6 +551,8 @@ to return the value for every one of the parse results.
 =for Marpa::XS::Display
 name: Engine Synopsis Ambiguous Parse
 normalize-whitespace: 1
+
+    use Marpa::XS;
 
     my $ambiguous_grammar = Marpa::XS::Grammar->new(
         {   start   => 'E',

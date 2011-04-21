@@ -20,18 +20,16 @@ use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 3;
 
 use Marpa::XS::Test;
-
-BEGIN {
-    Test::More::use_ok('Marpa::XS');
-}
 
 ## no critic (ErrorHandling::RequireCarping);
 
 # Marpa::XS::Display
 # name: Engine Synopsis Unambiguous Parse
+
+use Marpa::XS;
 
 my $grammar = Marpa::XS::Grammar->new(
     {   start          => 'Expression',
@@ -81,6 +79,8 @@ my $value = $value_ref ? ${$value_ref} : 'No Parse';
 
 # Marpa::XS::Display
 # name: Engine Synopsis Ambiguous Parse
+
+use Marpa::XS;
 
 my $ambiguous_grammar = Marpa::XS::Grammar->new(
     {   start   => 'E',
