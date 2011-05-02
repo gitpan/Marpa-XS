@@ -193,7 +193,7 @@ sub marpa_link_c {
 	[ $spec->{obj_file}, @$objects ],
 	$spec->{lib_file} );
 
-        say STDERR $spec->{lib_file}, "Out of date wrt ", 
+        say STDERR $spec->{lib_file}, " Out of date wrt ", 
 	 join ", ", $spec->{obj_file}, @$objects;
 
   my $module_name = $spec->{module_name} || $self->module_name;
