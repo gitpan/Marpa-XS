@@ -1140,18 +1140,6 @@ PPCODE:
     }
 
 void
-earley_set_trace( r_wrapper, earleme )
-    R_Wrapper *r_wrapper;
-    Marpa_Earleme earleme;
-PPCODE:
-    { struct marpa_r* r = r_wrapper->r;
-    gint traced_earleme = marpa_earley_set_trace(r, earleme);
-    if (traced_earleme <= -2) { croak("Invalid earleme %d: %s", earleme, marpa_r_error(r)); }
-    if (traced_earleme == -1) { XSRETURN_UNDEF; }
-    XPUSHs( sv_2mortal( newSViv(traced_earleme) ) );
-    }
-
-void
 current_earley_set_size( r_wrapper )
     R_Wrapper *r_wrapper;
 PPCODE:
@@ -1165,35 +1153,39 @@ PPCODE:
     }
 
 void
-first_earley_item_trace( r_wrapper )
+earley_set_trace( r_wrapper, set_ordinal )
     R_Wrapper *r_wrapper;
+    Marpa_Earley_Set_ID set_ordinal;
 PPCODE:
     { struct marpa_r* r = r_wrapper->r;
-    gint AHFA_state_id = marpa_first_earley_item_trace(r);
-    if (AHFA_state_id <= -2) { croak("Trace first earley item problem: %s", marpa_r_error(r)); }
-    if (AHFA_state_id == -1) { XSRETURN_UNDEF; }
-    XPUSHs( sv_2mortal( newSViv(AHFA_state_id) ) );
+    Marpa_AHFA_State_ID result = marpa_earley_set_trace(
+	r, set_ordinal );
+    if (result == -1) { XSRETURN_UNDEF; }
+    if (result < 0) { croak("problem with r->earley_set_trace: %s", marpa_r_error(r)); }
+    XPUSHs( sv_2mortal( newSViv(result) ) );
     }
 
 void
-next_earley_item_trace( r_wrapper )
+earley_item_trace( r_wrapper, item_ordinal )
     R_Wrapper *r_wrapper;
+    Marpa_Earley_Item_ID item_ordinal;
 PPCODE:
     { struct marpa_r* r = r_wrapper->r;
-    gint AHFA_state_id = marpa_next_earley_item_trace(r);
-    if (AHFA_state_id <= -2) { croak("Trace next earley item problem: %s", marpa_r_error(r)); }
-    if (AHFA_state_id == -1) { XSRETURN_UNDEF; }
-    XPUSHs( sv_2mortal( newSViv(AHFA_state_id) ) );
+    Marpa_AHFA_State_ID result = marpa_earley_item_trace(
+	r, item_ordinal);
+    if (result == -1) { XSRETURN_UNDEF; }
+    if (result < 0) { croak("problem with r->earley_item_trace: %s", marpa_r_error(r)); }
+    XPUSHs( sv_2mortal( newSViv(result) ) );
     }
 
 void
-earley_item_trace( r_wrapper, origin, ahfa_id )
+old_earley_item_trace( r_wrapper, origin, ahfa_id )
     R_Wrapper *r_wrapper;
     Marpa_Earleme origin;
     Marpa_AHFA_State_ID ahfa_id;
 PPCODE:
     { struct marpa_r* r = r_wrapper->r;
-    Marpa_AHFA_State_ID result = marpa_earley_item_trace(r, origin, ahfa_id);
+    Marpa_AHFA_State_ID result = marpa_old_earley_item_trace(r, origin, ahfa_id);
     if (result == -1) { XSRETURN_UNDEF; }
     if (result < 0) { croak("Trace earley item problem: %s", marpa_r_error(r)); }
     XPUSHs( sv_2mortal( newSViv(result) ) );
@@ -1485,6 +1477,28 @@ PPCODE:
 	  croak ("Problem in r->leo_completion_expand(): %s", marpa_r_error (r));
 	}
 	XPUSHs( sv_2mortal( newSViv(result) ) );
+    }
+
+void
+earleme( r_wrapper, ordinal )
+     R_Wrapper *r_wrapper;
+     Marpa_Earley_Set_ID ordinal;
+PPCODE:
+    { struct marpa_r* r = r_wrapper->r;
+	gint result = marpa_earleme(r, ordinal);
+	if (result == -1) { XSRETURN_UNDEF; }
+	if (result < 0) {
+	  croak ("Problem in r->earleme(): %s", marpa_r_error (r));
+	}
+	XPUSHs( sv_2mortal( newSViv(result) ) );
+    }
+
+void
+value( r_wrapper )
+     R_Wrapper *r_wrapper
+PPCODE:
+    { struct marpa_r* r = r_wrapper->r;
+    marpa_value(r);
     }
 
 BOOT:

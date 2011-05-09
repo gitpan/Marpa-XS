@@ -27,64 +27,95 @@ sub dl_load_flags { $^O eq 'darwin' ? 0x00 : 0x01 }
 
 use Marpa::XS::Version;
 
+if ( defined $Marpa::PP::VERSION ) {
+    Carp::croak('Attempt to load Marpa::XS when Marpa::PP ', $Marpa::PP::VERSION, ' already loaded');
+}
+if ( $Marpa::USING_PP ) {
+    Carp::croak('Attempt to load Marpa::XS when already using Marpa::PP');
+}
+if ( $Marpa::USING_XS ) {
+    die('Internal error: Attempt to load Marpa::XS twice');
+}
+if ( $Marpa::USE_PP ) {
+    Carp::croak('Attempt to load Marpa::XS when USE_PP specified');
+}
+
 # Sensible defaults if not defined
-$Marpa::XS::USE_PP //= 0;
-$Marpa::XS::USE_XS //= ! $Marpa::XS::USE_PP;
+$Marpa::USE_XS = 1;
+$Marpa::USING_XS = 1;
+$Marpa::USING_PP = 0;
 
-# Die if both PP and XS were chosen
-if ( $Marpa::XS::USE_PP and $Marpa::XS::USE_XS ) {
-    Carp::croak('Cannot specify both USE_XS and USE_PP');
+require Marpa::PP;
+if (!defined $Marpa::PP::VERSION ) {
+    die('Internal error: VERSION not defined in Marpa::PP');
 }
-# Die if both PP and XS were unset
-if ( ! $Marpa::XS::USE_PP and ! $Marpa::XS::USE_XS ) {
-    Carp::croak('Cannot unset both USE_XS and USE_PP');
-}
-
-if ( $Marpa::XS::USE_XS ) {
-
-    eval {
-        package DynaLoader;
-        my @libs = split q{ }, ExtUtils::PkgConfig->libs("glib-2.0");
-	@DynaLoader::dl_resolve_using = dl_findfile(@libs);
-        bootstrap Marpa::XS $Marpa::XS::STRING_VERSION;
-        1;
-    } or do {
-        Carp::croak("Could not load XS version of Marpa: $EVAL_ERROR");
-    };
-
-    $Marpa::XS::USING_XS = 1;
-    $Marpa::XS::USING_PP = 0;
-
-    my $version_found = join q{.}, Marpa::XS::version();
-    my $version_wanted = '0.1.0';
-    Carp::croak('Marpa::XS ', "fails version check, wanted $version_wanted, found $version_found")
-        if $version_wanted ne $version_found;
-
-    require Marpa::XS::Internal;
-    require Marpa::XS::Internal::Carp_Not;
-    Marpa::XS::Internal::Carp_Not->import();
-    require Marpa::XS::Grammar;
-    require Marpa::XS::Recognizer;
-    require Marpa::XS::Value;
-    require Marpa::XS::Callback;
-    require Marpa::XS::Slot;
-
-    return 1;
+if ($Marpa::PP::STRING_VERSION ne $Marpa::XS::STRING_VERSION ) {
+    Carp::croak("Version mismatch between Marpa::XS and Marpa::PP\n",
+    "Marpa::XS is version ", $Marpa::XS::STRING_VERSION, "\n",
+    "Marpa::PP is version ", $Marpa::PP::STRING_VERSION, "\n",
+    "The Marpa::XS and Marpa::PP versions must match and they do not\n"
+    );
 }
 
-undef $Marpa::XS::VERSION;
-undef $Marpa::XS::STRING_VERSION;
-$Marpa::XS::USING_XS = 0;
-$Marpa::XS::USING_PP = 1;
+eval {
+    package DynaLoader;
+    my @libs = split q{ }, ExtUtils::PkgConfig->libs("glib-2.0");
+    @DynaLoader::dl_resolve_using = dl_findfile(@libs);
+    bootstrap Marpa::XS $Marpa::XS::STRING_VERSION;
+    1;
+} or do {
+    Carp::croak("Could not load XS version of Marpa: $EVAL_ERROR");
+};
 
-require Marpa::XS::Internal;
-require Marpa::XS::Internal::Carp_Not;
-Marpa::XS::Internal::Carp_Not->import();
-require Marpa::XS::Grammar_PP;
-require Marpa::XS::Recognizer_PP;
-require Marpa::XS::Value_PP;
-require Marpa::XS::Callback_PP;
+my $version_found = join q{.}, Marpa::XS::version();
+my $version_wanted = '0.1.0';
+Carp::croak('Marpa::XS ', "fails version check, wanted $version_wanted, found $version_found")
+    if $version_wanted ne $version_found;
 
-1;
+require Marpa::PP::Slot;
+require Marpa::XS::Grammar;
+require Marpa::XS::Recognizer;
+require Marpa::XS::Value;
+require Marpa::XS::Callback;
+
+*Marpa::Grammar::check_terminal = \&Marpa::XS::Grammar::check_terminal;
+*Marpa::Grammar::new = \&Marpa::XS::Grammar::new;
+*Marpa::Grammar::precompute = \&Marpa::XS::Grammar::precompute;
+*Marpa::Grammar::set = \&Marpa::XS::Grammar::set;
+*Marpa::Grammar::show_AHFA = \&Marpa::XS::Grammar::show_AHFA;
+*Marpa::Grammar::show_AHFA_items = \&Marpa::XS::Grammar::show_AHFA_items;
+*Marpa::Grammar::show_NFA = \&Marpa::XS::Grammar::show_NFA;
+*Marpa::Grammar::show_accessible_symbols = \&Marpa::XS::Grammar::show_accessible_symbols;
+*Marpa::Grammar::show_dotted_rule = \&Marpa::XS::Grammar::show_dotted_rule;
+*Marpa::Grammar::show_nullable_symbols = \&Marpa::XS::Grammar::show_nullable_symbols;
+*Marpa::Grammar::show_nulling_symbols = \&Marpa::XS::Grammar::show_nulling_symbols;
+*Marpa::Grammar::show_productive_symbols = \&Marpa::XS::Grammar::show_productive_symbols;
+*Marpa::Grammar::show_problems = \&Marpa::XS::Grammar::show_problems;
+*Marpa::Grammar::brief_rule = \&Marpa::XS::Grammar::brief_rule;
+*Marpa::Grammar::show_rule = \&Marpa::XS::Grammar::show_rule;
+*Marpa::Grammar::show_rules = \&Marpa::XS::Grammar::show_rules;
+*Marpa::Grammar::show_symbol = \&Marpa::XS::Grammar::show_symbol;
+*Marpa::Grammar::show_symbols = \&Marpa::XS::Grammar::show_symbols;
+*Marpa::Recognizer::alternative = \&Marpa::XS::Recognizer::alternative;
+*Marpa::Recognizer::check_terminal = \&Marpa::XS::Recognizer::check_terminal;
+*Marpa::Recognizer::current_earleme = \&Marpa::XS::Recognizer::current_earleme;
+*Marpa::Recognizer::earleme_complete = \&Marpa::XS::Recognizer::earleme_complete;
+*Marpa::Recognizer::earley_set_size = \&Marpa::XS::Recognizer::earley_set_size;
+*Marpa::Recognizer::end_input = \&Marpa::XS::Recognizer::end_input;
+*Marpa::Recognizer::exhausted = \&Marpa::XS::Recognizer::exhausted;
+*Marpa::Recognizer::new = \&Marpa::XS::Recognizer::new;
+*Marpa::Recognizer::read = \&Marpa::XS::Recognizer::read;
+*Marpa::Recognizer::reset_evaluation = \&Marpa::XS::Recognizer::reset_evaluation;
+*Marpa::Recognizer::set = \&Marpa::XS::Recognizer::set;
+*Marpa::Recognizer::show_earley_sets = \&Marpa::XS::Recognizer::show_earley_sets;
+*Marpa::Recognizer::show_progress = \&Marpa::XS::Recognizer::show_progress;
+*Marpa::Recognizer::status = \&Marpa::XS::Recognizer::status;
+*Marpa::Recognizer::terminals_expected = \&Marpa::XS::Recognizer::terminals_expected;
+*Marpa::Recognizer::tokens = \&Marpa::XS::Recognizer::tokens;
+*Marpa::Recognizer::value = \&Marpa::XS::Recognizer::value;
+*Marpa::location = \&Marpa::XS::location;
+*Marpa::token_location = \&Marpa::XS::token_location;
+
+return 1;
 
 __END__

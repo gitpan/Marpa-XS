@@ -315,7 +315,6 @@ of |EIM| and |EIM_Object|.
 \li EIM: Earley item.
 \li |EIM_Object|: Earley item (object).
 \li EIX: Earley item index.
-\li EIXD: Earley item index (direct).
 \li ES: Earley set.
 \li g: Grammar.
 \li |_ix|, |_IX|, ix, IX: Index.  Often used as a suffix.
@@ -335,7 +334,8 @@ In an Earley implementation
 without Leo items, a parse with right recursion
 can have the time comlexity |O(n^2)|.
 \li LIM: Leo item.
-\li LIMD: Leo item.
+\li \_Object: Suffix indicating that the type is of an
+actual object, and not a pointer as is usually the case.
 \li PIM, pim: Postdot item.
 \li p: A Pointer.  Often as |_p|, as the end of a variable name, or as |p_| at
 the beginning of one.
@@ -622,7 +622,7 @@ GLIB_VAR const guint marpa_binary_age;@#
         @]@#
 #define MARPA_CAT(a, b) @[ a ## b @]
 @<Public defines@>@/
-@<Incomplete public structures@>@/
+@<Public incomplete structures@>@/
 @<Public typedefs@>@/@\
 @<Callback typedefs@>@/
 @<Public structures@>@/
@@ -701,7 +701,7 @@ go through |libmarpa| and replace all sorts with a merge sort.
 But a slower library would be the result.
 
 @** Grammar Objects.
-@<Incomplete public structures@> = struct marpa_g;
+@<Public incomplete structures@> = struct marpa_g;
 @ @<Private structures@> = struct marpa_g {
 @<Widely aligned grammar elements@>@;
 @<Int aligned grammar elements@>@;
@@ -1133,7 +1133,7 @@ Marpa_Error_ID marpa_g_error(const struct marpa_g* g);
 @** Symbol Objects.
 @<Public typedefs@> =
 typedef gint Marpa_Symbol_ID;
-@ @<Incomplete private structures@> =
+@ @<Private incomplete structures@> =
 struct s_symbol;
 typedef struct s_symbol* SYM;
 typedef const struct s_symbol* SYM_Const;
@@ -3821,7 +3821,7 @@ Typically, the number of AHFA states should be less than this estimate.
 @d Complete_SYMIDARY_of_AHFA(state) ((state)->t_complete_symbols)
 @d Complete_SYM_Count_of_AHFA(state) ((state)->t_complete_symbol_count)
 @d AHFA_has_Completed_Start_Rule(ahfa) ((ahfa)->t_has_completed_start_rule)
-@<Incomplete private structures@> = struct s_AHFA_state;
+@<Private incomplete structures@> = struct s_AHFA_state;
 @ @<Private structures@> =
 struct s_AHFA_state_key {
     Marpa_AHFA_State_ID t_id;
@@ -4942,7 +4942,7 @@ void AHFA_transition_add(AHFA from_ahfa, SYMID symid, AHFA to_ahfa);
 }
 
 @** Recognizer (RECCE) Code.
-@<Incomplete public structures@> =
+@<Public incomplete structures@> =
 struct marpa_r;
 typedef struct marpa_r* RECCE;
 @ @<Recognizer structure@> =
@@ -5048,10 +5048,8 @@ r->t_latest_earley_set = NULL;
 r->t_current_earleme = -1;
 @ @<Destroy recognizer elements@> =
 {
-  if (r->t_earley_sets)
-    g_tree_destroy (r->t_earley_sets);
-  if (r->t_earley_items)
-    g_tree_destroy (r->t_earley_items);
+  if (r->t_earley_item_tree)
+    g_tree_destroy (r->t_earley_item_tree);
 }
 
 @*0 Current Earleme.
@@ -5113,14 +5111,6 @@ guint marpa_furthest_earleme(struct marpa_r* r);
 @ @<Function definitions@> =
 guint marpa_furthest_earleme(struct marpa_r* r)
 { return Furthest_Earleme_of_R(r); }
-
-@*0 Completion Stack.
-The recognizer's completion stack is a work list
-used during the completion phase.
-@.To Do@>
-The completion stack could be freed when the recognition phase
-is finished --- it is not needed for evaluation.
-@<Widely aligned recognizer elements@> = DSTACK_DECLARE(t_completion_stack);
 
 @*0 Symbol Workarea.
 This is used in the completion
@@ -5242,17 +5232,11 @@ a factor of $\log n$.
 Unless otherwise stated,
 time complexity results elsewhere in this document
 assume that tracing is not enabled.
-@<Bit aligned recognizer elements@> = unsigned int t_is_tracing:1;
 @ @<Widely aligned recognizer elements@> =
-GTree* t_earley_sets;
-GTree* t_earley_items;
+GTree* t_earley_item_tree;
 @
-@d R_is_Tracing(r) ((r)->t_is_tracing)
-@d LV_R_is_Tracing(r) R_is_Tracing(r)
 @<Initialize recognizer elements@> =
-r->t_is_tracing = TRUE;
-r->t_earley_sets = g_tree_new(earley_set_cmp);
-r->t_earley_items = g_tree_new(trace_earley_item_cmp);
+r->t_earley_item_tree = g_tree_new(trace_earley_item_cmp);
 
 @*0 Leo-Related Booleans.
 @*1 Turning Leo Logic Off and On.
@@ -5481,27 +5465,38 @@ able to handle.
 @ @<Private typedefs@> = typedef Marpa_Earleme EARLEME;
 
 @** Earley Set (ES) Code.
-@d EIM_Count_of_ES(set) ((set)->t_eim_count)
+@<Public typedefs@> = typedef gint Marpa_Earley_Set_ID;
+@ @<Int aligned recognizer elements@> =
+gint t_next_earley_set_ordinal;
+@ @<Initialize recognizer elements@> =
+r->t_next_earley_set_ordinal = 0;
+@ @d EIM_Count_of_ES(set) ((set)->t_eim_count)
 @d Next_ES_of_ES(set) ((set)->t_next_earley_set)
 @d LV_Next_ES_of_ES(set) Next_ES_of_ES(set)
 @d Postdot_SYM_Count_of_ES(set) ((set)->t_postdot_sym_count)
 @d First_PIM_of_ES_by_SYMID(set, symid) (first_pim_of_es_by_symid((set), (symid)))
 @d PIM_SYM_P_of_ES_by_SYMID(set, symid) (pim_sym_p_find((set), (symid)))
-@ @<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_earley_set;
-struct s_earley_set_key;
 typedef struct s_earley_set *ES;
+struct s_earley_set_key;
 typedef struct s_earley_set_key *ESK;
 @ @<Private structures@> =
 struct s_earley_set_key {
-    EARLEME t_id;
+    EARLEME t_earleme;
 };
 typedef struct s_earley_set_key ESK_Object;
+@
+@d EIMs_of_ES(set) ((set)->t_earley_items)
+@d EIM_Count_of_ES(set) ((set)->t_eim_count)
+@d Ord_of_ES(set) ((set)->t_ordinal)
+@<Private structures@> =
 struct s_earley_set {
     ESK_Object t_key;
     gint t_postdot_sym_count;
-    guint t_eim_count;
-    EIM t_earley_items;
+    gint t_eim_count;
+    gint t_ordinal;
+    EIM* t_earley_items;
     union u_postdot_item** t_postdot_ary;
     ES t_next_earley_set;
     @<Widely aligned Earley set elements@>@/
@@ -5517,70 +5512,31 @@ earley_set_new( RECCE r, Marpa_Earleme id)
   ESK_Object key;
   ES set;
   set = obstack_alloc (&r->t_obs, sizeof (*set));
-  key.t_id = id;
+  key.t_earleme = id;
   set->t_key = key;
-  set->t_earley_items = NULL;
   set->t_postdot_ary = NULL;
   set->t_postdot_sym_count = 0;
   set->t_eim_count = 0;
+  set->t_ordinal = r->t_next_earley_set_ordinal++;
+  set->t_earley_items = NULL;
   LV_Next_ES_of_ES(set) = NULL;
-  if (R_is_Tracing(r)) {
-      g_tree_insert(r->t_earley_sets, set, set);
-  }
   @<Initialize Earley set PSL data@>@/
   return set;
 }
 
-@*0 Comparison Function.
-@<Function definitions@> =
-static gint 
-earley_set_cmp( gconstpointer ap, gconstpointer bp)
+@*0 Destructor.
+@<Destroy recognizer elements@> =
 {
-    const struct s_earley_set_key* set_key_a = ap;
-    const struct s_earley_set_key* set_key_b = bp;
-    return set_key_a->t_id - set_key_b->t_id;
+  ES set;
+  for (set = First_ES_of_R (r); set; set = Next_ES_of_ES (set))
+    {
+      if (set->t_earley_items)
+	g_free (set->t_earley_items);
+    }
 }
-@ @<Private function prototypes@> =
-static gint earley_set_cmp( gconstpointer a, gconstpointer b);
 
 @*0 ID of Earley Set.
-@d ID_of_ES(set) ((set)->t_key.t_id)
-@d Earleme_of_ES(set) ID_of_ES(set)
-
-@*0 Earley Set by ID.
-Returns |NULL| if the set is not found.
-@d Earley_Set_by_ID(r, id) (earley_set_by_id((r), (id)))
-@<Private function prototypes@> =
-static inline ES earley_set_by_id(struct marpa_r * r, Marpa_Earleme earleme);
-@ @<Function definitions@> =
-static inline ES
-earley_set_by_id(RECCE r, Marpa_Earleme earleme)
-{
-  ESK_Object key;
-  if (!R_is_Tracing(r)) r_tracing_start(r);
-  key.t_id = earleme;
-  return g_tree_lookup(r->t_earley_sets, &key);
-}
-
-@*0 Start Tracing.
-Not mainstream logic, and should not be inlined.
-@<Private function prototypes@> =
-static void r_tracing_start(RECCE r);
-@ @<Function definitions@> =
-static void r_tracing_start(RECCE r) {
-    ES set;
-    GTree* es_tree = r->t_earley_sets;
-    GTree* eim_tree = r->t_earley_items;
-    for (set = First_ES_of_R(r); set; set = Next_ES_of_ES (set))
-      {
-	EIM eim;
-	g_tree_insert (es_tree, set, set);
-	  for (eim = set->t_earley_items; eim; eim = eim->t_next) {
-	      g_tree_insert(eim_tree, eim, eim);
-	  }
-      }
-    LV_R_is_Tracing(r) = 1;
-}
+@d Earleme_of_ES(set) ((set)->t_key.t_earleme)
 
 @*0 Trace Functions.
 Many of the
@@ -5594,38 +5550,6 @@ The two may coincide, but should not be confused.
 struct s_earley_set* t_trace_earley_set;
 @ @<Initialize recognizer elements@> =
 r->t_trace_earley_set = NULL;
-
-@ This function sets
-the trace Earley set to the earleme indicated in
-the argument, or the next if there is no Earley set at
-that earleme.
-The actual earleme of the new trace Earley set is
-returned.
-If the earleme in the arguments is after the last Earley
-set, the trace Earley set is cleared, and |-1| is returned.
-On other failures, the trace Earley set is cleared,
-and |-2| is returned.
-In all cases, whether of success or failure,
-the trace Earley item and the trace source link are cleared.
-@ @<Public function prototypes@> =
-Marpa_Earleme
-marpa_earley_set_trace (struct marpa_r *r, Marpa_Earleme id);
-@ @<Function definitions@> =
-Marpa_Earleme
-marpa_earley_set_trace (struct marpa_r *r, Marpa_Earleme id)
-{
-  ES set;
-  @<Return |-2| on failure@>@/
-  @<Fail if recognizer initial@>@/
-  trace_earley_item_clear(r);
-  set = Earley_Set_by_ID(r, id);
-  if (!set) {
-      @<Clear trace earley set data@>@/
-      return -1;
-  }
-  r->t_trace_earley_set = set;
-  return Earleme_of_ES(set);
-}
 
 @ @<Clear trace earley set data@> =
       r->t_trace_earley_set = NULL;
@@ -5642,12 +5566,43 @@ Marpa_Earleme marpa_trace_earleme(struct marpa_r *r)
       R_ERROR("no trace es");
       return failure_indicator;
   }
-  return ID_of_ES(trace_earley_set);
+  return Earleme_of_ES(trace_earley_set);
+}
+
+@ Given the ID (ordinal) of an Earley set,
+return the earleme.
+In the default, token-stream model, ID and earleme
+are the same, but this is not the case in other input
+models.
+If the ordinal is out of bounds, this function
+returns -1, which can be treated as a soft failure.
+On other problems, it returns -2.
+@<Public function prototypes@> =
+Marpa_Earleme marpa_earleme(struct marpa_r* r, Marpa_Earley_Set_ID set_id);
+@ @<Function definitions@> =
+Marpa_Earleme marpa_earleme(struct marpa_r* r, Marpa_Earley_Set_ID set_id)
+{
+    const gint es_does_not_exist = -1;
+    @<Return |-2| on failure@>@;
+    ES* earley_set_p;
+    @<Fail if recognizer initial@>@;
+    @<Fail if recognizer has fatal error@>@;
+    if (set_id < 0) {
+        R_ERROR("invalid es ordinal");
+	return failure_indicator;
+    }
+    r_update_earley_sets(r);
+    if (set_id >= DSTACK_LENGTH(r->t_earley_set_stack)) {
+        return es_does_not_exist;
+    }
+    earley_set_p = ES_of_R_by_Ord(r, set_id);
+    return Earleme_of_ES(*earley_set_p);
 }
 
 @ Note that this trace function returns the earley set size
-of the {\bf current earley set}, not that of the
-trace earley set.
+of the {\bf current earley set}.
+@ @^To Do@>  To Do: Change this so it takes an ordinal of
+the set as an argument.
 @<Public function prototypes@> =
 gint marpa_current_earley_set_size(struct marpa_r *r);
 @ @<Function definitions@> =
@@ -5700,7 +5655,19 @@ be recopied to make way for pointers to the linked lists.
 when the Earley item is initialized.
 @d Earley_Item_is_Completion(item)
     (Complete_SYM_Count_of_EIM(item) > 0)
-@<Incomplete private structures@> =
+@<Public typedefs@> = typedef gint Marpa_Earley_Item_ID;
+@ The ID of the Earley item is per-Earley-set, so that
+to uniquely specify the Earley item you must also specify
+the Earley set.
+@d ES_of_EIM(item) ((item)->t_key.t_set)
+@d Ord_of_EIM(item) ((item)->t_ordinal)
+@d LV_Ord_of_EIM(item) Ord_of_EIM(item)
+@d Earleme_of_EIM(item) Earleme_of_ES(ES_of_EIM(item))
+@d AHFAID_of_EIM(item) (ID_of_AHFA(AHFA_of_EIM(item)))
+@d AHFA_of_EIM(item) ((item)->t_key.t_state)
+@d Origin_ID_of_EIM(item) (Earleme_of_ES(Origin_of_EIM(item)))
+@d Origin_of_EIM(item) ((item)->t_key.t_origin)
+@<Private incomplete structures@> =
 struct s_earley_item;
 typedef struct s_earley_item* EIM;
 struct s_earley_item_key;
@@ -5715,8 +5682,8 @@ struct s_earley_item_key {
 typedef struct s_earley_item_key EIK_Object;
 struct s_earley_item {
      EIK_Object t_key;
-     struct s_earley_item* t_next;
      union u_source_container t_container;
+     gint t_ordinal;
      @<Bit aligned Earley item elements@>@/
 };
 typedef struct s_earley_item EIM_Object;
@@ -5736,18 +5703,19 @@ static inline EIM earley_item_create(const RECCE r,
 {
   @<Return |NULL| on failure@>@;
   EIM new_item;
+  EIM* top_of_work_stack;
   const ES set = key.t_set;
   const guint count = ++set->t_eim_count;
   @<Check count against Earley item thresholds@>@;
   new_item = obstack_alloc (&r->t_obs, sizeof (*new_item));
   new_item->t_key = key;
   new_item->t_source_type = NO_SOURCE;
-  new_item->t_next = set->t_earley_items;
-  set->t_earley_items = new_item;
-  LV_EIM_is_Leo_Expanded(new_item) = 1;
-  if (R_is_Tracing(r)) {
-      g_tree_insert(r->t_earley_items, new_item, new_item);
-  }
+  LV_Ord_of_EIM(new_item) = count - 1;
+  LV_EIM_is_Leo_Expanded(new_item) = 1; /* Will be unset when
+     and if a Leo link is added */
+  top_of_work_stack = WORK_EIM_PUSH(r);
+  *top_of_work_stack = new_item;
+  g_tree_insert(r->t_earley_item_tree, new_item, new_item);
   return new_item;
 }
 
@@ -5763,7 +5731,7 @@ static inline EIM old_earley_item_assign (
     key.t_origin = origin;
     key.t_state = state;
     key.t_set = set;
-    item = g_tree_lookup(r->t_earley_items, &key);
+    item = g_tree_lookup(r->t_earley_item_tree, &key);
     if (item) return item;
     return earley_item_create(r, key);
 }
@@ -5855,18 +5823,6 @@ static inline gint earley_item_cmp (gconstpointer ap,
   return Origin_ID_of_EIM (eim_a) - Origin_ID_of_EIM (eim_b);
 }
 
-@*0 The Earleme of the Earley Item.
-@d ES_of_EIM(item) ((item)->t_key.t_set)
-@d Earleme_of_EIM(item) ID_of_ES(ES_of_EIM(item))
-
-@*0 The AHFA State of the Earley Item.
-@d AHFAID_of_EIM(item) (ID_of_AHFA(AHFA_of_EIM(item)))
-@d AHFA_of_EIM(item) ((item)->t_key.t_state)
-
-@*0 The Origin of the Earley Item.
-@d Origin_ID_of_EIM(item) (ID_of_ES(Origin_of_EIM(item)))
-@d Origin_of_EIM(item) ((item)->t_key.t_origin)
-
 @*0 Source of the Earley Item.
 @d NO_SOURCE (0U)
 @d SOURCE_IS_TOKEN (1U)
@@ -5934,19 +5890,20 @@ and clears the trace Earley item.
 On failure for other reasons,
 it returns |-2|,
 and clears the trace Earley item.
-@ The trace Earley item is cleared is no matching
+@ The trace Earley item is cleared if no matching
 Earley item is found, and on failure.
 The trace source link is always
 cleared, regardless of success or failure.
+@ @^To Do@>  To Do: Deprecated.  To be deleted.
 @<Public function prototypes@> =
 Marpa_AHFA_State_ID
-marpa_earley_item_trace (struct marpa_r *r,
-    Marpa_Earleme origin_id,
+marpa_old_earley_item_trace (struct marpa_r *r,
+    Marpa_Earley_Set_ID origin_set_id,
     Marpa_AHFA_State_ID state_id);
 @ @<Function definitions@> =
 Marpa_AHFA_State_ID
-marpa_earley_item_trace (struct marpa_r *r,
-    Marpa_Earleme origin_id,
+marpa_old_earley_item_trace (struct marpa_r *r,
+    Marpa_Earley_Set_ID origin_set_id,
     Marpa_AHFA_State_ID state_id)
 {
   const gint no_match = -1;
@@ -5963,7 +5920,16 @@ marpa_earley_item_trace (struct marpa_r *r,
       R_ERROR("no trace es");
       return failure_indicator;
   }
-  origin_set = Earley_Set_by_ID (r, origin_id);
+    if (origin_set_id < 0) {
+        R_ERROR("invalid es ordinal");
+	return failure_indicator;
+    }
+    r_update_earley_sets(r);
+    if (origin_set_id >= DSTACK_LENGTH(r->t_earley_set_stack)) {
+        R_ERROR("origin es does not exist");
+        return failure_indicator;
+    }
+  origin_set = *(ES_of_R_by_Ord (r, origin_set_id));
   if (!origin_set) {
       @<Clear trace Earley item data@>@;
       R_ERROR("origin es not found");
@@ -5972,7 +5938,7 @@ marpa_earley_item_trace (struct marpa_r *r,
   item_key.t_state = AHFA_by_ID (state_id);
   item_key.t_origin = origin_set;
   item_key.t_set = current_set;
-  item = r->t_trace_earley_item = g_tree_lookup(r->t_earley_items, &item_key);
+  item = r->t_trace_earley_item = g_tree_lookup(r->t_earley_item_tree, &item_key);
   if (!item) {
       @<Clear trace Earley item data@>@/
       return no_match;
@@ -5980,70 +5946,102 @@ marpa_earley_item_trace (struct marpa_r *r,
   return AHFAID_of_EIM(item);
 }
 
-@ Set trace Earley item to first in trace Earley set,
-and return the AHFA state ID.
-If the trace Earley set is empty, return -1 and
-clear the trace Earley item.
-On other failures, return -2 and clear the trace
-Earley item.
-In all cases, whether success or failure,
-the trace source link is cleared.
-@<Public function prototypes@> =
-Marpa_AHFA_State_ID
-marpa_first_earley_item_trace (struct marpa_r *r);
+@ This function sets
+the trace Earley set to the one indicated
+by the ID
+of the argument.
+On success,
+the earleme of the new trace Earley set is
+returned.
+@ Various other trace data depends on the Earley
+set, and must be consistent with it.
+This function clears all such data,
+unless it is called while the recognizer is in
+a trace-unsafe state (initial, fatal, etc.)
+or unless the the Earley set requested by the
+argument is already the trace Earley set.
+On failure because the ID is for a non-existent
+Earley set which does not
+exist, |-1| is returned.
+The upper levels may choose to treat this as a soft failure.
+This may be treated as a soft failure by the upper levels.
+On failure because the ID is illegal (less than zero)
+or for other failures, |-2| is returned.
+The upper levels may choose to treat these as hard failures.
+@ @<Public function prototypes@> =
+Marpa_Earleme
+marpa_earley_set_trace (struct marpa_r *r, Marpa_Earley_Set_ID set_id);
 @ @<Function definitions@> =
-Marpa_AHFA_State_ID
-marpa_first_earley_item_trace (struct marpa_r *r)
+Marpa_Earleme
+marpa_earley_set_trace (struct marpa_r *r, Marpa_Earley_Set_ID set_id)
 {
-  ES current_set = r->t_trace_earley_set;
-  EIM item;
+  ES earley_set;
+  const gint es_does_not_exist = -1;
   @<Return |-2| on failure@>@/
-  @<Fail if recognizer initial@>@/
-  trace_source_link_clear(r);
-  if (!current_set) {
-      @<Clear trace Earley item data@>@/
-      R_ERROR("no trace earley set");
-      return failure_indicator;
-  }
-  item = r->t_trace_earley_item = current_set->t_earley_items;
-  if (!item) {
-      @<Clear trace Earley item data@>@/
-      return -1;
+  @<Fail recognizer if not trace-safe@>@;
+    if (r->t_trace_earley_set && Ord_of_ES (r->t_trace_earley_set) == set_id)
+      { /* If the set is already
+	   the current earley set,
+	   return successfully without resetting any of the dependant data */
+	return Earleme_of_ES (r->t_trace_earley_set);
+      }
+  @<Clear trace Earley set dependent data@>@;
+    if (set_id < 0)
+    {
+	R_ERROR ("invalid es ordinal");
+	return failure_indicator;
     }
-  return AHFAID_of_EIM(item);
+  r_update_earley_sets (r);
+    if (set_id >= DSTACK_LENGTH (r->t_earley_set_stack))
+      {
+	return es_does_not_exist;
+      }
+    earley_set = *(ES_of_R_by_Ord (r, set_id));
+  r->t_trace_earley_set = earley_set;
+  return Earleme_of_ES(earley_set);
 }
 
-@ Set trace Earley item to the one after
-the current trace Earley item,
-and return the AHFA state ID.
-If the current trace Earley item is the last, return -1 and
-clear the trace Earley item.
-On other failures, return -2 and clear the trace
-Earley item.
-In all cases, whether success or failure,
-the trace source link is cleared.
-@<Public function prototypes@> =
+@ @<Clear trace Earley set dependent data@> = {
+  r->t_trace_earley_set = NULL;
+  trace_earley_item_clear(r);
+  @<Clear trace postdot item data@>@;
+}
+
+@ @<Public function prototypes@> =
 Marpa_AHFA_State_ID
-marpa_next_earley_item_trace (struct marpa_r *r);
+marpa_earley_item_trace (struct marpa_r *r,
+    Marpa_Earley_Item_ID item_id);
 @ @<Function definitions@> =
-AHFAID
-marpa_next_earley_item_trace (struct marpa_r *r)
+Marpa_AHFA_State_ID
+marpa_earley_item_trace (struct marpa_r *r, Marpa_Earley_Item_ID item_id)
 {
-  EIM item = r->t_trace_earley_item;
-  @<Return |-2| on failure@>@/
-  @<Fail if recognizer initial@>@/
-  trace_source_link_clear(r);
-  if (!item) {
-      R_ERROR("no trace eim");
+  const gint eim_does_not_exist = -1;
+  @<Return |-2| on failure@>@;
+  ES trace_earley_set;
+  EIM earley_item;
+  EIM *earley_items;
+  @<Fail recognizer if not trace-safe@>@;
+  trace_earley_set = r->t_trace_earley_set;
+  if (!trace_earley_set)
+    {
+      @<Clear trace Earley set dependent data@>@;
+      R_ERROR ("no trace es");
       return failure_indicator;
-  }
-  item = item->t_next;
-  if (!item) {
-      @<Clear trace Earley item data@>@/
-      return -1;
     }
-  r->t_trace_earley_item = item;
-  return AHFAID_of_EIM(item);
+  trace_earley_item_clear (r);
+  if (item_id < 0)
+    {
+      R_ERROR ("invalid eim ordinal");
+      return failure_indicator;
+    }
+  if (item_id >= EIM_Count_of_ES (trace_earley_set))
+    {
+      return eim_does_not_exist;
+    }
+  earley_items = EIMs_of_ES (trace_earley_set);
+  earley_item = earley_items[item_id];
+  r->t_trace_earley_item = earley_item;
+  return AHFAID_of_EIM (earley_item);
 }
 
 @ Clear all the data elements specifically
@@ -6094,15 +6092,17 @@ a postdot symbol.
 @d LV_EIM_of_EIX(eix) EIM_of_EIX(eix)
 @d Postdot_SYMID_of_EIX(eix) ((eix)->t_postdot_symid)
 @d LV_Postdot_SYMID_of_EIX(eix) Postdot_SYMID_of_EIX(eix)
-@<Private structures@> =
+@<Private incomplete structures@> =
+struct s_earley_ix;
+typedef struct s_earley_ix* EIX;
 union u_postdot_item;
+@ @<Private structures@> =
 struct s_earley_ix {
      union u_postdot_item* t_next;
      SYMID t_postdot_symid;
      EIM t_earley_item; // Never NULL if this is an index item
 };
-typedef struct s_earley_ix EIXD;
-typedef EIXD* EIX;
+typedef struct s_earley_ix EIX_Object;
 
 @** Leo Item (LIM) Code.
 Leo items originate from the "transition items" of Joop Leo's 1991 paper.
@@ -6132,19 +6132,23 @@ with a |NULL| Earley item pointer.
 @d LV_Base_EIM_of_LIM(leo) Base_EIM_of_LIM(leo)
 @d ES_of_LIM(leo) ((leo)->t_set)
 @d LV_ES_of_LIM(leo) ES_of_LIM(leo)
-@d Earleme_of_LIM(lim) ID_of_ES(ES_of_LIM(lim))
-@<Private structures@> =
+@d Chain_Length_of_LIM(leo) ((leo)->t_chain_length)
+@d LV_Chain_Length_of_LIM(leo) Chain_Length_of_LIM(leo)
+@d Earleme_of_LIM(lim) Earleme_of_ES(ES_of_LIM(lim))
+@<Private incomplete structures@> =
 struct s_leo_item;
+typedef struct s_leo_item* LIM;
+@ @<Private structures@> =
 struct s_leo_item {
-     EIXD t_earley_ix;
+     EIX_Object t_earley_ix;
      ES t_origin;
      AHFA t_top_ahfa;
-     struct s_leo_item* t_predecessor;
+     LIM t_predecessor;
      EIM t_base;
      ES t_set;
+     gint t_chain_length;
 };
-typedef struct s_leo_item LIMD;
-typedef LIMD* LIM;
+typedef struct s_leo_item LIM_Object;
 
 @*0 Trace Functions.
 The functions in this section are all accessors.
@@ -6281,8 +6285,8 @@ for each Earley set.
 @s PIM int
 @<Private structures@> =
 union u_postdot_item {
-    LIMD t_leo;
-    EIXD t_earley;
+    LIM_Object t_leo;
+    EIX_Object t_earley;
 };
 typedef union u_postdot_item* PIM;
 
@@ -7254,7 +7258,7 @@ gboolean marpa_source_token_value(struct marpa_r* r, gpointer* value_p)
 @** Alternative Tokens (ALT) Code.
 Because Marpa allows more than one token at every
 earleme, Marpa's tokens are also called "alternatives".
-@<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_alternative;
 typedef struct s_alternative* ALT;
 typedef const struct s_alternative* ALT_Const;
@@ -7279,8 +7283,6 @@ DSTACK_DECLARE(t_alternatives);
 code is being developed.
 Once the code is stable it should be increased.
 @d INITIAL_ALTERNATIVES_CAPACITY 1
-@d ALT_of_R(r, ix) DSTACK_INDEX((r), ALT_Object, (ix))
-@d LV_ALT_of_R(r, ix) DSTACK_INDEX((r), ALT_Object, (ix))
 @<Initialize recognizer elements@> =
 DSTACK_INIT(r->t_alternatives, ALT_Object, INITIAL_ALTERNATIVES_CAPACITY);
 @ @<Destroy recognizer elements@> = DSTACK_DESTROY(r->t_alternatives);
@@ -7419,6 +7421,8 @@ static inline gint alternative_insert(RECCE r, ALT new_alternative)
     @<Allocate recognizer workareas@>@;
     psar_reset(Dot_PSAR_of_R(r));
     @<Allocate recognizer's bit vectors for symbols@>@;
+    @<Initialize Earley item work stacks@>@;
+    r->t_phase = active_phase;
     LV_Current_Earleme_of_R(r) = 0;
     set0 = earley_set_new(r, 0);
     LV_Latest_ES_of_R(r) = set0;
@@ -7433,9 +7437,8 @@ static inline gint alternative_insert(RECCE r, ALT new_alternative)
 	key.t_state = state;
 	item = earley_item_create(r, key);
     }
-    r->t_phase = active_phase;
-    @<Initialize completion stack@>@;
     postdot_items_create(r, set0);
+    earley_set_update_items(r, set0);
     r->t_is_using_leo = r->t_use_leo_flag;
     return TRUE;
 }
@@ -7578,17 +7581,38 @@ altered by the attempt.
 In the Aycock-Horspool variation of Earley's algorithm,
 the two main phases are scanning and completion.
 This section is devoted to the logic for completion.
-@ To Do: The completion stack should be freed once recognition is finished.
-@.To Do@>
-@<Initialize recognizer elements@> = DSTACK_ZERO_INIT(r->t_completion_stack);
+@d Work_EIMs_of_R(r) DSTACK_BASE((r)->t_eim_work_stack, EIM)
+@d Work_EIM_Count_of_R(r) DSTACK_LENGTH((r)->t_eim_work_stack)
+@d WORK_EIMS_CLEAR(r) DSTACK_CLEAR((r)->t_eim_work_stack)
+@d WORK_EIM_PUSH(r) DSTACK_PUSH((r)->t_eim_work_stack, EIM)
+@<Widely aligned recognizer elements@> = DSTACK_DECLARE(t_eim_work_stack);
+@ @<Initialize recognizer elements@> = DSTACK_ZERO_INIT(r->t_eim_work_stack);
+@ @<Initialize Earley item work stacks@> =
+    DSTACK_IS_INITIALIZED(r->t_eim_work_stack) ||
+	DSTACK_INIT (r->t_eim_work_stack, EIM ,
+	     MAX (1024, r->t_earley_item_warning_threshold));
+@ @<Destroy recognizer elements@> = DSTACK_DESTROY(r->t_eim_work_stack);
+
 @ The completion stack is initialized to a very high-ball estimate of the
 number of completions per Earley set.
 It will grow if needed.
 Large stacks may needed for very ambiguous grammars.
-@<Initialize completion stack@> =
+@<Widely aligned recognizer elements@> = DSTACK_DECLARE(t_completion_stack);
+@ @<Initialize recognizer elements@> = DSTACK_ZERO_INIT(r->t_completion_stack);
+@ @<Initialize Earley item work stacks@> =
+    DSTACK_IS_INITIALIZED(r->t_completion_stack) ||
     DSTACK_INIT (r->t_completion_stack, EIM ,
 	     MAX (1024, r->t_earley_item_warning_threshold));
 @ @<Destroy recognizer elements@> = DSTACK_DESTROY(r->t_completion_stack);
+
+@ The completion stack is initialized to a very high-ball estimate of the
+number of completions per Earley set.
+It will grow if needed.
+Large stacks may needed for very ambiguous grammars.
+@<Widely aligned recognizer elements@> = DSTACK_DECLARE(t_earley_set_stack);
+@ @<Initialize recognizer elements@> = DSTACK_ZERO_INIT(r->t_earley_set_stack);
+@ @<Destroy recognizer elements@> = DSTACK_DESTROY(r->t_earley_set_stack);
+
 @ This function returns the number of terminals expected on success.
 On failure, it returns |-2|.
 If the completion of the earleme left the parse exhausted, 0 is
@@ -7631,12 +7655,13 @@ marpa_earleme_complete(struct marpa_r* r)
 
     count_of_expected_terminals = bv_count (r->t_bv_symid_is_expected);
     if (count_of_expected_terminals <= 0
-	&& ID_of_ES (current_earley_set) >= Furthest_Earleme_of_R (r))
+	&& Earleme_of_ES (current_earley_set) >= Furthest_Earleme_of_R (r))
       { /* If no terminals are expected, and there are no Earley items in
            uncompleted Earley sets, we can make no further progress.
 	   The parse is "exhausted". */
 	r->t_phase = exhausted_phase;
       }
+    earley_set_update_items(r, current_earley_set);
     return count_of_expected_terminals;
 }
 
@@ -7706,12 +7731,14 @@ this means that the parse is exhausted.
 }
 
 @ @<Pre-populate the completion stack@> = {
-    EIM earley_item;
-    DSTACK_REINIT(r->t_completion_stack);
-    for (earley_item = current_earley_set->t_earley_items;
-         earley_item;
-	earley_item = earley_item->t_next)
-      {
+    EIM* work_earley_items = DSTACK_BASE (r->t_eim_work_stack, EIM );
+    gint no_of_work_earley_items = DSTACK_LENGTH (r->t_eim_work_stack );
+    gint ix;
+    DSTACK_CLEAR(r->t_completion_stack);
+    for (ix = 0;
+         ix < no_of_work_earley_items;
+	 ix++) {
+	EIM earley_item = work_earley_items[ix];
 	EIM* tos;
 	if (!Earley_Item_is_Completion (earley_item))
 	  continue;
@@ -7805,6 +7832,51 @@ add those Earley items it "causes".
     leo_link_add (r, effect, leo_item, cause);
 }
 
+@ @<Private function prototypes@> =
+static inline void earley_set_update_items(RECCE r, ES set);
+@ @<Function definitions@> =
+static inline void earley_set_update_items(RECCE r, ES set) {
+    EIM* working_earley_items;
+    EIM* finished_earley_items;
+    gint working_earley_item_count;
+    gint i;
+    if (!set->t_earley_items) {
+        set->t_earley_items = g_new(EIM, set->t_eim_count);
+    } else {
+        set->t_earley_items = g_renew(EIM, set->t_earley_items, set->t_eim_count);
+    }
+    finished_earley_items = set->t_earley_items;
+    working_earley_items = Work_EIMs_of_R(r);
+    working_earley_item_count = Work_EIM_Count_of_R(r);
+    for (i = 0; i < working_earley_item_count; i++) {
+	 EIM earley_item = working_earley_items[i];
+	 gint ordinal = Ord_of_EIM(earley_item);
+         finished_earley_items[ordinal] = earley_item;
+    }
+    WORK_EIMS_CLEAR(r);
+}
+
+@ @<Private function prototypes@> =
+static inline void r_update_earley_sets(RECCE r);
+@ @d ES_of_R_by_Ord(r, ord) DSTACK_INDEX((r)->t_earley_set_stack, ES, (ord))
+@<Function definitions@> =
+static inline void r_update_earley_sets(RECCE r) {
+    ES set;
+    ES first_unstacked_earley_set;
+    if (!DSTACK_IS_INITIALIZED(r->t_earley_set_stack)) {
+	first_unstacked_earley_set = First_ES_of_R(r);
+	DSTACK_INIT (r->t_earley_set_stack, ES,
+		 MAX (1024, r->t_next_earley_set_ordinal));
+    } else {
+	 ES* top_of_stack = DSTACK_TOP(r->t_earley_set_stack, ES);
+	 first_unstacked_earley_set = Next_ES_of_ES(*top_of_stack);
+    }
+    for (set = first_unstacked_earley_set; set; set = Next_ES_of_ES(set)) {
+          ES* top_of_stack = DSTACK_PUSH(r->t_earley_set_stack, ES);
+	  (*top_of_stack) = set;
+    }
+}
+
 @** Create the Postdot Items.
 @ This function inserts regular (non-Leo) postdot items into
 the postdot list.
@@ -7831,7 +7903,7 @@ postdot_items_create (struct marpa_r *r, ES current_earley_set)
 {
     gpointer * const pim_workarea = r->t_sym_workarea;
     GRAMMARC g = G_of_R(r);
-    Marpa_Earleme current_earley_set_id = ID_of_ES(current_earley_set);
+    Marpa_Earleme current_earley_set_id = Earleme_of_ES(current_earley_set);
     Bit_Vector bv_pim_symbols = r->t_bv_sym;
     Bit_Vector bv_lim_symbols = r->t_bv_sym2;
     bv_clear (bv_pim_symbols);
@@ -7848,11 +7920,13 @@ postdot_items_create (struct marpa_r *r, ES current_earley_set)
 @ This code creates the Earley indexes in the PIM workarea.
 At this point there are no Leo items.
 @<Start EIXes in PIM workarea@> = {
-    EIM earley_item;
-    for (earley_item = current_earley_set->t_earley_items;
-         earley_item;
-	earley_item = earley_item->t_next)
-    {
+    EIM* work_earley_items = DSTACK_BASE (r->t_eim_work_stack, EIM );
+    gint no_of_work_earley_items = DSTACK_LENGTH (r->t_eim_work_stack );
+    gint ix;
+    for (ix = 0;
+         ix < no_of_work_earley_items;
+	 ix++) {
+	EIM earley_item = work_earley_items[ix];
       AHFA state = AHFA_of_EIM (earley_item);
       gint symbol_ix;
       gint postdot_symbol_count = Postdot_SYM_Count_of_AHFA (state);
@@ -7863,7 +7937,7 @@ At this point there are no Leo items.
 	  PIM old_pim = NULL;
 	  PIM new_pim;
 	  Marpa_Symbol_ID symid;
-	  new_pim = obstack_alloc (&r->t_obs, sizeof (EIXD));
+	  new_pim = obstack_alloc (&r->t_obs, sizeof (EIX_Object));
 	  symid = postdot_symbols[symbol_ix];
 	  LV_Postdot_SYMID_of_PIM(new_pim) = symid;
 	  LV_EIM_of_PIM(new_pim) = earley_item;
@@ -7923,6 +7997,7 @@ once it is populated.
     LV_EIM_of_PIM(new_lim) = NULL;
     LV_Predecessor_LIM_of_LIM(new_lim) = NULL;
     LV_Origin_of_LIM(new_lim) = NULL;
+    LV_Chain_Length_of_LIM(new_lim) = -1;
     LV_Top_AHFA_of_LIM(new_lim) = base_to_ahfa;
     LV_Base_EIM_of_LIM(new_lim) = leo_base;
     LV_ES_of_LIM(new_lim) = current_earley_set;
@@ -8065,7 +8140,7 @@ In a populated LIM, this will not necessarily be the case.
     const AHFA base_to_ahfa = Top_AHFA_of_LIM(lim_to_process);
     const SYMID predecessor_transition_symbol = Leo_LHS_ID_of_AHFA(base_to_ahfa);
     PIM predecessor_pim;
-    if (ID_of_ES(predecessor_set) < current_earley_set_id) {
+    if (Earleme_of_ES(predecessor_set) < current_earley_set_id) {
 	predecessor_pim
 	= First_PIM_of_ES_by_SYMID (predecessor_set, predecessor_transition_symbol);
     } else {
@@ -8154,6 +8229,8 @@ for (lim_chain_ix--; lim_chain_ix >= 0; lim_chain_ix--) {
 @ @<Populate |lim_to_process| from |predecessor_lim|@> = {
 LV_Predecessor_LIM_of_LIM(lim_to_process) = predecessor_lim;
 LV_Origin_of_LIM(lim_to_process) = Origin_of_LIM(predecessor_lim);
+LV_Chain_Length_of_LIM(lim_to_process) = 
+    Chain_Length_of_LIM(lim_to_process)+1;
 LV_Top_AHFA_of_LIM(lim_to_process) = Top_AHFA_of_LIM(predecessor_lim);
 }
 
@@ -8173,6 +8250,7 @@ of the base EIM.
 @<Populate |lim_to_process| from its base Earley item@> = {
   EIM base_eim = Base_EIM_of_LIM(lim_to_process);
   LV_Origin_of_LIM (lim_to_process) = Origin_of_EIM (base_eim);
+  LV_Chain_Length_of_LIM(lim_to_process) =  0;
 }
 
 @ @<Copy PIM workarea to postdot item array@> = {
@@ -8271,6 +8349,7 @@ static gint leo_completion_expand(RECCE r, EIM leo_completion)
 	     @<Unpack values from Leo link@>@;
 	 }
     }
+    earley_set_update_items(r, earley_set_of_this_path);
     r->t_is_leo_expanding = 0;
      /* Turn Earley item "warning threshold exceeded" messages
         back on.  */
@@ -8344,13 +8423,37 @@ gint marpa_leo_completion_expand(struct marpa_r *r)
   return leo_completion_expand(r, item);
 }
 
-@** Evaluation.
-@*0 Preliminary Notes.
+@** Evaluation --- Preliminary Notes.
 Work on the evaluation code is not yet really underway,
 but some relevant notes are by-products of other work.
 These are collected here.
 
-@*1 Statistics on Completed LHS Symbols per AHFA State.
+@*0 Alternate Start Rules.
+Note that a start symbol only works if it is
+on the LHS of just one rule.
+This is not an issue with the main start symbol, because
+Marpa uses an augmented grammar.
+It {\bf is} an issue for alternate start symbols, when
+I implement those, because an arbitrary symbol might be
+on the LHS of several rules.
+
+@ Possibilities:
+\li Require alternate start be specified as a rule, not a symbol.
+\li Allow alternate start symbols, but only if they are on the LHS of a
+single rule.
+I don't like this it it limits the ability of grammar writers
+to do on-the-fly experiments.
+\li Both of the above.  That certainly covers the bases,
+but it is just one more interface
+complication.
+
+@ Note that even when a start rule is supplies, that does
+not necessarily point to an unique Earley item.
+A completed rule can belong to several different AHFA states.
+That could be OK, because even so origin, current earleme
+and the links will all be identical for all such Earley items.
+
+@*0 Statistics on Completed LHS Symbols per AHFA State.
 An AHFA state may contain completions for more than one LHS,
 but that is rare in practical use, and the number of completed
 LHS symbols in the exceptions remains low.
@@ -8371,7 +8474,7 @@ In my HTML test suite,
 14,782 of the AHFA states include one or more completions.
 Not a single one has more than one completed LHS symbol.
 
-@*1 Relationship of Earley Items to Or-Nodes.
+@*0 Relationship of Earley Items to Or-Nodes.
 Several Earley items may be the source of the same or-node,
 but the or-node only keeps track of one.  This is sufficient,
 because the Earley item is tracked by the or-node only for its
@@ -8432,7 +8535,7 @@ The theorem for token source links follows from the EIM Lemma and the
 Token Source Lemma.
 {\bf QED}.
 
-@*1 CHAF Duplicate And-Nodes.
+@*0 CHAF Duplicate And-Nodes.
 There are three ways in which the same and-node can occur multiple
 times as the descendant of a single or-node.
 @ First, an or-node can have several different Earley items as
@@ -8455,7 +8558,7 @@ a dotted rule.
 This happen frequently enough to be an issue even for practical
 grammars.
 
-@*1 CHAF Evaluation.
+@*0 CHAF Evaluation.
 {\it A note from the Perl comments:}
 For efficiency, steps in the CHAF evaluation
 work on a the-last-is-the-rest principle ---
@@ -8465,6 +8568,13 @@ of values, of which the last value is (in turn)
 a reference to an array with the "rest" of the values.
 An empty array signals that there are no more.
 
+@** Evaluation.
+@<Public function prototypes@> =
+void marpa_value(struct marpa_r* r);
+@ @<Function definitions@> =
+void marpa_value(struct marpa_r* r) {
+     r_update_earley_sets(r);
+}
 
 @** Boolean Vectors.
 Marpa's boolean vectors are adapted from
@@ -9103,17 +9213,18 @@ All fields are zeroed so that when the containing object
 is destroyed, the deallocation logic knows that no
 memory has been allocated and therefore no attempt
 to free memory should be made.
+@d DSTACK_IS_INITIALIZED(this) ((this).t_base)
 @d DSTACK_ZERO_INIT(this)
   (((this).t_count = (this).t_capacity = 0), ((this).t_base = NULL))
 
 @ A stack reinitialized by
-|DSTACK_REINIT| contains 0 elements,
+|DSTACK_CLEAR| contains 0 elements,
 but has the same capacity as it had before the reinitialization.
 This saves the cost of reallocating the dstack's buffer,
 and leaves its capacity at what is hopefully
 a stable, high-water mark, which will make future
 resizings unnecessary.
-@d DSTACK_REINIT(this) ((this).t_count = 0)
+@d DSTACK_CLEAR(this) ((this).t_count = 0)
 @d DSTACK_PUSH(this, type)
     (((this).t_count >= (this).t_capacity ? dstack_resize(&(this), sizeof(type)) : 0),
      ((type *)(this).t_base+(this).t_count++))
@@ -9134,7 +9245,7 @@ deallocate the data it now has "stolen".
 @d STOLEN_DSTACK_DATA_FREE(data) ((data) && (g_free(data), 1))
 @d DSTACK_DESTROY(this) STOLEN_DSTACK_DATA_FREE(this.t_base)
 
-@<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_dstack;
 typedef struct s_dstack* DSTACK;
 @ @<Private utility structures@> =
@@ -9169,7 +9280,7 @@ when it needs to free the data.
 @d DQUEUE_END(this) DSTACK_LENGTH(this.t_stack)
 @d STOLEN_DQUEUE_DATA_FREE(data) STOLEN_DSTACK_DATA_FREE(data)
 
-@<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_dqueue;
 typedef struct s_dqueue* DQUEUE;
 @ @<Private structures@> =
@@ -9213,7 +9324,7 @@ Each contains |Size_of_PSL| |gpointer|'s.
 that "owns" this PSL.
 That location will be NULL'ed
 when deallocating.
-@<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_per_earley_set_list;
 typedef struct s_per_earley_set_list *PSL;
 @ @d Sizeof_PSL(psar)
@@ -9229,7 +9340,7 @@ struct s_per_earley_set_list {
 };
 typedef struct s_per_earley_set_list PSL_Object;
 @ The per-Earley-set lists are allcated from per-Earley-set arenas.
-@<Incomplete private structures@> =
+@<Private incomplete structures@> =
 struct s_per_earley_set_arena;
 typedef struct s_per_earley_set_arena *PSAR;
 @ The "dot" PSAR is to track earley items whose origin
@@ -9942,7 +10053,7 @@ So I add such a comment.
 @h
 #include "marpa_obs.h"
 @<Logging domain@>@;
-@<Incomplete private structures@>@;
+@<Private incomplete structures@>@;
 @<Private typedefs@>@;
 @<Private global variables@>@;
 @<Private utility structures@>@;
