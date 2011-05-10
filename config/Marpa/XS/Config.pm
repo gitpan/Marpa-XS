@@ -29,7 +29,6 @@ use warnings;
     'Carp'                => 1.08,
     'Data::Dumper'        => '2.125',
     'Storable'            => 2.21,
-    'Marpa::XS'           => '0.001_020',
     'PPI'                 => '1.206',
     'Test::Weaken'        => '3.004000',
     'Task::Weaken'        => '0',
