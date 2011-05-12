@@ -50,7 +50,7 @@ provides:
     version: 0
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.005_005
+    version: 0.005_006
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
@@ -82,4 +82,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.005_005
+version: 0.005_006
