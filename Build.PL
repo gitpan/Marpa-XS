@@ -27,8 +27,6 @@ use Module::Build;
 use ExtUtils::PkgConfig;
 use Glib::Install::Files;
 
-my $marpa_version = '0.005_004';
-
 use lib File::Spec->catdir('config');
 use Marpa::XS::Build_Me;
 use Marpa::XS::Config;
@@ -48,7 +46,6 @@ my %configure_requires =
 my %requires =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) }
     qw( Scalar::Util List::Util Task::Weaken Carp Data::Dumper ExtUtils::PkgConfig Glib );
-$requires{'Marpa::PP'} = $marpa_version;
 my %recommends =
     map { ( $_, $Marpa::XS::VERSION_FOR_CONFIG{$_} ) } qw( PPI Test::Weaken );
 
@@ -58,7 +55,7 @@ $pod_files{'pod/Marpa_XS.pod'} = 'lib/Marpa/XS.pod';
 my @no_index_namespace_inclusive = (
 
     # not for now, at least
-    qw(Marpa::XS::Perl Marpa::XS::Offset Marpa::XS::Test Marpa::XS::Display ),
+    qw(Marpa::Perl Marpa::Test Marpa::Display ),
 
     # never intended to see the light of day
     qw( Marpa::XS::Internal),
@@ -66,7 +63,8 @@ my @no_index_namespace_inclusive = (
 );
 
 my @files_to_cleanup = (
-    'lib/Marpa/XS/Version.pm', 'lib/Marpa/XS/Perl/Version.pm',
+    'lib/Marpa/XS/Version.pm', 'pperl/Marpa/Perl/Version.pm',
+    'lib/Marpa/XS/Installed.pm', 'pperl/Marpa/Perl/Installed.pm',
     'lib/Marpa/XS.o',          'libmarpa/main/build',
 );
 
@@ -89,7 +87,7 @@ my $build = Marpa::XS::Build_Me->new(
         resources =>
             { repository => 'git://github.com/jeffreykegler/Marpa-XS.git', },
         no_index => {
-            directory => [qw( config inc t html devlib libmarpa author.t )],
+            directory => [qw( pperl config inc t html devlib libmarpa author.t )],
             namespace => [
                 'Marpa::XS::Recognizer', 'Marpa::XS::Grammar',
                 @no_index_namespace_inclusive
@@ -97,23 +95,10 @@ my $build = Marpa::XS::Build_Me->new(
             package => [@no_index_namespace_inclusive],
         }
     },
-    meta_add => {
-        distribution_type => 'module',
-        provides          => {
-            'Marpa::XS' => {
-                file    => 'lib/Marpa/XS.pm',
-                version => $marpa_version,
-            },
-        },
-    },
     pod_files          => \%pod_files,
     create_readme      => 0,
     create_makefile_pl => 'small',
     test_files         => [ map { glob $_ } qw(t/*.t t/shared/*.t) ],
 );
-
-die("Version mismatch in Build.PL: marpa_version=$marpa_version, dist_version=",
-    $build->dist_version()
-) if $marpa_version ne $build->dist_version();
 
 $build->create_build_script;

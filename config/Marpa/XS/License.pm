@@ -216,6 +216,7 @@ my %files_by_type = (
     # Mostly from Andy Lester, leave alone
     'libmarpa/dev/copyright_page_license.w' => \&copyright_page,
     'Makefile.PL'                           => \&trivial,
+    'ppshim/Marpa/PP.pm'                    => \&trivial,
     'html_pp_test.sh'                       => \&trivial,
     'html_xs_test.sh'                       => \&trivial,
     'libmarpa/dist/README'                  => \&trivial,
@@ -242,6 +243,21 @@ sub file_type {
     return $closure if defined $closure;
     my ( $volume, $dirpart, $filepart ) = File::Spec->splitpath($filename);
     my @dirs = grep {length} File::Spec->splitdir($dirpart);
+    return \&license_problems_in_pp_perl_file
+        if scalar @dirs > 1
+            and $dirs[0] eq 'tool'
+	    and $filepart =~ /[.]pm\z/xms;
+    return \&license_problems_in_pp_perl_file
+        if scalar @dirs > 1
+            and $dirs[0] eq 'pperl'
+	    and $filepart =~ /[.]pm\z/xms;
+    return \&license_problems_in_pp_perl_file
+        if scalar @dirs == 4
+            and $dirs[0] eq 'lib'
+            and $dirs[1] eq 'Marpa'
+            and $dirs[2] eq 'XS'
+            and $dirs[3] eq 'PP'
+	    and $filepart =~ /[.]pm\z/xms;
     return \&license_problems_in_pp_perl_file
         if scalar @dirs == 3
             and $dirs[0] eq 't'
