@@ -70,10 +70,6 @@
       }
    },
    "provides" : {
-      "DynaLoader" : {
-         "file" : "lib/Marpa/XS.pm",
-         "version" : 0
-      },
       "Marpa::PP::Internal" : {
          "file" : "lib/Marpa/XS/PP/Internal.pm",
          "version" : 0
@@ -84,7 +80,7 @@
       },
       "Marpa::XS" : {
          "file" : "lib/Marpa/XS.pm",
-         "version" : "0.005_006"
+         "version" : "0.005_007"
       },
       "Marpa::XS::Grammar" : {
          "file" : "lib/Marpa/XS/Grammar.pm",
@@ -117,5 +113,5 @@
          "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
       }
    },
-   "version" : "0.005_006"
+   "version" : "0.005_007"
 }
