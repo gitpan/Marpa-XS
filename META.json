@@ -30,13 +30,19 @@
          "Marpa::Perl",
          "Marpa::Test",
          "Marpa::Display",
-         "Marpa::XS::Internal"
+         "Marpa::XS::Internal",
+         "Marpa::PP",
+         "Marpa::XS::Grammar",
+         "Marpa::XS::Recognizer"
       ],
       "package" : [
          "Marpa::Perl",
          "Marpa::Test",
          "Marpa::Display",
-         "Marpa::XS::Internal"
+         "Marpa::XS::Internal",
+         "Marpa::PP",
+         "Marpa::XS::Grammar",
+         "Marpa::XS::Recognizer"
       ]
    },
    "prereqs" : {
@@ -80,7 +86,7 @@
       },
       "Marpa::XS" : {
          "file" : "lib/Marpa/XS.pm",
-         "version" : "0.005_007"
+         "version" : "0.005_008"
       },
       "Marpa::XS::Grammar" : {
          "file" : "lib/Marpa/XS/Grammar.pm",
@@ -113,5 +119,5 @@
          "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
       }
    },
-   "version" : "0.005_007"
+   "version" : "0.005_008"
 }

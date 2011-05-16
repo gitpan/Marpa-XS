@@ -52,6 +52,7 @@
 \def\Theorem/{{\bf Theorem}}
 \def\Proof/{{\bf Theorem}}
 \def\gsize{\v g\v}
+\def\wsize{\v w\v}
 
 @q Unreserve the C++ keywords @>
 @s asm normal
@@ -710,7 +711,7 @@ But a slower library would be the result.
 typedef struct marpa_g GRAMMARD;
 @ @<Private typedefs@> =
 typedef struct marpa_g* GRAMMAR;
-typedef const struct marpa_g* GRAMMARC;
+typedef const struct marpa_g* GRAMMAR_Const;
 
 @ @<Function definitions@> =
 struct marpa_g* marpa_g_new( void)
@@ -826,21 +827,15 @@ static inline gint rule_count(const struct marpa_g* g) {
 static inline gint rule_count(const struct marpa_g* g);
 
 @ Internal accessor to find a rule by its id.
-@<Function definitions@> =
-static inline RULE
-rule_id2p(const struct marpa_g* g, Marpa_Rule_ID id)
-{ return g_array_index(g->t_rules, RULE, id); }
-@ @<Private function prototypes@> =
-static inline RULE
-rule_id2p(const struct marpa_g* g, Marpa_Rule_ID id);
+@d RULE_by_ID(g, id) (g_array_index((g)->t_rules, RULE, (id)))
 
 @ Adds the rule to the list of rules kept by the Grammar
 object.
 @<Private inline functions@> =
 static inline
-void marpa_g_rule_add(
+void rule_add(
     struct marpa_g *g,
-    Marpa_Rule_ID rule_id,
+    RULEID rule_id,
     RULE rule)
 {
     g_array_insert_val(g->t_rules, (unsigned)rule_id, rule);
@@ -849,21 +844,14 @@ void marpa_g_rule_add(
 }
 
 @ Check that rule is in valid range.
-@<Function definitions@> =
-static inline gint rule_is_valid(
-const struct marpa_g *g, Marpa_Rule_ID rule_id) {
-return rule_id >= 0 && (guint)rule_id < g->t_rules->len;
-}
-@ @<Private function prototypes@> =
-static inline gint rule_is_valid(
-const struct marpa_g *g, Marpa_Rule_ID rule_id);
+@d RULEID_of_G_is_Valid(g, rule_id)
+    ((rule_id) >= 0 && (guint)(rule_id) < (g)->t_rules->len)
 
-@*0 Grammar Start Symbol.
+@*0 Start Symbol.
 @<Int aligned grammar elements@> = Marpa_Symbol_ID t_start_symid;
 @ @<Initialize grammar elements@> =
 g->t_start_symid = -1;
-@ The internal accessor would be trivial, so there is none.
-@<Function definitions@> =
+@ @<Function definitions@> =
 Marpa_Symbol_ID marpa_start_symbol(struct marpa_g* g)
 { return g->t_start_symid; }
 @ @<Public function prototypes@> =
@@ -881,6 +869,16 @@ gboolean marpa_start_symbol_set(struct marpa_g*g, Marpa_Symbol_ID symid)
 }
 @ @<Public function prototypes@> =
 gboolean marpa_start_symbol_set(struct marpa_g*g, Marpa_Symbol_ID id);
+
+@*0 Start Rules.
+These are the start rules, after the grammar is augmented.
+Only one of these needs to be non-NULL.
+@<Int aligned grammar elements@> =
+RULE t_null_start_rule;
+RULE t_proper_start_rule;
+@ @<Initialize grammar elements@> =
+g->t_null_start_rule = NULL;
+g->t_proper_start_rule = NULL;
 
 @*0 The Grammar's Size.
 Intuitively,
@@ -1131,6 +1129,7 @@ Marpa_Error_ID marpa_g_error(const struct marpa_g* g)
 Marpa_Error_ID marpa_g_error(const struct marpa_g* g);
 
 @** Symbol Objects.
+@s Marpa_Symbol_ID int
 @<Public typedefs@> =
 typedef gint Marpa_Symbol_ID;
 @ @<Private incomplete structures@> =
@@ -1555,6 +1554,7 @@ if (cb) { (*cb)(g, id); } }
 static inline void symbol_callback(struct marpa_g *g, Marpa_Symbol_ID id);
 
 @** Rule (RULE) Code.
+@s Marpa_Rule_ID int
 @<Public typedefs@> =
 typedef gint Marpa_Rule_ID;
 @ @<Private structures@> =
@@ -1563,7 +1563,10 @@ struct s_rule {
     @<Bit aligned rule elements@>@/
     @<Final rule elements@>@/
 };
-@ @<Private typedefs@> =
+@
+@s RULE int
+@s RULEID int
+@<Private typedefs@> =
 struct s_rule;
 typedef struct s_rule* RULE;
 typedef Marpa_Rule_ID RULEID;
@@ -1593,7 +1596,7 @@ Marpa_Symbol_ID lhs, Marpa_Symbol_ID *rhs, guint length)
     rule = obstack_alloc(&g->t_obs, rule_sizeof(length));
     @<Initialize rule symbols@>@/
     @<Initialize rule elements@>@/
-    marpa_g_rule_add(g, rule->t_id, rule);
+    rule_add(g, rule->t_id, rule);
     @<Add this rule to the symbol rule lists@>
    return rule;
 }
@@ -1812,9 +1815,9 @@ Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID* rhs_ids, guint length)
     GArray* same_lhs_array = lhs->t_lhs;
     guint same_lhs_count = same_lhs_array->len;
     for (ix = 0; ix < same_lhs_count; ix++) {
-	Marpa_Rule_ID same_lhs_rule_id = ((Marpa_Rule_ID *)(same_lhs_array->data))[ix];
+	RULEID same_lhs_rule_id = ((RULEID *)(same_lhs_array->data))[ix];
 	guint rhs_position;
-	RULE rule = rule_id2p(g, same_lhs_rule_id);
+	RULE rule = RULE_by_ID(g, same_lhs_rule_id);
 	if (rule->t_length != length) { goto RULE_IS_NOT_DUPLICATE; }
 	for (rhs_position = 0; rhs_position < rule->t_length; rhs_position++) {
 	    if (rhs_symid(rule, rhs_position) != rhs_ids[rhs_position]) {
@@ -1976,7 +1979,7 @@ static inline Marpa_Symbol_ID rule_lhs_get(RULE rule);
 Marpa_Symbol_ID marpa_rule_lhs(struct marpa_g *g, Marpa_Rule_ID rule_id) {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-    return rule_lhs_get(rule_id2p(g, rule_id)); }
+    return rule_lhs_get(RULE_by_ID(g, rule_id)); }
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_rule_lhs(struct marpa_g *g, Marpa_Rule_ID rule_id);
 @ @<Function definitions@> =
@@ -1989,7 +1992,7 @@ Marpa_Symbol_ID marpa_rule_rh_symbol(struct marpa_g *g, Marpa_Rule_ID rule_id, g
     RULE rule;
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-    rule = rule_id2p(g, rule_id);
+    rule = RULE_by_ID(g, rule_id);
     if (rule->t_length <= ix) return -1;
     return rhs_symid(rule, ix);
 }
@@ -2004,7 +2007,7 @@ static inline gsize rule_length_get(RULE rule);
 gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id) {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-    return rule_length_get(rule_id2p(g, rule_id)); }
+    return rule_length_get(RULE_by_ID(g, rule_id)); }
 @ @<Public function prototypes@> =
 gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id);
 
@@ -2041,7 +2044,7 @@ For non-sequence rules, this flag should be false.
 rule->t_is_discard = FALSE;
 @ @<Function definitions@> =
 gboolean marpa_rule_is_discard_separation(struct marpa_g* g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->t_is_discard; }
+{ return RULE_by_ID(g, id)->t_is_discard; }
 @ @<Public function prototypes@> =
 gboolean marpa_rule_is_discard_separation(struct marpa_g* g, Marpa_Rule_ID id);
 
@@ -2082,7 +2085,7 @@ gint marpa_rule_is_accessible(struct marpa_g* g, Marpa_Rule_ID rule_id)
     @<Return |-2| on failure@>@;
 RULE  rule;
     @<Fail if grammar |rule_id| is invalid@>@;
-rule = rule_id2p(g, rule_id);
+rule = RULE_by_ID(g, rule_id);
 return rule_is_accessible(g, rule);
 }
 @ @<Private function prototypes@> =
@@ -2106,7 +2109,7 @@ gint marpa_rule_is_productive(struct marpa_g* g, Marpa_Rule_ID rule_id)
     @<Return |-2| on failure@>@;
 RULE  rule;
     @<Fail if grammar |rule_id| is invalid@>@;
-rule = rule_id2p(g, rule_id);
+rule = RULE_by_ID(g, rule_id);
 return rule_is_productive(g, rule);
 }
 @ @<Private function prototypes@> =
@@ -2130,7 +2133,7 @@ gint marpa_rule_is_loop(struct marpa_g* g, Marpa_Rule_ID rule_id)
 {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_is_loop; }
+return RULE_by_ID(g, rule_id)->t_is_loop; }
 @ @<Public function prototypes@> =
 gint marpa_rule_is_loop(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
@@ -2151,7 +2154,7 @@ gint marpa_rule_is_virtual_loop(struct marpa_g* g, Marpa_Rule_ID rule_id)
 {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_is_virtual_loop; }
+return RULE_by_ID(g, rule_id)->t_is_virtual_loop; }
 @ @<Public function prototypes@> =
 gint marpa_rule_is_virtual_loop(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
@@ -2181,7 +2184,7 @@ gint marpa_rule_is_used(struct marpa_g* g, Marpa_Rule_ID rule_id)
 {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_is_used; }
+return RULE_by_ID(g, rule_id)->t_is_used; }
 @ @<Public function prototypes@> =
 gint marpa_rule_is_used(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
@@ -2197,7 +2200,7 @@ gint marpa_rule_is_start(struct marpa_g* g, Marpa_Rule_ID rule_id)
 {
     @<Return |-2| on failure@>@;
     @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_is_start; }
+return RULE_by_ID(g, rule_id)->t_is_start; }
 @ @<Public function prototypes@> =
 gint marpa_rule_is_start(struct marpa_g* g, Marpa_Rule_ID rule_id);
 
@@ -2223,7 +2226,7 @@ rule->t_is_virtual_lhs = FALSE;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_rule_is_virtual_lhs(struct marpa_g* g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->t_is_virtual_lhs; }
+{ return RULE_by_ID(g, id)->t_is_virtual_lhs; }
 @ @<Public function prototypes@> =
 gboolean marpa_rule_is_virtual_lhs(struct marpa_g* g, Marpa_Rule_ID id);
 
@@ -2234,7 +2237,7 @@ rule->t_is_virtual_rhs = FALSE;
 @ The internal accessor would be trivial, so there is none.
 @<Function definitions@> =
 gboolean marpa_rule_is_virtual_rhs(struct marpa_g* g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->t_is_virtual_rhs; }
+{ return RULE_by_ID(g, id)->t_is_virtual_rhs; }
 @ @<Public function prototypes@> =
 gboolean marpa_rule_is_virtual_rhs(struct marpa_g* g, Marpa_Rule_ID id);
 
@@ -2249,7 +2252,7 @@ guint marpa_virtual_start(struct marpa_g *g, Marpa_Rule_ID rule_id)
 {
 @<Return |-2| on failure@>@;
 @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_virtual_start;
+return RULE_by_ID(g, rule_id)->t_virtual_start;
 }
 @ @<Public function prototypes@> =
 guint marpa_virtual_start(struct marpa_g *g, Marpa_Rule_ID rule_id);
@@ -2265,7 +2268,7 @@ guint marpa_virtual_end(struct marpa_g *g, Marpa_Rule_ID rule_id)
 {
 @<Return |-2| on failure@>@;
 @<Fail if grammar |rule_id| is invalid@>@;
-return rule_id2p(g, rule_id)->t_virtual_end;
+return RULE_by_ID(g, rule_id)->t_virtual_end;
 }
 @ @<Public function prototypes@> =
 guint marpa_virtual_end(struct marpa_g *g, Marpa_Rule_ID rule_id);
@@ -2319,7 +2322,7 @@ the ID of the original rule.
 @ @<Initialize rule elements@> = rule->t_original = -1;
 @ @<Function definitions@> =
 Marpa_Rule_ID marpa_rule_original(const struct marpa_g *g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->t_original; }
+{ return RULE_by_ID(g, id)->t_original; }
 @ @<Public function prototypes@> =
 Marpa_Rule_ID marpa_rule_original(const struct marpa_g *g, Marpa_Rule_ID id);
 
@@ -2333,7 +2336,7 @@ the rule has a virtual rhs or a virtual lhs.
 @ @<Initialize rule elements@> = rule->t_real_symbol_count = 0;
 @ @<Function definitions@> =
 guint marpa_real_symbol_count(const struct marpa_g *g, Marpa_Rule_ID id)
-{ return rule_id2p(g, id)->t_real_symbol_count; }
+{ return RULE_by_ID(g, id)->t_real_symbol_count; }
 @ @<Public function prototypes@> =
 guint marpa_real_symbol_count(const struct marpa_g *g, Marpa_Rule_ID id);
 
@@ -2353,7 +2356,7 @@ Otherwise it returns -1.
 @<Function definitions@> =
 Marpa_Rule_ID marpa_rule_semantic_equivalent(struct marpa_g* g, Marpa_Rule_ID id)
 {
-RULE  rewrite_rule = rule_id2p(g, id);
+RULE  rewrite_rule = RULE_by_ID(g, id);
 return rewrite_rule->t_is_semantic_equivalent ? rewrite_rule->t_original : -1; }
 @ @<Public function prototypes@> =
 Marpa_Rule_ID marpa_rule_semantic_equivalent(struct marpa_g* g, Marpa_Rule_ID id);
@@ -2497,7 +2500,7 @@ empty_lhs_v = bv_shadow(lhs_v);
 for (rule_id = 0;
 	rule_id < (Marpa_Rule_ID)pre_rewrite_rule_count;
 	rule_id++) {
-    RULE  rule = rule_id2p(g, rule_id);
+    RULE  rule = RULE_by_ID(g, rule_id);
     Marpa_Symbol_ID lhs_id = LHS_ID_of_PRD(rule);
     bv_bit_set(lhs_v, (guint)lhs_id);
     if (rule->t_length <= 0) {
@@ -2670,7 +2673,7 @@ for (symid = 0; symid < no_of_symbols; symid++) {
 { Marpa_Rule_ID rule_id;
 guint no_of_rules = rule_count(g);
 for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
-     RULE  rule = rule_id2p(g, rule_id);
+     RULE  rule = RULE_by_ID(g, rule_id);
      Marpa_Symbol_ID lhs_id = LHS_ID_of_PRD(rule);
      guint rhs_ix, rule_length = rule->t_length;
      for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
@@ -2785,7 +2788,7 @@ static inline struct marpa_g* CHAF_rewrite(struct marpa_g* g)
      @<Alias proper nullables@>@;
     no_of_rules = rule_count(g);
     for (rule_id = 0; rule_id < no_of_rules; rule_id++) {
-         RULE  rule = rule_id2p(g, rule_id);
+         RULE  rule = RULE_by_ID(g, rule_id);
 	 guint rule_length = rule->t_length;
 	 guint nullable_suffix_ix = 0;
 	 @<Mark and skip unused rules@>@;
@@ -3200,23 +3203,24 @@ if (old_start->t_is_nulling) {
 old_start->t_is_start = 0;
 
 @ @<Set up a new proper start rule@> = {
-RULE  new_start_rule;
-proper_old_start->t_is_start = 0;
-proper_new_start = symbol_new(g);
-proper_new_start_id = proper_new_start->t_id;
-g->t_start_symid = proper_new_start_id;
-proper_new_start->t_is_accessible = TRUE;
-proper_new_start->t_is_productive = TRUE;
-proper_new_start->t_is_start = TRUE;
-g_context_clear(g);
-g_context_int_add(g, "old_start_id", old_start->t_id);
-symbol_callback(g, proper_new_start_id);
-new_start_rule = rule_start(g, proper_new_start_id, &old_start->t_id, 1);
-new_start_rule->t_is_start = 1;
-new_start_rule->t_is_virtual_lhs = 1;
-new_start_rule->t_real_symbol_count = 1;
-new_start_rule->t_is_used = TRUE;
-    rule_callback(g, new_start_rule->t_id);
+  RULE new_start_rule;
+  proper_old_start->t_is_start = 0;
+  proper_new_start = symbol_new (g);
+  proper_new_start_id = proper_new_start->t_id;
+  g->t_start_symid = proper_new_start_id;
+  proper_new_start->t_is_accessible = TRUE;
+  proper_new_start->t_is_productive = TRUE;
+  proper_new_start->t_is_start = TRUE;
+  g_context_clear (g);
+  g_context_int_add (g, "old_start_id", old_start->t_id);
+  symbol_callback (g, proper_new_start_id);
+  new_start_rule = rule_start (g, proper_new_start_id, &old_start->t_id, 1);
+  new_start_rule->t_is_start = 1;
+  new_start_rule->t_is_virtual_lhs = 1;
+  new_start_rule->t_real_symbol_count = 1;
+  new_start_rule->t_is_used = TRUE;
+  g->t_proper_start_rule = new_start_rule;
+  rule_callback (g, new_start_rule->t_id);
 }
 
 @ Set up the new nulling start rule, if the old start symbol was
@@ -3224,31 +3228,35 @@ nulling or had a null alias.  A new nulling start symbol
 must be created.  It is an alias of the new proper start symbol,
 if there is one.  Otherwise it is a new, nulling, symbol.
 @<Set up a new nulling start rule@> = {
-Marpa_Symbol_ID nulling_new_start_id;
-RULE  new_start_rule;
-SYM nulling_new_start;
-if (proper_new_start) { /* There are two start symbols */
-    nulling_new_start = symbol_alias_create(g, proper_new_start);
-    nulling_new_start_id = nulling_new_start->t_id;
-} else { /* The only start symbol is a nulling symbol */
-    nulling_new_start = symbol_new(g);
-    nulling_new_start_id = nulling_new_start->t_id;
-    g->t_start_symid = nulling_new_start_id;
-    nulling_new_start->t_is_nulling = TRUE;
-    nulling_new_start->t_is_nullable = TRUE;
-    nulling_new_start->t_is_productive = TRUE;
-    nulling_new_start->t_is_accessible = TRUE;
-}
-nulling_new_start->t_is_start = TRUE;
-g_context_clear(g);
-g_context_int_add(g, "old_start_id", old_start->t_id);
-symbol_callback(g, nulling_new_start_id);
-new_start_rule = rule_start(g, nulling_new_start_id, 0, 0);
-new_start_rule->t_is_start = 1;
-new_start_rule->t_is_virtual_lhs = 1;
-new_start_rule->t_real_symbol_count = 1;
-new_start_rule->t_is_used = TRUE;
-    rule_callback(g, new_start_rule->t_id);
+  Marpa_Symbol_ID nulling_new_start_id;
+  RULE new_start_rule;
+  SYM nulling_new_start;
+  if (proper_new_start)
+    {				/* There are two start symbols */
+      nulling_new_start = symbol_alias_create (g, proper_new_start);
+      nulling_new_start_id = nulling_new_start->t_id;
+    }
+  else
+    {				/* The only start symbol is a nulling symbol */
+      nulling_new_start = symbol_new (g);
+      nulling_new_start_id = nulling_new_start->t_id;
+      g->t_start_symid = nulling_new_start_id;
+      nulling_new_start->t_is_nulling = TRUE;
+      nulling_new_start->t_is_nullable = TRUE;
+      nulling_new_start->t_is_productive = TRUE;
+      nulling_new_start->t_is_accessible = TRUE;
+    }
+  nulling_new_start->t_is_start = TRUE;
+  g_context_clear (g);
+  g_context_int_add (g, "old_start_id", old_start->t_id);
+  symbol_callback (g, nulling_new_start_id);
+  new_start_rule = rule_start (g, nulling_new_start_id, 0, 0);
+  new_start_rule->t_is_start = 1;
+  new_start_rule->t_is_virtual_lhs = 1;
+  new_start_rule->t_real_symbol_count = 1;
+  new_start_rule->t_is_used = TRUE;
+  g->t_null_start_rule = new_start_rule;
+  rule_callback (g, new_start_rule->t_id);
 }
 
 @** Loops.
@@ -3323,7 +3331,7 @@ unit transitions are not in general reflexive.
 @<Mark direct unit transitions in |unit_transition_matrix|@> = {
 Marpa_Rule_ID rule_id;
 for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
-     RULE  rule = rule_id2p(g, rule_id);
+     RULE  rule = RULE_by_ID(g, rule_id);
      Marpa_Symbol_ID proper_id;
      guint rhs_ix, rule_length;
      if (!rule->t_is_used) continue;
@@ -3365,7 +3373,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
     if (!matrix_bit_test(unit_transition_matrix, (guint)rule_id, (guint)rule_id))
 	continue;
     loop_rule_count++;
-    rule = rule_id2p(g, rule_id);
+    rule = RULE_by_ID(g, rule_id);
     rule->t_is_loop = TRUE;
     rule->t_is_virtual_loop = rule->t_virtual_start < 0 || !rule->t_is_virtual_rhs;
     g_context_clear(g);
@@ -3403,14 +3411,20 @@ in parentheses:
 8   (0.57\%);
 9   (0.19\%); and
 20   (0.19\%).
-As can be seen, well over 90\% of the total discovered states have
+
+@ As can be seen, well over 90\% of the total discovered states have
 just one or two items.
-For the HTML grammars I used, the totals are even more lopsided:
+The average size is 1.5235,
+and the average of the $|size|^2$ is 3.9405.
+
+@ For the HTML grammars I used, the totals are even more lopsided:
 80.96\% of all discovered states have only 1 item.
 All the others (19.04\%) have 2 items.
+The average size is 1.1904,
+and the average of the $|size|^2$ is 1.5712.
 
-The number of predicted states tends to be much more
-evently distributed.
+@ The number of predicted states tends to be much more
+evenly distributed.
 It also tends to be much larger, and
 the average for practical grammars may be $O(s)$,
 where $s$ is the size of the grammar.
@@ -3544,6 +3558,7 @@ if (g->t_AHFA_items_by_rule) { g_free(g->t_AHFA_items_by_rule); };
 
 @*1 Production of AHFA Item.
 @d RULE_of_AIM(item) ((item)->t_production)
+@d RULEID_of_AIM(item) ID_of_RULE(RULE_of_AIM(item))
 @d LV_RULE_of_AIM(item) RULE_of_AIM(item)
 @d LHS_ID_of_AIM(item) (LHS_ID_of_PRD(RULE_of_AIM(item)))
 
@@ -3638,7 +3653,7 @@ static inline void create_AHFA_items(struct marpa_g* g);
 
 @ @<Create the AHFA items for a rule@> =
 guint rhs_ix;
-RULE  rule = rule_id2p(g, rule_id);
+RULE  rule = RULE_by_ID(g, rule_id);
 if (!rule->t_is_used) goto NEXT_RULE;
 for (rhs_ix = 0; rhs_ix < rule->t_length; rhs_ix++) {
      @<Create an AHFA item for a precompletion@>@;
@@ -3828,18 +3843,43 @@ struct s_AHFA_state_key {
 };
 struct s_AHFA_state {
     struct s_AHFA_state_key t_key;
-    AIM* t_items;
     struct s_AHFA_state* t_empty_transition;
     AHFA* t_to_ahfa_ary;
     SYMID* t_complete_symbols;
     @<Widely aligned AHFA state elements@>@;
     @<Int aligned AHFA state elements@>@;
-    guint t_item_count;
     guint t_complete_symbol_count;
-    guint t_is_predict:1;
     guint t_has_completed_start_rule:1;
+    @<Bit aligned AHFA elements@>@;
 };
 typedef struct s_AHFA_state AHFAD;
+
+@*0. AHFA Item Container.
+@ @d AIM_Count_of_AHFA(ahfa) ((ahfa)->t_item_count)
+@ @d LV_AIM_Count_of_AHFA(ahfa) AIM_Count_of_AHFA(ahfa)
+@<Int aligned AHFA state elements@> =
+guint t_item_count;
+@ @d AIMs_of_AHFA(ahfa) ((ahfa)->t_items)
+@d LV_AIMs_of_AHFA(ahfa) AIMs_of_AHFA(ahfa)
+@<Widely aligned AHFA state elements@> =
+AIM* t_items;
+
+@*0. Is AHFA Predicted?.
+@ This boolean indicates whether the
+{\bf AHFA state} is predicted,
+as opposed to whether it contains any predicted 
+AHFA items.
+This makes a difference in AHFA state 0.
+When the null parse is allowed.
+AHFA state 0 will contain an AHFA item
+which is {\bf both} a prediction
+and a completion.
+AHFA state 0 is, however, {\bf never}
+a predicted AHFA state.
+@d AHFA_is_Predicted(ahfa) ((ahfa)->t_is_predict)
+@d LV_AHFA_is_Predicted(ahfa) AHFA_is_Predicted(ahfa)
+@<Bit aligned AHFA elements@> =
+guint t_is_predict:1;
 
 @ @<Private typedefs@> =
 typedef struct s_AHFA_state* AHFA;
@@ -4041,7 +4081,7 @@ gint marpa_AHFA_state_is_predict(struct marpa_g* g,
     @<Fail if grammar not precomputed@>@/
     @<Fail if grammar |AHFA_state_id| is invalid@>@/
     state = AHFA_by_ID(AHFA_state_id);
-    return state->t_is_predict;
+    return AHFA_is_Predicted(state);
 }
 @ @<Public function prototypes@> =
 gint marpa_AHFA_state_is_predict(struct marpa_g* g,
@@ -4072,6 +4112,10 @@ A predicted non-null rule is not a completed rule.
 Therefore only the predicted null start rule
 can be a completed start rule in AHFA state 0.
 \QED/.
+@ @.To Do@> {\bf To Do}:
+This function can probably be eliminated after conversion
+is complete, along with the flag for whether a rule is a start rule
+and the flag for tracking whether an AHFA has a completed start rule.
 
 @<Function definitions@> =
 Marpa_Rule_ID marpa_AHFA_completed_start_rule(struct marpa_g* g,
@@ -4266,7 +4310,7 @@ g_tree_destroy(duplicates);
     p_initial_state->t_items = item_list;
     p_initial_state->t_item_count = no_of_items_in_new_state;
     p_initial_state->t_key.t_id = 0;
-    p_initial_state->t_is_predict = 0;
+    LV_AHFA_is_Predicted(p_initial_state) = 0;
     LV_Leo_LHS_ID_of_AHFA(p_initial_state) = -1;
     p_initial_state->t_to_ahfa_ary = to_ahfa_array_new(g);
     p_initial_state->t_empty_transition = NULL;
@@ -4293,7 +4337,7 @@ g_tree_destroy(duplicates);
 	    p_initial_state->t_complete_symbols =
 	      obstack_alloc (&g->t_obs, sizeof (SYMID));
 	    *(p_initial_state->t_complete_symbols) =
-	      LHS_ID_of_PRD (rule_id2p (g, start_rule_id));
+	      LHS_ID_of_PRD (RULE_by_ID (g, start_rule_id));
 	  }
 	else
 	  {
@@ -4360,7 +4404,7 @@ are either AHFA state 0, or 1-item discovered AHFA states.
 	obstack_alloc (&g->t_obs, sizeof (AIM));
     new_state_item_list[0] = single_item_p;
     p_new_state->t_item_count = 1;
-    p_new_state->t_is_predict = 0;
+    LV_AHFA_is_Predicted(p_new_state) = 0;
     if (AIM_has_Completed_Start_Rule(single_item_p)) {
 	p_new_state->t_has_completed_start_rule = 1;
     } else {
@@ -4495,7 +4539,7 @@ if (queued_AHFA_state)
   }
 // If we added the new state, finish up its data.
 p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE(states, AHFAD);
-p_new_state->t_is_predict=0;
+LV_AHFA_is_Predicted(p_new_state) = 0;
 p_new_state->t_has_completed_start_rule = 0;
 LV_Leo_LHS_ID_of_AHFA(p_new_state) =-1;
 p_new_state->t_to_ahfa_ary = to_ahfa_array_new(g);
@@ -4733,7 +4777,7 @@ calculate |no_of_predictable_rules|@> =
 @ @<Populate |rule_by_sort_key|@> =
 { Marpa_Rule_ID rule_id;
 for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
-    rule_by_sort_key[rule_id] = rule_id2p(g, rule_id);
+    rule_by_sort_key[rule_id] = RULE_by_ID(g, rule_id);
 }
 g_qsort_with_data(rule_by_sort_key, (gint)no_of_rules,
     sizeof(RULE), cmp_by_rule_sort_key,
@@ -4861,7 +4905,7 @@ p_new_state = DQUEUE_PUSH((*states_p), AHFAD);@/
     }
     // The new state was added -- finish up its data
     p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE((*states_p), AHFAD);
-    p_new_state->t_is_predict = 1;
+    LV_AHFA_is_Predicted(p_new_state) = 1;
     p_new_state->t_has_completed_start_rule = 0;
     LV_Leo_LHS_ID_of_AHFA(p_new_state) = -1;
     p_new_state->t_empty_transition = NULL;
@@ -5015,25 +5059,36 @@ Initialized in |marpa_r_new|.
 @ @<Widely aligned recognizer elements@> = const struct marpa_g *t_grammar;
 
 @*0 Recognizer Phase.
+The recognizer has phases, such as "input"
+and "evaluation",
+and states, such as "exhausted".
+The main distinction is that the
+phases are mutually exclusive---%
+entering one means leaving another.
+"Exhausted" is not a phase, because when a parser is
+exhausted it may gone into the evaluation phase, then
+return to the input phase,
+All that time it will remain "exhausted".
 @<Public typedefs@> =
 enum enum_phase {
     no_such_phase = 0, // 0 is never a valid phase
     initial_phase,
-    active_phase,
-    exhausted_phase,
-    finished_phase,
+    input_phase,
+    evaluation_phase,
     error_phase
 };
 typedef enum enum_phase Marpa_Phase;
-@ @<Int aligned recognizer elements@> = 
+@ @d Phase_of_R(r) ((r)->t_phase)
+@d LV_Phase_of_R(r) Phase_of_R(r)
+@<Int aligned recognizer elements@> = 
 Marpa_Phase t_phase;
 @ @<Initialize recognizer elements@> =
-r->t_phase = initial_phase;
+LV_Phase_of_R(r) = initial_phase;
 @ @<Public function prototypes@> =
 Marpa_Phase marpa_phase(struct marpa_r* r);
 @ @<Function definitions@> =
 Marpa_Phase marpa_phase(struct marpa_r* r)
-{ return r->t_phase; }
+{ return Phase_of_R(r); }
 
 @*0 Earley Set Container.
 @d First_ES_of_R(r) ((r)->t_first_earley_set)
@@ -5327,6 +5382,32 @@ struct marpa_r*r, gboolean value)
 @ @<Public function prototypes@> =
 gboolean marpa_is_use_leo_set( struct marpa_r*r, gboolean value);
 
+@*1 Is The Parser Exhausted?.
+A parser is "exhausted" if it cannot accept any more input.
+Both successful and failed parses can be "exhausted".
+In many grammars,
+the parse is always exhausted as soon as it succeeds.
+And even if the parse is exhausted at a point
+where there is no good parse, 
+there may be good parses at earlemes prior to the
+earleme at which the parse became exhausted.
+@d R_is_Exhausted(r) ((r)->t_is_exhausted)
+@d LV_R_is_Exhausted(r) R_is_Exhausted(r)
+@<Bit aligned recognizer elements@> = unsigned int t_is_exhausted:1;
+@ @<Initialize recognizer elements@> = r->t_is_exhausted = 0;
+@ Exhaustion is a boolean, not a phase.
+Once exhausted a parse stays exhausted,
+even though the phase may change.
+@<Public function prototypes@> =
+gboolean marpa_is_exhausted(struct marpa_r* r);
+@ @<Function definitions@> =
+gint marpa_is_exhausted(struct marpa_r* r)
+{
+   @<Return |-2| on failure@>@/
+    @<Fail if recognizer has fatal error@>@;
+    return r->t_is_exhausted ? 1 : 0;
+}
+
 @*1 Is Leo Expansion in Progress?.
 This boolean indicates whether we are in the process of expanding
 Leo items into Earley items.
@@ -5466,12 +5547,7 @@ able to handle.
 
 @** Earley Set (ES) Code.
 @<Public typedefs@> = typedef gint Marpa_Earley_Set_ID;
-@ @<Int aligned recognizer elements@> =
-gint t_next_earley_set_ordinal;
-@ @<Initialize recognizer elements@> =
-r->t_next_earley_set_ordinal = 0;
-@ @d EIM_Count_of_ES(set) ((set)->t_eim_count)
-@d Next_ES_of_ES(set) ((set)->t_next_earley_set)
+@ @d Next_ES_of_ES(set) ((set)->t_next_earley_set)
 @d LV_Next_ES_of_ES(set) Next_ES_of_ES(set)
 @d Postdot_SYM_Count_of_ES(set) ((set)->t_postdot_sym_count)
 @d First_PIM_of_ES_by_SYMID(set, symid) (first_pim_of_es_by_symid((set), (symid)))
@@ -5479,6 +5555,7 @@ r->t_next_earley_set_ordinal = 0;
 @<Private incomplete structures@> =
 struct s_earley_set;
 typedef struct s_earley_set *ES;
+typedef const struct s_earley_set *ES_Const;
 struct s_earley_set_key;
 typedef struct s_earley_set_key *ESK;
 @ @<Private structures@> =
@@ -5486,28 +5563,49 @@ struct s_earley_set_key {
     EARLEME t_earleme;
 };
 typedef struct s_earley_set_key ESK_Object;
-@
-@d EIMs_of_ES(set) ((set)->t_earley_items)
-@d EIM_Count_of_ES(set) ((set)->t_eim_count)
-@d Ord_of_ES(set) ((set)->t_ordinal)
-@<Private structures@> =
+@ @<Private structures@> =
 struct s_earley_set {
     ESK_Object t_key;
     gint t_postdot_sym_count;
-    gint t_eim_count;
-    gint t_ordinal;
-    EIM* t_earley_items;
+    @<Int aligned Earley set elements@>@;
     union u_postdot_item** t_postdot_ary;
     ES t_next_earley_set;
     @<Widely aligned Earley set elements@>@/
 };
 
+@*0 Earley Item Container.
+@d EIM_Count_of_ES(set) ((set)->t_eim_count)
+@d LV_EIM_Count_of_ES(set) EIM_Count_of_ES(set)
+@<Int aligned Earley set elements@> =
+gint t_eim_count;
+@ @d EIMs_of_ES(set) ((set)->t_earley_items)
+@d LV_EIMs_of_ES(set) EIMs_of_ES(set)
+@<Widely aligned Earley set elements@> =
+EIM* t_earley_items;
+
+@*0 Ordinal.
+The ordinal of the Earley set---
+its number in sequence.
+It is different from the earleme, because there may be
+gaps in the earleme sequence.
+There are never gaps in the sequence of ordinals.
+@d ES_Count_of_R(r) ((r)->t_earley_set_count)
+@d Ord_of_ES(set) ((set)->t_ordinal)
+@<Int aligned Earley set elements@> =
+    gint t_ordinal;
+@ @d ES_Ord_is_Valid(r, ordinal)
+    ((ordinal) >= 0 && (ordinal) < ES_Count_of_R(r))
+@<Int aligned recognizer elements@> =
+gint t_earley_set_count;
+@ @<Initialize recognizer elements@> =
+r->t_earley_set_count = 0;
+
 @*0 Constructor.
 @<Private function prototypes@> =
-static inline ES earley_set_new (RECCE r, Marpa_Earleme id);
+static inline ES earley_set_new (RECCE r, EARLEME id);
 @ @<Function definitions@> =
 static inline ES
-earley_set_new( RECCE r, Marpa_Earleme id)
+earley_set_new( RECCE r, EARLEME id)
 {
   ESK_Object key;
   ES set;
@@ -5516,9 +5614,9 @@ earley_set_new( RECCE r, Marpa_Earleme id)
   set->t_key = key;
   set->t_postdot_ary = NULL;
   set->t_postdot_sym_count = 0;
-  set->t_eim_count = 0;
-  set->t_ordinal = r->t_next_earley_set_ordinal++;
-  set->t_earley_items = NULL;
+  LV_EIM_Count_of_ES(set) = 0;
+  set->t_ordinal = r->t_earley_set_count++;
+  LV_EIMs_of_ES(set) = NULL;
   LV_Next_ES_of_ES(set) = NULL;
   @<Initialize Earley set PSL data@>@/
   return set;
@@ -5530,8 +5628,8 @@ earley_set_new( RECCE r, Marpa_Earleme id)
   ES set;
   for (set = First_ES_of_R (r); set; set = Next_ES_of_ES (set))
     {
-      if (set->t_earley_items)
-	g_free (set->t_earley_items);
+      if (EIMs_of_ES(set))
+	g_free (EIMs_of_ES(set));
     }
 }
 
@@ -5550,9 +5648,6 @@ The two may coincide, but should not be confused.
 struct s_earley_set* t_trace_earley_set;
 @ @<Initialize recognizer elements@> =
 r->t_trace_earley_set = NULL;
-
-@ @<Clear trace earley set data@> =
-      r->t_trace_earley_set = NULL;
 
 @ @<Public function prototypes@> =
 Marpa_Earleme marpa_trace_earleme(struct marpa_r *r);
@@ -5595,7 +5690,7 @@ Marpa_Earleme marpa_earleme(struct marpa_r* r, Marpa_Earley_Set_ID set_id)
     if (set_id >= DSTACK_LENGTH(r->t_earley_set_stack)) {
         return es_does_not_exist;
     }
-    earley_set_p = ES_of_R_by_Ord(r, set_id);
+    earley_set_p = P_ES_of_R_by_Ord(r, set_id);
     return Earleme_of_ES(*earley_set_p);
 }
 
@@ -5665,7 +5760,7 @@ the Earley set.
 @d Earleme_of_EIM(item) Earleme_of_ES(ES_of_EIM(item))
 @d AHFAID_of_EIM(item) (ID_of_AHFA(AHFA_of_EIM(item)))
 @d AHFA_of_EIM(item) ((item)->t_key.t_state)
-@d Origin_ID_of_EIM(item) (Earleme_of_ES(Origin_of_EIM(item)))
+@d Origin_Earleme_of_EIM(item) (Earleme_of_ES(Origin_of_EIM(item)))
 @d Origin_of_EIM(item) ((item)->t_key.t_origin)
 @<Private incomplete structures@> =
 struct s_earley_item;
@@ -5705,7 +5800,7 @@ static inline EIM earley_item_create(const RECCE r,
   EIM new_item;
   EIM* top_of_work_stack;
   const ES set = key.t_set;
-  const guint count = ++set->t_eim_count;
+  const guint count = ++LV_EIM_Count_of_ES(set);
   @<Check count against Earley item thresholds@>@;
   new_item = obstack_alloc (&r->t_obs, sizeof (*new_item));
   new_item->t_key = key;
@@ -5820,7 +5915,7 @@ static inline gint earley_item_cmp (gconstpointer ap,
     AHFAID_of_EIM (eim_a) -
     AHFAID_of_EIM (eim_b);
   if (subkey) return subkey;
-  return Origin_ID_of_EIM (eim_a) - Origin_ID_of_EIM (eim_b);
+  return Origin_Earleme_of_EIM (eim_a) - Origin_Earleme_of_EIM (eim_b);
 }
 
 @*0 Source of the Earley Item.
@@ -5912,7 +6007,7 @@ marpa_old_earley_item_trace (struct marpa_r *r,
   ES origin_set;
   EIM item;
   EIK_Object item_key;
-  GRAMMARC g = G_of_R(r);
+  GRAMMAR_Const g = G_of_R(r);
   @<Fail if recognizer initial@>@;
   trace_source_link_clear(r);
   if (!current_set) {
@@ -5929,7 +6024,7 @@ marpa_old_earley_item_trace (struct marpa_r *r,
         R_ERROR("origin es does not exist");
         return failure_indicator;
     }
-  origin_set = *(ES_of_R_by_Ord (r, origin_set_id));
+  origin_set = ES_of_R_by_Ord (r, origin_set_id);
   if (!origin_set) {
       @<Clear trace Earley item data@>@;
       R_ERROR("origin es not found");
@@ -5996,7 +6091,7 @@ marpa_earley_set_trace (struct marpa_r *r, Marpa_Earley_Set_ID set_id)
       {
 	return es_does_not_exist;
       }
-    earley_set = *(ES_of_R_by_Ord (r, set_id));
+    earley_set = ES_of_R_by_Ord (r, set_id);
   r->t_trace_earley_set = earley_set;
   return Earleme_of_ES(earley_set);
 }
@@ -6075,7 +6170,7 @@ Marpa_Earleme marpa_earley_item_origin(struct marpa_r *r)
       R_ERROR("no trace eim");
       return failure_indicator;
   }
-  return Origin_ID_of_EIM(item);
+  return Origin_Earleme_of_EIM(item);
 }
 
 @** Earley Index (EIX) Code.
@@ -6193,7 +6288,7 @@ Marpa_Earleme marpa_leo_base_origin(struct marpa_r *r)
   }
   if (EIM_of_PIM(postdot_item)) return pim_is_not_a_leo_item;
   base_earley_item = Base_EIM_of_LIM(LIM_of_PIM(postdot_item));
-  return Origin_ID_of_EIM(base_earley_item);
+  return Origin_Earleme_of_EIM(base_earley_item);
 }
 
 @ @<Private function prototypes@> =
@@ -7099,7 +7194,7 @@ static inline void trace_source_link_clear(struct marpa_r* r) {
 @*1 Return the Predecessor AHFA State.
 Returns the predecessor AHFA State,
 or -1 if there is no predecessor.
-If the recognizer is not active,
+If the recognizer is trace-safe,
 there is no trace source link,
 the trace source link is a Leo source,
 or there is some other failure,
@@ -7136,7 +7231,7 @@ containing a source will always be over exactly one symbol.
 In the case of a Leo source, this symbol will be
 the Leo transition symbol.
 @ Returns the symbol ID of the Leo transition symbol.
-If the recognizer is not active,
+If the recognizer is not trace-safe,
 if there is no trace source link,
 if the trace source link is not a Leo source,
 or there is some other failure,
@@ -7228,7 +7323,7 @@ gboolean marpa_source_token_value(struct marpa_r* r, gpointer* value_p);
 writes the value of the token into |value_p|.
 On failure, returns |FALSE|.
 Possible failures include
-the recognizer not being active,
+the recognizer not being trace-safe,
 there being no source link,
 and the source link not being a token link.
 @<Function definitions@> =
@@ -7414,7 +7509,7 @@ static inline gint alternative_insert(RECCE r, ALT new_alternative)
     EIM item;
     EIK_Object key;
     AHFA state;
-    GRAMMARC g = G_of_R(r);
+    GRAMMAR_Const g = G_of_R(r);
     const gint symbol_count_of_g = SYM_Count_of_G(g);
     @<Return |FALSE| on failure@>@;
     @<Fail if recognizer not initial@>@;
@@ -7422,7 +7517,7 @@ static inline gint alternative_insert(RECCE r, ALT new_alternative)
     psar_reset(Dot_PSAR_of_R(r));
     @<Allocate recognizer's bit vectors for symbols@>@;
     @<Initialize Earley item work stacks@>@;
-    r->t_phase = active_phase;
+    LV_Phase_of_R(r) = input_phase;
     LV_Current_Earleme_of_R(r) = 0;
     set0 = earley_set_new(r, 0);
     LV_Latest_ES_of_R(r) = set0;
@@ -7502,7 +7597,8 @@ Marpa_Symbol_ID token_id, void *token_value, gint length) {
     ES current_earley_set;
     const EARLEME current_earleme = Current_Earleme_of_R(r);
     EARLEME target_earleme;
-    @<Fail if recognizer not active@>@;
+    @<Fail if recognizer not in input phase@>@;
+    @<Fail if recognizer exhausted@>@;
     @<|marpa_alternative| initial check for failure conditions@>@;
     @<Set |current_earley_set|, failing if token is unexpected@>@;
     @<Set |target_earleme| or fail@>@;
@@ -7659,7 +7755,7 @@ marpa_earleme_complete(struct marpa_r* r)
       { /* If no terminals are expected, and there are no Earley items in
            uncompleted Earley sets, we can make no further progress.
 	   The parse is "exhausted". */
-	r->t_phase = exhausted_phase;
+	LV_R_is_Exhausted(r) = 1;
       }
     earley_set_update_items(r, current_earley_set);
     return count_of_expected_terminals;
@@ -7669,7 +7765,7 @@ marpa_earleme_complete(struct marpa_r* r)
   current_earleme = ++(LV_Current_Earleme_of_R(r));
   if (current_earleme > Furthest_Earleme_of_R (r))
     {
-	r->t_phase = exhausted_phase;
+	LV_R_is_Exhausted(r) = 1;
 	R_ERROR("parse exhausted");
 	return failure_indicator;
      }
@@ -7840,12 +7936,12 @@ static inline void earley_set_update_items(RECCE r, ES set) {
     EIM* finished_earley_items;
     gint working_earley_item_count;
     gint i;
-    if (!set->t_earley_items) {
-        set->t_earley_items = g_new(EIM, set->t_eim_count);
+    if (!EIMs_of_ES(set)) {
+        EIMs_of_ES(set) = g_new(EIM, EIM_Count_of_ES(set));
     } else {
-        set->t_earley_items = g_renew(EIM, set->t_earley_items, set->t_eim_count);
+        EIMs_of_ES(set) = g_renew(EIM, EIMs_of_ES(set), EIM_Count_of_ES(set));
     }
-    finished_earley_items = set->t_earley_items;
+    finished_earley_items = EIMs_of_ES(set);
     working_earley_items = Work_EIMs_of_R(r);
     working_earley_item_count = Work_EIM_Count_of_R(r);
     for (i = 0; i < working_earley_item_count; i++) {
@@ -7858,7 +7954,8 @@ static inline void earley_set_update_items(RECCE r, ES set) {
 
 @ @<Private function prototypes@> =
 static inline void r_update_earley_sets(RECCE r);
-@ @d ES_of_R_by_Ord(r, ord) DSTACK_INDEX((r)->t_earley_set_stack, ES, (ord))
+@ @d P_ES_of_R_by_Ord(r, ord) DSTACK_INDEX((r)->t_earley_set_stack, ES, (ord))
+@d ES_of_R_by_Ord(r, ord) (*P_ES_of_R_by_Ord((r), (ord)))
 @<Function definitions@> =
 static inline void r_update_earley_sets(RECCE r) {
     ES set;
@@ -7866,7 +7963,7 @@ static inline void r_update_earley_sets(RECCE r) {
     if (!DSTACK_IS_INITIALIZED(r->t_earley_set_stack)) {
 	first_unstacked_earley_set = First_ES_of_R(r);
 	DSTACK_INIT (r->t_earley_set_stack, ES,
-		 MAX (1024, r->t_next_earley_set_ordinal));
+		 MAX (1024, ES_Count_of_R(r)));
     } else {
 	 ES* top_of_stack = DSTACK_TOP(r->t_earley_set_stack, ES);
 	 first_unstacked_earley_set = Next_ES_of_ES(*top_of_stack);
@@ -7902,7 +7999,7 @@ static void
 postdot_items_create (struct marpa_r *r, ES current_earley_set)
 {
     gpointer * const pim_workarea = r->t_sym_workarea;
-    GRAMMARC g = G_of_R(r);
+    GRAMMAR_Const g = G_of_R(r);
     Marpa_Earleme current_earley_set_id = Earleme_of_ES(current_earley_set);
     Bit_Vector bv_pim_symbols = r->t_bv_sym;
     Bit_Vector bv_lim_symbols = r->t_bv_sym2;
@@ -8558,22 +8655,176 @@ a dotted rule.
 This happen frequently enough to be an issue even for practical
 grammars.
 
-@*0 CHAF Evaluation.
-{\it A note from the Perl comments:}
-For efficiency, steps in the CHAF evaluation
-work on a the-last-is-the-rest principle ---
-productions
-with a CHAF head always return reference to an array
-of values, of which the last value is (in turn)
-a reference to an array with the "rest" of the values.
-An empty array signals that there are no more.
-
 @** Evaluation.
+I am frankly not quite sure what the return value of this function should be.
+It is basically pass/fail, but some other information might be useful.
 @<Public function prototypes@> =
-void marpa_value(struct marpa_r* r);
+gint marpa_eval_setup(struct marpa_r* r, Marpa_Rule_ID rule_id, Marpa_Earley_Set_ID ordinal);
 @ @<Function definitions@> =
-void marpa_value(struct marpa_r* r) {
-     r_update_earley_sets(r);
+gint marpa_eval_setup(struct marpa_r* r, Marpa_Rule_ID rule_id, Marpa_Earley_Set_ID ordinal) {
+    const gint no_parse = -1;
+    @<Bocage setup locals@>@;
+    r_update_earley_sets(r);
+    obstack_init(&bocage_setup_obs);
+    @<Return if function guards fail;
+	set |end_of_parse_es| and |completed_start_rule|@>@;
+    @<Find |start_eim|@>@;
+    LV_Phase_of_R(r) = evaluation_phase;
+    obstack_init(&bocage_setup_obs);
+    @<Allocate bocage setup working data@>@;
+    @<Traverse Earley sets to create bocage@>@;
+    @<Deallocate bocage setup working data@>@;
+    obstack_free(&bocage_setup_obs, NULL);
+    return 1; // For now, just return 1
+}
+
+@ @<Bocage setup locals@> =
+@<Return |-2| on failure@>@;
+const GRAMMAR_Const g = G_of_R(r);
+ES end_of_parse_es;
+RULE completed_start_rule;
+EIM start_eim = NULL;
+struct s_per_es_data {
+     Bit_Vector was_earley_item_stacked;
+};
+struct s_per_es_data* per_es_data = NULL;
+struct obstack bocage_setup_obs;
+
+@ @<Return if function guards fail;
+set |end_of_parse_es| and |completed_start_rule|@> =
+{
+    EARLEME end_of_parse_earleme;
+    @<Fail if recognizer has fatal error@>@;
+    switch (Phase_of_R (r))
+      {
+      default:
+	R_ERROR ("recce not evaluation-ready");
+	return failure_indicator;
+      case input_phase:
+      case evaluation_phase:
+	break;
+      }
+
+    if (ordinal == -1)
+      {
+	end_of_parse_es = Current_ES_of_R (r);
+      }
+    else
+      {				// ordinal != -1
+	if (!ES_Ord_is_Valid (r, ordinal))
+	  {
+	    R_ERROR ("invalid es ordinal");
+	    return failure_indicator;
+	  }
+	end_of_parse_es = ES_of_R_by_Ord (r, ordinal);
+      }
+
+    if (!end_of_parse_es)
+      return no_parse;
+    end_of_parse_earleme = Earleme_of_ES (end_of_parse_es);
+    if (rule_id == -1) {
+	completed_start_rule =
+	  end_of_parse_earleme ? g->t_proper_start_rule : g->t_null_start_rule;
+	if (!completed_start_rule)
+	  return no_parse;
+    } else {
+      if (!RULEID_of_G_is_Valid (g, rule_id))
+	{
+	  R_ERROR ("invalid rule id");
+	  return failure_indicator;
+	}
+      completed_start_rule = RULE_by_ID (g, rule_id);
+    }
+}
+
+@ @<Allocate bocage setup working data@>=
+{
+  guint ix;
+  guint total_earley_items_in_parse = 0;
+  guint earley_set_count = ES_Count_of_R (r);
+  per_es_data =
+    obstack_alloc (&bocage_setup_obs,
+		   sizeof (struct s_per_es_data) * earley_set_count);
+  for (ix = 0; ix < earley_set_count; ix++)
+    {
+      const ES_Const earley_set = ES_of_R_by_Ord (r, ix);
+      const guint item_count = EIM_Count_of_ES (earley_set);
+      total_earley_items_in_parse += item_count;
+      per_es_data[ix].was_earley_item_stacked =
+	bv_obs_create (&bocage_setup_obs, item_count);
+    }
+}
+
+@ @<Traverse Earley sets to create bocage@>= {
+;
+}
+
+@ @<Deallocate bocage setup working data@>= {
+;
+}
+
+@ Predicted AFHA states can be skipped since they
+contain no completions.
+Note that AFHA state 0 is not marked as a predicted AHFA state,
+even though it can contain a predicted AHFA item.
+@ A linear search of the AHFA items is used.
+As shown elsewhere in this document,
+discovered AHFA states for practical grammars tend to be
+very small---%
+less than two AHFA items.
+Size of the AHFA state is a function of the grammar, so
+any reasonable search is $O(1)$ in terms of the length of
+the input.
+@ The search for the start Earley item is done once
+per parse---%
+$O(s)$, where $s$ is the size of the end of parse Earley set.
+This makes it very hard to justify any precomputations to
+help the search, because if they have to be done once per
+Earley set, that is a $O(\wsize \cdot s')$ overhead,
+where $\wsize$ is the length of the input, and where
+$s'$ is the average size of an Earley set.
+It is hard to believe that for practical grammars
+that $O(\wsize \cdot s') <= O(s)$, which
+is what it would take for any per-Earley set overhead
+to make sense.
+@<Find |start_eim|@> =
+{
+    gint eim_ix;
+    EIM* const earley_items = EIMs_of_ES(end_of_parse_es);
+    const RULEID sought_rule_id = ID_of_RULE(completed_start_rule);
+    const gint earley_item_count = EIM_Count_of_ES(end_of_parse_es);
+    for (eim_ix = 0; eim_ix < earley_item_count; eim_ix++) {
+        const EIM earley_item = earley_items[eim_ix];
+	const AHFA ahfa_state = AHFA_of_EIM(earley_item);
+	if (Origin_Earleme_of_EIM(earley_item) > 0) continue; // Not a start EIM
+	if (!AHFA_is_Predicted(ahfa_state)) {
+	    gint aim_ix;
+	    AIM* const ahfa_items = AIMs_of_AHFA(ahfa_state);
+	    const gint ahfa_item_count = AIM_Count_of_AHFA(ahfa_state);
+	    for (aim_ix = 0; aim_ix < ahfa_item_count; aim_ix++) {
+		 const AIM ahfa_item = ahfa_items[aim_ix];
+	         if (RULEID_of_AIM(ahfa_item) == sought_rule_id) {
+		      start_eim = earley_item;
+		      break;
+		 }
+	    }
+	}
+	if (start_eim) break;
+    }
+}
+
+@ @<Public function prototypes@> =
+gint marpa_eval_clear(struct marpa_r* r);
+@ @<Function definitions@> =
+gint marpa_eval_clear(struct marpa_r* r) {
+    @<Return |-2| on failure@>@;
+    @<Fail if recognizer has fatal error@>@;
+    if (Phase_of_R(r) != evaluation_phase) {
+	R_ERROR("recce not being evaluated");
+	return failure_indicator;
+    }
+    LV_Phase_of_R(r) = input_phase;
+    return 1; // For now, just return 1
 }
 
 @** Boolean Vectors.
@@ -8619,7 +8870,9 @@ static inline guint bv_bits_to_unused_mask(guint bits)
 static inline guint bv_bits_to_unused_mask(guint bits);
 
 @*0 Create a Boolean Vector.
-Always start with an all-zero vector.
+@<Private function prototypes@> =
+static inline Bit_Vector bv_create(guint bits);
+@ Always start with an all-zero vector.
 Note this code is a bit tricky ---
 the pointer returned is to the data.
 This is offset from the |g_malloc|'d space,
@@ -8635,8 +8888,32 @@ static inline Bit_Vector bv_create(guint bits)
     *addr++ = bv_bits_to_unused_mask(bits);
     return addr;
 }
-@ @<Private function prototypes@> =
-static inline Bit_Vector bv_create(guint bits);
+
+@*0 Create a Boolean Vector on an Obstack.
+@<Private function prototypes@> =
+static inline Bit_Vector bv_obs_create(struct obstack *obs, guint bits);
+@ Always start with an all-zero vector.
+Note this code is a bit tricky ---
+the pointer returned is to the data.
+This is offset from the |g_malloc|'d space,
+by |bv_hiddenwords|.
+@<Function definitions@> =
+static inline Bit_Vector
+bv_obs_create (struct obstack *obs, guint bits)
+{
+  guint size = bv_bits_to_size (bits);
+  guint bytes = (size + bv_hiddenwords) << sizeof (guint);
+  guint *addr = (Bit_Vector) obstack_alloc (obs, (size_t) bytes);
+  *addr++ = bits;
+  *addr++ = size;
+  *addr++ = bv_bits_to_unused_mask (bits);
+  if (size > 0) {
+      Bit_Vector bv = addr;
+      while (size--) *bv++ = 0u;
+  }
+  return addr;
+}
+
 
 @*0 Shadow a Boolean Vector.
 Create another vector the same size as the original, but with
@@ -8969,7 +9246,7 @@ rhs_closure (struct marpa_g *g, Bit_Vector bv)
 	{
 	  Marpa_Rule_ID rule_id =
 	    g_array_index (rules, Marpa_Rule_ID, rule_ix);
-	  RULE rule = rule_id2p (g, rule_id);
+	  RULE rule = RULE_by_ID (g, rule_id);
 	  guint rule_length;
 	  guint rh_ix;
 	  Marpa_Symbol_ID lhs_id = LHS_ID_of_PRD (rule);
@@ -9687,7 +9964,7 @@ if (!symbol_is_valid(g, symid)) {
     return failure_indicator;
 }
 @ @<Fail if grammar |rule_id| is invalid@> =
-if (!rule_is_valid(g, rule_id)) {
+if (!RULEID_of_G_is_Valid(g, rule_id)) {
     g_context_clear(g);
     g_context_int_add(g, "rule_id", rule_id);
     g->t_error = "invalid rule id";
@@ -9724,32 +10001,36 @@ if (sizeof(gint) != g_array_get_element_size(result)) {
 |r| is assumed to be the value of the relevant recognizer,
 when one is required.
 @<Fail if recognizer not initial@> =
-if (r->t_phase != initial_phase) {
+if (Phase_of_R(r) != initial_phase) {
     R_ERROR("not initial recce phase");
     return failure_indicator;
 }
 @ @<Fail if recognizer initial@> =
-if (r->t_phase == initial_phase) {
+if (Phase_of_R(r) == initial_phase) {
     R_ERROR("initial recce phase");
     return failure_indicator;
 }
-@ @<Fail if recognizer not active@> =
-if (r->t_phase != active_phase) {
-    R_ERROR("recce not active");
+@ @<Fail if recognizer exhausted@> =
+if (R_is_Exhausted(r)) {
+    R_ERROR("recce exhausted");
+    return failure_indicator;
+}
+@ @<Fail if recognizer not in input phase@> =
+if (Phase_of_R(r) != input_phase) {
+    R_ERROR("recce not in input phase");
     return failure_indicator;
 }
 @ @<Fail recognizer if not trace-safe@> =
-switch (r->t_phase) {
+switch (Phase_of_R(r)) {
 default:
     R_ERROR("recce not trace-safe");
     return failure_indicator;
-case active_phase:
-case exhausted_phase:
-case finished_phase:
+case input_phase:
+case evaluation_phase:
 break;
 }
 @ @<Fail if recognizer has fatal error@> =
-if (r->t_phase == error_phase) {
+if (Phase_of_R(r) == error_phase) {
     R_ERROR(r->t_fatal_error);
     return failure_indicator;
 }
@@ -9980,7 +10261,7 @@ static inline gchar*
 eim_tag (gchar *buffer, EIM eim)
 {
   sprintf (buffer, "S%d@@%d-%d",
-	   AHFAID_of_EIM (eim), Origin_ID_of_EIM (eim), Earleme_of_EIM (eim));
+	   AHFAID_of_EIM (eim), Origin_Earleme_of_EIM (eim), Earleme_of_EIM (eim));
 	return buffer;
 }
 #endif

@@ -15,49 +15,53 @@
 
 =head1 NAME
 
-Marpa::XS - XS extension of Marpa
-
-=head1 SYNOPSIS
-
-=for Marpa::XS::Display
-name: Engine Synopsis Unambiguous Parse
-normalize-whitespace: 1
-
-    use Marpa::XS;
-
-=for Marpa::XS::Display::End
+Marpa::XS::Support - Marpa::XS Support, and How to Report Bugs
 
 =head1 DESCRIPTION
 
-=head2 This is ALPHA software
+Marpa::XS is free software.
+There is no warranty.
 
-This is B<alpha> software.
-There may be bugs. The interface may change.
-Please be careful.
-Do not rely
-on it for anything mission-critical.
+=head1 BUGS
 
-=head2 Where is the Documentation?
-
-L<Marpa::XS|http://search.cpan.org/dist/Marpa-PP/>
-is the XS extension of
-L<Marpa::PP|http://search.cpan.org/dist/Marpa-PP/>.
-Usage is the same, and the two modules
-share the same documentation.
-To avoid duplication,
-the documentation is not kept here.
-The documentation for both
-Marpa::XS and Marpa::PP can be found in the
-L<Marpa::PP|http://search.cpan.org/dist/Marpa-PP/>
-module.
+Please report any bugs or feature requests to
+C<bug-marpa-xs at rt.cpan.org>, or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Marpa::XS>.
+I will be notified, and then you'll automatically be notified of progress on
+your bug as I make changes.
 
 =head1 SUPPORT
 
-L<Marpa::XS> comes without warranty.
-Support is provided
-on a volunteer basis 
-through the standard mechanisms for CPAN modules.
-L<The Support document|Marpa::XS::Support> has details.
+You can find documentation for this module with the perldoc command.
+
+=for Marpa::XS::Display
+ignore: 1
+
+    perldoc Marpa::XS
+
+=for Marpa::XS::Display::End
+    
+You can also look for information at:
+
+=over 4
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Marpa-XS>
+
+=item * RT: CPAN's request tracker
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Marpa-XS>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Marpa-XS>
+
+=back
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -82,11 +86,4 @@ ignore: 1
 =for Marpa::XS::Display::End
 
 =cut
-
-# Local Variables:
-#   mode: cperl
-#   cperl-indent-level: 4
-#   fill-column: 100
-# End:
-# vim: expandtab shiftwidth=4:
 

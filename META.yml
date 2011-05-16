@@ -33,11 +33,17 @@ no_index:
     - Marpa::Test
     - Marpa::Display
     - Marpa::XS::Internal
+    - Marpa::PP
+    - Marpa::XS::Grammar
+    - Marpa::XS::Recognizer
   package:
     - Marpa::Perl
     - Marpa::Test
     - Marpa::Display
     - Marpa::XS::Internal
+    - Marpa::PP
+    - Marpa::XS::Grammar
+    - Marpa::XS::Recognizer
 provides:
   Marpa::PP::Internal:
     file: lib/Marpa/XS/PP/Internal.pm
@@ -47,7 +53,7 @@ provides:
     version: 0
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.005_007
+    version: 0.005_008
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
@@ -79,4 +85,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.005_007
+version: 0.005_008
