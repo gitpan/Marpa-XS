@@ -171,6 +171,240 @@ The more trouble I had understanding an issue,
 and writing the code,
 the more thorough the documentation.
 
+@** Design.
+@*0 Layers.
+|libmarpa|, the library described in this document, is intended as the bottom of potentially
+four layers.
+The layers are, from low to high
+\li |libmarpa|
+\li The glue layer
+\li The wrapper layer
+\li The application
+
+This glue layer will be in C and will call the |libmarpa| routines
+in a way that makes them compatible with another language.
+I expect this will usually be a 4GL (4th generation language),
+such as Perl.
+One example of a glue description lanuage is SWIG.
+Another is Perl XS, and currently that is
+the only glue layer implemented for |libmarpa|.
+
+|libmarpa| itself is not enormously user-
+or application-friendly.
+For example, in |libmarpa|, symbols do not have
+names, just symbol structures and symbol ID's.
+These are all that is needed for the data crunching,
+but an application writer will usually want a friendlier
+interface, including names for the symbols and
+many other conveniences.
+For this reason, applications will typically
+use |libmarpa| through a {\bf wrapper package}.
+Currently the only such package is in Perl.
+
+The top layer is the application.
+My expectation is that this will also be in a 4GL.
+Currently, |libmarpa|'s only application are
+in Perl.
+
+Not all these layers need be present.
+For example, it is conceivable that someone might
+write their application in C, in which case they could
+manage without minimal or no
+glue layers or package layers.
+
+Iterfaces between layers are named after the lower
+of the two layers.  For example the interface between
+|libmarpa| and the glue layer is the |libmarpa| interface.
+
+@*0 Representing Objects.
+Representation of objects is most commonly in one
+of three forms: cookies, ID's or pointers to C structures.
+
+@*1 Object ID's.
+Object ID's are integers.  They are always issued in sequence.
+They are guaranteed unique.
+(Note that in C,
+pointers to identical objects do {\bf not} necessarily
+compare equal.)
+If desired, they can be checked easily without risking a memory
+violation.
+
+ID's are the only object representation
+that can be used in any layer or any interface,
+and they are the preferred representation
+in the application layer
+and the package interface.
+
+Wraparound issues for object ID's are ignored.
+By the time any object ID wraps, memory will have long
+since overflowed.
+
+@*1 Object Cookies.
+Ideally, outside of the |libmarpa| layer,
+all objects would be represented by their ID.
+However, an exception is made recognizers and grammars,
+even though they do have ID's.
+This is because looking up ID's for these global objects
+is not thread-safe.
+
+@ To make ID lookup for global objects could be made thread-safe,
+but this involves locking data.
+It is possible to do this portably, using Glib, but it seems simply
+and safer to expect the calling environment to respect the opaque
+nature of the grammar and recognizer cookies.
+
+"Respecting the opaque nature of a cookie",
+means not
+accessing its internal contents -- using the
+cookie only as a cookie.
+The overall idea is that,
+if an programmer 
+writes trick-free higher-level code
+using cookies,
+any resulting errors occur
+in the package or application layer.
+
+The contents of Object Cookies are dependent on
+the choice of higher-level language (HLL).
+For this reason,
+The cookies are never visible in the |libmarpa| layer.
+
+In Perl's cookies, a major consideration is ensuring
+that, during the lifetime of a cookie,
+all the objects implied by the cookie also exist.
+This means that so long as
+a recognizer object cookie exists,
+the underlying grammar cannot be destroyed.
+
+@*1 Object pointers.
+The most efficient representation of objects
+are pointers to structures.
+These are the main representation of objects
+in the |libmarpa| layer.
+These must not be visible in the package and application
+layers.
+
+With regard to the visibility of object pointers in the
+glue layer, the situation is more complicated.
+At this writing, I expect to make pointers
+to most structures
+completely invisible except inside |libmarpa|.
+The external accessors do allow the glue layer
+some access
+to |libmarpa|'s internal structures.
+But in the case of the |_peek|
+external accessors,
+it is intuitive that the memory is owned
+by the |libmarpa| layer,
+and expected that any use of it will be quick.
+
+In the case of object pointers, their expected ordinary
+use is be kept around to refer to the object.
+But, for example, symbol object pointers must not
+be freed by the glue layer, but will become invalid
+when their associated grammar layer is destroyed.
+
+This behavior is not completely unintuitive to an
+experienced C programmer -- functions (like |ctime|)
+which return
+transient information in memory unowned by the caller
+have a long tradition in UNIX.
+But these are now deprecated.
+
+But tracking the lifetime of symbol object pointers 
+in the glue layer
+would be tricky, so as this writing the thought is to
+avoid the issue, for it and most other object pointers.
+The exceptions are grammar and recognizer objects.
+The base objects for these {\bf are} owned by
+the glue layer, so these do not present the same
+issues.
+The glue layer creates
+grammar and recognizer objects,
+it owns them during their lifetime,
+and it is up to the glue layer to destroy them.
+
+@*0 Inlining.
+Most of this code is expected to be freqently executed
+and inlining is used a lot.
+Enough so
+that it is useful to define a macro to let me know when inlining is not
+used in a private function.
+@s PRIVATE_NOT_INLINE int
+@d PRIVATE_NOT_INLINE static
+
+@*0 Marpa Global Setup.
+
+Marpa does no global initialization at the moment.
+I'll try to keep it that way.
+If I can't, I will need to deal with the issue
+of thread safety.
+
+@*0 Complexity.
+Considerable attention is paid to time and,
+where it is a serious issue, space complexity.
+Complexity is considered from three points of view.
+{\bf Practical worst-case complexity} is the complexity of the
+actual implementation, in the worst-case.
+{\bf Practical average complexity} is the complexity of the
+actual implementation under what are expected to be normal
+circumstances.
+Average complexity is of most interest to the typical user,
+but worst-case considerations should not be ignored ---
+in some applications,
+one case of poor performance
+can outweigh any number of
+of excellent "average case" results.
+@ Finally, there is {\bf theoretical complexity}.
+This is the complexity I would claim in a write-up of the
+Marpa algorithm for a Theory of Computation article.
+Most of the time, this is the same as practical worst-case complexity.
+Often, however, for theoretical complexity I consider
+myself entitled to claim
+the time complexity for a 
+better algorithm, even thought that is not the one
+used in the actual implementation.
+@ Sorting is a good example of under what circumstances
+I take the liberty of claiming a time complexity I did not
+implement.
+In many places in |libmarpa|,
+for sorting,
+the most reasonable practical
+implementation (sometimes the only reasonable practical implementation)
+is an $O(n^2)$ sort.
+When average list size is small, for example,
+a hand-optimized insertion sort is often clearly superior
+to all other alternatives.
+Where average list size is larger,
+a call to |g_qsort| is the appropriate response.
+|g_qsort| is the result of considerable thought and experience,
+the GNU project has decided to base it on quicksort,
+and I do not care to second-guess them on this.
+But quicksort and insertion sorts are both, theoretically, $O(n^2)$.
+@ Clearly, in both cases, I could drop in a merge sort and achieve
+a theoretical $O(n \log n)$ worst case.
+Often just as clear is that is all cases likely to occur in practice,
+the merge sort would be inferior.
+@ When I claim a complexity from a theoretical choice of algorithm,
+rather than the actually implemented one, the following will always be
+the case:
+\li The existence of the theoretical algorithm must be generally accepted.
+\li The complexity I claim for it must be generally accepted.
+\li It must be clear that there are no obstacles to using the theoretical algorithm
+whose solution is not straightforward.
+@ I am a big believer in theory.
+Often practical considerations didn't clearly indicate a choice of
+algorithm .
+In those circumstances, I usually
+allowed theoretical superiority to be the deciding factor.
+@ But there were cases
+where the theoretically superior choice
+was clearly going to be inferior in practice.
+Sorting was one of them.
+It would be possible to
+go through |libmarpa| and replace all sorts with a merge sort.
+But a slower library would be the result.
+
 @** Coding conventions.
 @*0 Naming conventions.
 
@@ -358,238 +592,26 @@ object.
 \li |u_|: Prefix for a union tag.  Cweb does not C code format well
 unless tag names are distinct from other names.
 
-@** Development Plans.
+@** To Do.
 
-These are notes to myself,
+@ These are notes to myself,
 most of which will only be relevant
 while |libmarpa| is being written.
-Most of these notes will be revised
-and then deleted as development proceeds.
+These notes will be 
+deleted once development is finished.
 
-@*1 Short Term To Do List.
+@ \li Make tracing no longer the default in the recognizer.
 
-@*1 Long Term To Do List.
+\li Add a "tracing" flag to the recognizer.  Also add a
+warning message when tracing is turned on.  The flag
+turns off the message.
 
-@*1 Development Note: Marpa layers.
+\li When (if?) I convert Marpa to use Marpa::XS,
+make sure the "interactive" flag works.
 
-|libmarpa|, the library described in this document, is intended as the bottom of potentially
-four layers.
-The layers are, from low to high
-\li |libmarpa|
-\li The glue layer
-\li The wrapper layer
-\li The application
-
-This glue layer will be in C and will call the |libmarpa| routines
-in a way that makes them compatible with another language.
-I expect this will usually be a 4GL (4th generation language),
-such as Perl.
-One example of a glue description lanuage is SWIG.
-Another is Perl XS, and currently that is
-the only glue layer implemented for |libmarpa|.
-
-|libmarpa| itself is not enormously user-
-or application-friendly.
-For example, in |libmarpa|, symbols do not have
-names, just symbol structures and symbol ID's.
-These are all that is needed for the data crunching,
-but an application writer will usually want a friendlier
-interface, including names for the symbols and
-many other conveniences.
-For this reason, applications will typically
-use |libmarpa| through a {\bf wrapper package}.
-Currently the only such package is in Perl.
-
-The top layer is the application.
-My expectation is that this will also be in a 4GL.
-Currently, |libmarpa|'s only application are
-in Perl.
-
-Not all these layers need be present.
-For example, it is conceivable that someone might
-write their application in C, in which case they could
-manage without minimal or no
-glue layers or package layers.
-
-Iterfaces between layers are named after the lower
-of the two layers.  For example the interface between
-|libmarpa| and the glue layer is the |libmarpa| interface.
-
-@*1 Development Note: Representing Objects.
-Representation of objects is most commonly in one
-of three forms: cookies, ID's or pointers to C structures.
-
-@*2 Object ID's.
-Object ID's are integers.  They are always issued in sequence.
-They are guaranteed unique.
-(Note that in C,
-pointers to identical objects do {\bf not} necessarily
-compare equal.)
-If desired, they can be checked easily without risking a memory
-violation.
-
-ID's are the only object representation
-that can be used in any layer or any interface,
-and they are the preferred representation
-in the application layer
-and the package interface.
-
-Wraparound issues for object ID's are ignored.
-By the time any object ID wraps, memory will have long
-since overflowed.
-
-@*2 Object Cookies.
-Ideally, outside of the |libmarpa| layer,
-all objects would be represented by their ID.
-However, an exception is made recognizers and grammars,
-even though they do have ID's.
-This is because looking up ID's for these global objects
-is not thread-safe.
-
-@ To make ID lookup for global objects could be made thread-safe,
-but this involves locking data.
-It is possible to do this portably, using Glib, but it seems simply
-and safer to expect the calling environment to respect the opaque
-nature of the grammar and recognizer cookies.
-
-"Respecting the opaque nature of a cookie",
-means not
-accessing its internal contents -- using the
-cookie only as a cookie.
-The overall idea is that,
-if an programmer 
-writes trick-free higher-level code
-using cookies,
-any resulting errors occur
-in the package or application layer.
-
-The contents of Object Cookies are dependent on
-the choice of higher-level language (HLL).
-For this reason,
-The cookies are never visible in the |libmarpa| layer.
-
-In Perl's cookies, a major consideration is ensuring
-that, during the lifetime of a cookie,
-all the objects implied by the cookie also exist.
-This means that so long as
-a recognizer object cookie exists,
-the underlying grammar cannot be destroyed.
-
-@*2 Object pointers.
-The most efficient representation of objects
-are pointers to structures.
-These are the main representation of objects
-in the |libmarpa| layer.
-These must not be visible in the package and application
-layers.
-
-With regard to the visibility of object pointers in the
-glue layer, the situation is more complicated.
-At this writing, I expect to make pointers
-to most structures
-completely invisible except inside |libmarpa|.
-The external accessors do allow the glue layer
-some access
-to |libmarpa|'s internal structures.
-But in the case of the |_peek|
-external accessors,
-it is intuitive that the memory is owned
-by the |libmarpa| layer,
-and expected that any use of it will be quick.
-
-In the case of object pointers, their expected ordinary
-use is be kept around to refer to the object.
-But, for example, symbol object pointers must not
-be freed by the glue layer, but will become invalid
-when their associated grammar layer is destroyed.
-
-This behavior is not completely unintuitive to an
-experienced C programmer -- functions (like |ctime|)
-which return
-transient information in memory unowned by the caller
-have a long tradition in UNIX.
-But these are now deprecated.
-
-But tracking the lifetime of symbol object pointers 
-in the glue layer
-would be tricky, so as this writing the thought is to
-avoid the issue, for it and most other object pointers.
-The exceptions are grammar and recognizer objects.
-The base objects for these {\bf are} owned by
-the glue layer, so these do not present the same
-issues.
-The glue layer creates
-grammar and recognizer objects,
-it owns them during their lifetime,
-and it is up to the glue layer to destroy them.
-
-@*1 Development Note: Converting Elements.
-\li Init the data element.
-
-\li Add a destructor.
-At first arrange for this to be called when the Perl object
-is destroyed.
-Add a comment in the place where the destructor must eventually
-be called, as a reminder.
-This will usually be in the Recognizer or Grammar destructor.
-
-\li Add whatever mutators are needed,
-initially as un-inlined externals.
-At the end of development, it should be possible to
-eliminate the external versions of these.
-
-\li Now that there are a full set of initializers,
-destructors and mutators,
-change the Perl code so that it updates both the Perl and C elements.
-In other words, have the C element "shadow" the Perl element.
-
-\li Create an internal and an external "accessor".
-The external accessor is
-to be used by the XS code, and by the debugging and diagnostics.
-The internal accessor, declared |static internal| is for "production" uses.
-For elements used only in diagnostics and debugging, no internal accessor need ever be
-created.
-
-\li
-Convert all Perl code to use the external accessor of the C element.
-
-\li Eliminate all accesses to the Perl element.
-
-\li Eliminate the Perl element.
-
-@*1 Development Note: Converting Objects.
-
-\li First, all elements of an object must be converted to C,
-as described above.
-
-\li
-Next, all "production" code referring to the object must be converted to C.
-This probably requires the conversion of other objects to be well along.
-In this context, "production" is all code except for code which does debugging,
-diagnostic and "utility" functions.
-Right now the only "utility" function I can think of is cloning.
-
-\li
-If the object is not a Grammar or a Recognizer,
-recode the external interface so that
-it no longer requires a Perl version
-of the object.
-Ultimately only the 
-Grammar and Recognizer Perl objects will remain.
-
-\li
-Remember to use external accessors in XS,
-debugging, diagnostic and cloning
-code, and the internal accessors in the main routine.
-
-\li When an object is converted to C, it's destructor will no
-longer be called in the course of destroying the Perl object.
-Make sure the destructor will be called when necessary.
-This will usually be when the Recognizer or Grammar object is destroyed.
-
-@<Body of public header file@> =
-@ Constants
-@ Version Constants @<Private global variables@> =
+@** The Public Header File.
+@*0 Version Constants.
+@<Private global variables@> =
 const unsigned int marpa_major_version = MARPA_MAJOR_VERSION;
 const unsigned int marpa_minor_version = MARPA_MINOR_VERSION;
 const unsigned int marpa_micro_version = MARPA_MICRO_VERSION;
@@ -605,7 +627,8 @@ void marpa_version(int* version) {
 @ @<Public function prototypes@> =
 void marpa_version(int* version);
 
-@ Header file.  |GLIB_VAR| is to
+@*0 Header file.
+|GLIB_VAR| is to
 prefix variable declarations so that they
 will be exported properly for Windows dlls.
 @f GLIB_VAR const
@@ -629,79 +652,7 @@ GLIB_VAR const guint marpa_binary_age;@#
 @<Public structures@>@/
 @<Public function prototypes@>@/
 
-@ Marpa Global Setup
-
-Marpa does no global initialization at the moment.
-I'll try to keep it that way.
-If I can't, I will need to deal with the issue
-of thread safety.
-
-@*1 Complexity.
-Considerable attention is paid to time and,
-where it is a serious issue, space complexity.
-Complexity is considered from three points of view.
-{\bf Practical worst-case complexity} is the complexity of the
-actual implementation, in the worst-case.
-{\bf Practical average complexity} is the complexity of the
-actual implementation under what are expected to be normal
-circumstances.
-Average complexity is of most interest to the typical user,
-but worst-case considerations should not be ignored ---
-in some applications,
-one case of poor performance
-can outweigh any number of
-of excellent "average case" results.
-@ Finally, there is {\bf theoretical complexity}.
-This is the complexity I would claim in a write-up of the
-Marpa algorithm for a Theory of Computation article.
-Most of the time, this is the same as practical worst-case complexity.
-Often, however, for theoretical complexity I consider
-myself entitled to claim
-the time complexity for a 
-better algorithm, even thought that is not the one
-used in the actual implementation.
-@ Sorting is a good example of under what circumstances
-I take the liberty of claiming a time complexity I did not
-implement.
-In many places in |libmarpa|,
-for sorting,
-the most reasonable practical
-implementation (sometimes the only reasonable practical implementation)
-is an $O(n^2)$ sort.
-When average list size is small, for example,
-a hand-optimized insertion sort is often clearly superior
-to all other alternatives.
-Where average list size is larger,
-a call to |g_qsort| is the appropriate response.
-|g_qsort| is the result of considerable thought and experience,
-the GNU project has decided to base it on quicksort,
-and I do not care to second-guess them on this.
-But quicksort and insertion sorts are both, theoretically, $O(n^2)$.
-@ Clearly, in both cases, I could drop in a merge sort and achieve
-a theoretical $O(n \log n)$ worst case.
-Often just as clear is that is all cases likely to occur in practice,
-the merge sort would be inferior.
-@ When I claim a complexity from a theoretical choice of algorithm,
-rather than the actually implemented one, the following will always be
-the case:
-\li The existence of the theoretical algorithm must be generally accepted.
-\li The complexity I claim for it must be generally accepted.
-\li It must be clear that there are no obstacles to using the theoretical algorithm
-whose solution is not straightforward.
-@ I am a big believer in theory.
-Often practical considerations didn't clearly indicate a choice of
-algorithm .
-In those circumstances, I usually
-allowed theoretical superiority to be the deciding factor.
-@ But there were cases
-where the theoretically superior choice
-was clearly going to be inferior in practice.
-Sorting was one of them.
-It would be possible to
-go through |libmarpa| and replace all sorts with a merge sort.
-But a slower library would be the result.
-
-@** Grammar Objects.
+@** Grammar (GRAMMAR) Code.
 @<Public incomplete structures@> = struct marpa_g;
 @ @<Private structures@> = struct marpa_g {
 @<Widely aligned grammar elements@>@;
@@ -1128,7 +1079,7 @@ Marpa_Error_ID marpa_g_error(const struct marpa_g* g)
 @ @<Public function prototypes@> =
 Marpa_Error_ID marpa_g_error(const struct marpa_g* g);
 
-@** Symbol Objects.
+@** Symbol (SYM) Code.
 @s Marpa_Symbol_ID int
 @<Public typedefs@> =
 typedef gint Marpa_Symbol_ID;
@@ -3833,8 +3784,6 @@ The total is ${s \over 2} + {s \over 2} + s = 2s$.
 Typically, the number of AHFA states should be less than this estimate.
 
 @d AHFA_by_ID(id) (g->t_AHFA+(id))
-@d Complete_SYMIDARY_of_AHFA(state) ((state)->t_complete_symbols)
-@d Complete_SYM_Count_of_AHFA(state) ((state)->t_complete_symbol_count)
 @d AHFA_has_Completed_Start_Rule(ahfa) ((ahfa)->t_has_completed_start_rule)
 @<Private incomplete structures@> = struct s_AHFA_state;
 @ @<Private structures@> =
@@ -3844,19 +3793,26 @@ struct s_AHFA_state_key {
 struct s_AHFA_state {
     struct s_AHFA_state_key t_key;
     struct s_AHFA_state* t_empty_transition;
-    AHFA* t_to_ahfa_ary;
-    SYMID* t_complete_symbols;
     @<Widely aligned AHFA state elements@>@;
     @<Int aligned AHFA state elements@>@;
-    guint t_complete_symbol_count;
     guint t_has_completed_start_rule:1;
     @<Bit aligned AHFA elements@>@;
 };
-typedef struct s_AHFA_state AHFAD;
+typedef struct s_AHFA_state AHFA_Object;
 
-@*0. AHFA Item Container.
+@*0 Complete Symbols Container.
+@ @d Complete_SYMIDs_of_AHFA(state) ((state)->t_complete_symbols)
+@d LV_Complete_SYMIDs_of_AHFA(state) Complete_SYMIDs_of_AHFA(state)
+@d Complete_SYM_Count_of_AHFA(state) ((state)->t_complete_symbol_count)
+@d LV_Complete_SYM_Count_of_AHFA(state) Complete_SYM_Count_of_AHFA(state)
+@<Int aligned AHFA state elements@> =
+guint t_complete_symbol_count;
+@ @<Widely aligned AHFA state elements@> =
+SYMID* t_complete_symbols;
+
+@*0 AHFA Item Container.
 @ @d AIM_Count_of_AHFA(ahfa) ((ahfa)->t_item_count)
-@ @d LV_AIM_Count_of_AHFA(ahfa) AIM_Count_of_AHFA(ahfa)
+@d LV_AIM_Count_of_AHFA(ahfa) AIM_Count_of_AHFA(ahfa)
 @<Int aligned AHFA state elements@> =
 guint t_item_count;
 @ @d AIMs_of_AHFA(ahfa) ((ahfa)->t_items)
@@ -3905,8 +3861,9 @@ STOLEN_DQUEUE_DATA_FREE(g->t_AHFA);
 
 @ Most of the data is on the obstack, and will be freed with that.
 @<Free AHFA state@> = {
- AHFA* ahfa_transition_array = ahfa_state->t_to_ahfa_ary;
-  if (ahfa_transition_array) g_free(ahfa_state->t_to_ahfa_ary);
+  TRANS *ahfa_transitions = LV_TRANSs_of_AHFA (ahfa_state);
+  if (ahfa_transitions)
+    g_free (TRANSs_of_AHFA (ahfa_state));
 }
 
 @*0 ID of AHFA State.
@@ -3989,89 +3946,6 @@ Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
 Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
      Marpa_AHFA_State_ID AHFA_state_id,
 	guint item_ix);
-
-@*0 Symbol Transitions of AHFA State.
-@
-Complexity is fine --- $O(1)$ in the length of the input,
-but nonetheless this implementation might be improved.
-This operation is at the heart of the parse engine,
-and worth a careful look.
-@ One alternative is to use bison's solution,
-which is a type of perfect hashing.
-Calculating AHFA transitions
-is very closely related to accessing an LALR table ---
-for this purpose, both are essentially LR(0) tables.
-Time and space tradeoffs of the two algorithms
-are, if not identical, very, very similar.
-So the result of bison's experience is probably
-the best solution here.
-@ Another alternative is to use
-a sparse 2-dimensional array.
-This would be easy to implement
-and very fast,
-but the array will be $a\cdot s$
-in size,
-where $a$ is the number of AHFA states,
-and 
-where $s$ is the number of symbols.
-Since most transitions are not defined, most of the space would be wasted.
-@ The trend is for memory to get cheap, favoring the 2-dimensional array.
-But I expect the trend will also be for grammars to get larger,
-and the space required by the 2-dimensional array is roughly
-$O(n^2)$ in the size of the grammar.
-
-@ @<Public function prototypes@> =
-gint marpa_AHFA_state_transitions(struct marpa_g* g,
-    Marpa_AHFA_State_ID AHFA_state_id,
-    GArray *result);
-@ @<Function definitions@> =
-gint marpa_AHFA_state_transitions(struct marpa_g* g,
-    Marpa_AHFA_State_ID AHFA_state_id,
-    GArray *result) {
-
-    @<Return |-2| on failure@>@;
-    AHFA from_ahfa_state;
-    AHFA* to_ahfa_array;
-    SYMID symid;
-    gint symbol_count;
-
-    @<Fail if grammar not precomputed@>@;
-    @<Fail if grammar |AHFA_state_id| is invalid@>@;
-    @<Fail grammar if elements of |result| are not |sizeof(gint)|@>@;
-    from_ahfa_state = AHFA_by_ID(AHFA_state_id);
-    to_ahfa_array = from_ahfa_state->t_to_ahfa_ary; 
-    symbol_count = SYM_Count_of_G(g);
-    g_array_set_size(result, 0);
-    for (symid = 0; symid < symbol_count; symid++) {
-        AHFA to_ahfa_state = to_ahfa_array[symid];
-	if (!to_ahfa_state) continue;
-	g_array_append_val (result, symid);
-	g_array_append_val (result, ID_of_AHFA(to_ahfa_state));
-    }
-    return result->len;
-}
-
-@*0 Empty Transition of AHFA State.
-@d Empty_Transition_of_AHFA(state) ((state)->t_empty_transition)
-@ In the external accessor,
--1 is a valid return value, indicating no empty transition.
-@<Function definitions@> =
-AHFAID marpa_AHFA_state_empty_transition(struct marpa_g* g,
-     AHFAID AHFA_state_id) {
-    AHFA state;
-    AHFA empty_transition_state;
-    @<Return |-2| on failure@>@/
-    @<Fail if grammar not precomputed@>@/
-    @<Fail if grammar |AHFA_state_id| is invalid@>@/
-    state = AHFA_by_ID(AHFA_state_id);
-    empty_transition_state = Empty_Transition_of_AHFA (state);
-    if (empty_transition_state)
-      return ID_of_AHFA (empty_transition_state);
-    return -1;
-}
-@ @<Public function prototypes@> =
-Marpa_AHFA_State_ID marpa_AHFA_state_empty_transition(struct marpa_g* g,
-     Marpa_AHFA_State_ID AHFA_state_id);
 
 @ @<Function definitions@> =
 gint marpa_AHFA_state_is_predict(struct marpa_g* g,
@@ -4212,35 +4086,56 @@ return 0;
 }
 
 @*0 AHFA State Mutators.
-@<Function definitions@> =
-static
+@ @<Private function prototypes@> =
+PRIVATE_NOT_INLINE void create_AHFA_states(struct marpa_g* g);
+@ @<Function definitions@> =
+PRIVATE_NOT_INLINE
 void create_AHFA_states(struct marpa_g* g) {
+    @<Declare locals for creating AHFA states@>@;
+    @<Initialize locals for creating AHFA states@>@;
+   @<Construct prediction matrix@>@;
+   @<Construct initial AHFA states@>@;
+   while ((p_working_state = DQUEUE_NEXT(states, AHFA_Object))) {
+       @<Process an AHFA state from the working stack@>@;
+   }
+   ahfas_of_g = g->t_AHFA = DQUEUE_BASE(states, AHFA_Object); /* "Steals"
+       the |DQUEUE|'s data */
+   ahfa_count_of_g = LV_AHFA_Count_of_G(g) = DQUEUE_END(states);
+   @<Populate the completed symbol data in the transitions@>@;
+   @<Free locals for creating AHFA states@>@;
+}
+
+@ @<Declare locals for creating AHFA states@> =
    AHFA p_working_state;
    const guint initial_no_of_states = 2*Size_of_G(g);
    AIM AHFA_item_0_p = g->t_AHFA_items;
-   guint no_of_symbols = SYM_Count_of_G(g);
-   guint no_of_rules = rule_count(g);
+   const guint symbol_count_of_g = SYM_Count_of_G(g);
+   const guint rule_count_of_g = rule_count(g);
    Bit_Matrix prediction_matrix;
-   RULE* rule_by_sort_key = g_new(RULE, no_of_rules);
+   RULE* rule_by_sort_key = g_new(RULE, rule_count_of_g);
     GTree* duplicates;
     AHFA* singleton_duplicates;
    DQUEUE_DECLARE(states);
+  struct obstack ahfa_work_obs;
+  gint ahfa_count_of_g;
+  AHFA ahfas_of_g;
+
+@ @<Initialize locals for creating AHFA states@> =
     @<Initialize duplicates data structures@>@;
-   DQUEUE_INIT(states, AHFAD, initial_no_of_states);
-   @<Construct prediction matrix@>@;
-   @<Construct initial AHFA states@>@;
-   while ((p_working_state = DQUEUE_NEXT(states, AHFAD))) {
-       @<Process an AHFA state from the working stack@>@;
-   }
-   g->t_AHFA = DQUEUE_BASE(states, AHFAD); /* "Steals"
-       the |DQUEUE|'s data */
-   LV_AHFA_Count_of_G(g) = DQUEUE_END(states);
-   g_free(rule_by_sort_key);
-   matrix_free(prediction_matrix);
-   @<Free duplicates data structures@>@;
+   DQUEUE_INIT(states, AHFA_Object, initial_no_of_states);
+
+@ @<Initialize duplicates data structures@> =
+{
+  guint item_id;
+  guint no_of_items_in_grammar = AIM_Count_of_G (g);
+  obstack_init(&ahfa_work_obs);
+  duplicates = g_tree_new (AHFA_state_cmp);
+  singleton_duplicates = g_new (AHFA, no_of_items_in_grammar);
+  for (item_id = 0; item_id < no_of_items_in_grammar; item_id++)
+    {
+      singleton_duplicates[item_id] = NULL;	// All zero bits are not necessarily a NULL pointer
+    }
 }
-@ @<Private function prototypes@> =
-static void create_AHFA_states(struct marpa_g* g);
 
 @ @<Process an AHFA state from the working stack@> = {
 guint no_of_items = p_working_state->t_item_count;
@@ -4274,19 +4169,39 @@ if (working_symbol < 0) goto NEXT_AHFA_STATE; /*
 NEXT_AHFA_STATE: ;
 }
 
-@ @<Initialize duplicates data structures@> = { guint item_id;
-guint no_of_items_in_grammar = AIM_Count_of_G(g);
-duplicates = g_tree_new(AHFA_state_cmp);
-singleton_duplicates = g_new(AHFA, no_of_items_in_grammar);
-for ( item_id = 0; item_id < no_of_items_in_grammar; item_id++) {
-    singleton_duplicates[item_id] = NULL; // All zero bits are not necessarily a NULL pointer
-} }
+@ @<Populate the completed symbol data in the transitions@> =
+{
+     gint ahfa_ix;
+     for (ahfa_ix = 0; ahfa_ix < ahfa_count_of_g; ahfa_ix++) {
+	  guint symbol_id;
+          TRANS* transitions = TRANSs_of_AHFA(ahfas_of_g+ahfa_ix);
+	  for (symbol_id = 0; symbol_id < symbol_count_of_g; symbol_id++) {
+	       TRANS working_transition = transitions[symbol_id];
+	       if (working_transition) {
+		   gint completion_count = Completion_Count_of_TRANS(working_transition);
+		   gint sizeof_transition = sizeof(working_transition[0]) + (completion_count-1) * sizeof(AEX);
+		   TRANS new_transition = obstack_alloc(&g->t_obs, sizeof_transition);
+		   LV_To_AHFA_of_TRANS(new_transition) = To_AHFA_of_TRANS(working_transition);
+		   LV_Completion_Count_of_TRANS(new_transition) = 0;
+		   transitions[symbol_id] = new_transition;
+	       }
+	  }
+     }
+;
+}
+
+@ @<Free locals for creating AHFA states@> =
+   g_free(rule_by_sort_key);
+   matrix_free(prediction_matrix);
+    @<Free duplicates data structures@>@;
+     obstack_free(&ahfa_work_obs, NULL);
+
 @ @<Free duplicates data structures@> =
 g_free(singleton_duplicates);
 g_tree_destroy(duplicates);
 
 @ @<Construct initial AHFA states@> = {
-   AHFA p_initial_state = DQUEUE_PUSH(states, AHFAD);@/
+   AHFA p_initial_state = DQUEUE_PUSH(states, AHFA_Object);@/
    Marpa_Rule_ID start_rule_id;
    AIM start_item;
    SYM start_symbol = SYM_by_ID(g, g->t_start_symid);
@@ -4312,15 +4227,17 @@ g_tree_destroy(duplicates);
     p_initial_state->t_key.t_id = 0;
     LV_AHFA_is_Predicted(p_initial_state) = 0;
     LV_Leo_LHS_ID_of_AHFA(p_initial_state) = -1;
-    p_initial_state->t_to_ahfa_ary = to_ahfa_array_new(g);
+    LV_TRANSs_of_AHFA(p_initial_state) = transitions_new(g);
     p_initial_state->t_empty_transition = NULL;
     if (start_symbol->t_is_nulling)
       {				// Special case the null parse
-	p_initial_state->t_complete_symbol_count = 1;
+	SYMID* complete_symids = obstack_alloc (&g->t_obs, sizeof (SYMID));
+	SYMID completed_symbol_id = g->t_start_symid;
+	*complete_symids = completed_symbol_id;
+	completion_count_inc (&ahfa_work_obs, p_initial_state, completed_symbol_id);
+	LV_Complete_SYMIDs_of_AHFA(p_initial_state) = complete_symids;
+	LV_Complete_SYM_Count_of_AHFA(p_initial_state) = 1;
 	p_initial_state->t_has_completed_start_rule = 1;
-	p_initial_state->t_complete_symbols =
-	  obstack_alloc (&g->t_obs, sizeof (SYMID));
-	*(p_initial_state->t_complete_symbols) = g->t_start_symid;
 	LV_Postdot_SYM_Count_of_AHFA(p_initial_state) = 0;
       }
     else
@@ -4332,16 +4249,17 @@ g_tree_destroy(duplicates);
 	*postdot_symbol_ids = Postdot_SYMID_of_AIM(start_item);
 	if (start_alias)
 	  {
-	    p_initial_state->t_complete_symbol_count = 1;
+	    SYMID* complete_symids = obstack_alloc (&g->t_obs, sizeof (SYMID));
+	    SYMID completed_symbol_id = LHS_ID_of_PRD (RULE_by_ID (g, start_rule_id));
+	    *complete_symids = completed_symbol_id;
+	    completion_count_inc(&ahfa_work_obs, p_initial_state, completed_symbol_id);
+	    LV_Complete_SYMIDs_of_AHFA(p_initial_state) = complete_symids;
+	    LV_Complete_SYM_Count_of_AHFA(p_initial_state) = 1;
 	    p_initial_state->t_has_completed_start_rule = 1;
-	    p_initial_state->t_complete_symbols =
-	      obstack_alloc (&g->t_obs, sizeof (SYMID));
-	    *(p_initial_state->t_complete_symbols) =
-	      LHS_ID_of_PRD (RULE_by_ID (g, start_rule_id));
 	  }
 	else
 	  {
-	    p_initial_state->t_complete_symbol_count = 0;
+	    LV_Complete_SYM_Count_of_AHFA(p_initial_state) = 0;
 	    p_initial_state->t_has_completed_start_rule = 0;
 	  }
 	    p_initial_state->t_empty_transition =
@@ -4394,10 +4312,10 @@ are either AHFA state 0, or 1-item discovered AHFA states.
     p_new_state = singleton_duplicates[single_item_id];
     if (p_new_state)
       {				/* Do not add, this is a duplicate */
-	AHFA_transition_add (p_working_state, working_symbol, p_new_state);
+	transition_add (&ahfa_work_obs, p_working_state, working_symbol, p_new_state);
 	goto NEXT_WORKING_SYMBOL;
       }
-    p_new_state = DQUEUE_PUSH (states, AHFAD);
+    p_new_state = DQUEUE_PUSH (states, AHFA_Object);
     /* Create a new AHFA state */
     singleton_duplicates[single_item_id] = p_new_state;
     new_state_item_list = p_new_state->t_items =
@@ -4411,13 +4329,13 @@ are either AHFA state 0, or 1-item discovered AHFA states.
 	p_new_state->t_has_completed_start_rule = 0;
     }
     LV_Leo_LHS_ID_of_AHFA(p_new_state) = -1;
-    p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE (states, AHFAD);
-    p_new_state->t_to_ahfa_ary = to_ahfa_array_new(g);
-    AHFA_transition_add (p_working_state, working_symbol, p_new_state);
+    p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE (states, AHFA_Object);
+    LV_TRANSs_of_AHFA(p_new_state) = transitions_new(g);
+    transition_add (&ahfa_work_obs, p_working_state, working_symbol, p_new_state);
     postdot = Postdot_SYMID_of_AIM(single_item_p);
     if (postdot >= 0)
       {
-	p_new_state->t_complete_symbol_count = 0;
+	LV_Complete_SYM_Count_of_AHFA(p_new_state) = 0;
 	p_new_state->t_postdot_sym_count = 1;
 	p_new_state->t_postdot_symid_ary =
 	  obstack_alloc (&g->t_obs, sizeof (SYMID));
@@ -4432,12 +4350,12 @@ are either AHFA state 0, or 1-item discovered AHFA states.
       }
     else
       {
-	SYMID lhs_id;
-	p_new_state->t_complete_symbol_count = 1;
-	p_new_state->t_complete_symbols =
-	  obstack_alloc (&g->t_obs, sizeof (SYMID));
-	lhs_id = LHS_ID_of_PRD (single_item_p->t_production);
-	*(p_new_state->t_complete_symbols) = lhs_id;
+	SYMID lhs_id = LHS_ID_of_PRD (single_item_p->t_production);
+	SYMID* complete_symids = obstack_alloc (&g->t_obs, sizeof (SYMID));
+	*complete_symids = lhs_id;
+	LV_Complete_SYMIDs_of_AHFA(p_new_state) = complete_symids;
+	completion_count_inc(&ahfa_work_obs, p_new_state, lhs_id);
+	LV_Complete_SYM_Count_of_AHFA(p_new_state) = 1;
 	p_new_state->t_postdot_sym_count = 0;
 	p_new_state->t_empty_transition = NULL;
 	@<If this state can be a Leo completion,
@@ -4504,7 +4422,7 @@ guint predecessor_ix;
 guint no_of_new_items_so_far = 0;
 AIM* item_list_for_new_state;
 AHFA queued_AHFA_state;
-p_new_state = DQUEUE_PUSH(states, AHFAD);
+p_new_state = DQUEUE_PUSH(states, AHFA_Object);
 item_list_for_new_state = p_new_state->t_items = obstack_alloc(&g->t_obs_tricky,
     no_of_items_in_new_state * sizeof(AIM));
 p_new_state->t_item_count = no_of_items_in_new_state;
@@ -4530,23 +4448,23 @@ queued_AHFA_state = assign_AHFA_state(p_new_state, duplicates);
 if (queued_AHFA_state)
   {				// The new state would be a duplicate
 // Back it out and go on to the next in the queue
-    (void) DQUEUE_POP (states, AHFAD);
+    (void) DQUEUE_POP (states, AHFA_Object);
     obstack_free (&g->t_obs_tricky, item_list_for_new_state);
-    AHFA_transition_add (p_working_state, working_symbol, queued_AHFA_state);
-    /* |AHFA_transition_add()| allocates obstack memory, but uses the 
+    transition_add (&ahfa_work_obs, p_working_state, working_symbol, queued_AHFA_state);
+    /* |transition_add()| allocates obstack memory, but uses the 
        "non-tricky" obstack */
     goto NEXT_WORKING_SYMBOL;
   }
-// If we added the new state, finish up its data.
-p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE(states, AHFAD);
-LV_AHFA_is_Predicted(p_new_state) = 0;
-p_new_state->t_has_completed_start_rule = 0;
-LV_Leo_LHS_ID_of_AHFA(p_new_state) =-1;
-p_new_state->t_to_ahfa_ary = to_ahfa_array_new(g);
-@<Calculate complete and postdot symbols for discovered state@>@/
-AHFA_transition_add(p_working_state, working_symbol, p_new_state);
-@<Calculate the predicted rule vector for this state
-and add the predicted AHFA state@>@/
+    // If we added the new state, finish up its data.
+    p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE(states, AHFA_Object);
+    LV_AHFA_is_Predicted(p_new_state) = 0;
+    p_new_state->t_has_completed_start_rule = 0;
+    LV_Leo_LHS_ID_of_AHFA(p_new_state) =-1;
+    LV_TRANSs_of_AHFA(p_new_state) = transitions_new(g);
+    @<Calculate complete and postdot symbols for discovered state@>@/
+    transition_add(&ahfa_work_obs, p_working_state, working_symbol, p_new_state);
+    @<Calculate the predicted rule vector for this state
+        and add the predicted AHFA state@>@/
 }
 
 @ @<Calculate complete and postdot symbols for discovered state@> =
@@ -4587,23 +4505,26 @@ if ((no_of_postdot_symbols = p_new_state->t_postdot_sym_count =
 	  }
       }
   }
-if ((no_of_complete_symbols = p_new_state->t_complete_symbol_count =
-     bv_count (complete_v)))
-  {
-    guint min, max, start;
-    Marpa_Symbol_ID *p_symbol = p_new_state->t_complete_symbols =
-      obstack_alloc (&g->t_obs,
-		     no_of_complete_symbols * sizeof (SYMID));
-    for (start = 0; bv_scan (complete_v, start, &min, &max); start = max + 2)
+    if ((no_of_complete_symbols =
+	 LV_Complete_SYM_Count_of_AHFA (p_new_state) = bv_count (complete_v)))
       {
-	Marpa_Symbol_ID complete_symbol;
-	for (complete_symbol = (Marpa_Symbol_ID) min;
-	     complete_symbol <= (Marpa_Symbol_ID) max; complete_symbol++)
+	guint min, max, start;
+	SYMID *complete_symids = obstack_alloc (&g->t_obs,
+						no_of_complete_symbols *
+						sizeof (SYMID));
+	SYMID *p_symbol = complete_symids;
+	LV_Complete_SYMIDs_of_AHFA (p_new_state) = complete_symids;
+	for (start = 0; bv_scan (complete_v, start, &min, &max); start = max + 2)
 	  {
-	    *p_symbol++ = complete_symbol;
+	    SYMID complete_symbol_id;
+	    for (complete_symbol_id = (SYMID) min; complete_symbol_id <= (SYMID) max;
+		 complete_symbol_id++)
+	      {
+		completion_count_inc (&ahfa_work_obs, p_new_state, complete_symbol_id);
+		*p_symbol++ = complete_symbol_id;
+	      }
 	  }
-      }
-  }
+    }
     bv_free (postdot_v);
     bv_free (complete_v);
 }
@@ -4685,7 +4606,8 @@ The symbol-by-rule matrix will be used in constructing the prediction
 states.
 
 @ @<Construct prediction matrix@> = {
-    Bit_Matrix symbol_by_symbol_matrix = matrix_create(no_of_symbols, no_of_symbols);
+    Bit_Matrix symbol_by_symbol_matrix =
+	matrix_create (symbol_count_of_g, symbol_count_of_g);
     @<Initialize the symbol-by-symbol matrix@>@/
     transitive_closure(symbol_by_symbol_matrix);
     @<Create the prediction matrix from the symbol-by-symbol matrix@>@/
@@ -4693,18 +4615,19 @@ states.
 }
 
 @ @<Initialize the symbol-by-symbol matrix@> =
-{ Marpa_Rule_ID rule_id;
-Marpa_Symbol_ID symid;
-    AIM* items_by_rule = g->t_AHFA_items_by_rule;
-    for (symid = 0; symid < (Marpa_Symbol_ID)no_of_symbols; symid++) {
+{
+    RULEID rule_id;
+    SYMID symid;
+    AIM *items_by_rule = g->t_AHFA_items_by_rule;
+    for (symid = 0; symid < (SYMID)symbol_count_of_g; symid++) {
 	// If a symbol appears on a LHS, it predicts itself.
 	SYM symbol = SYM_by_ID(g, symid);
 	if (!SYMBOL_LHS_RULE_COUNT(symbol)) continue;
 	matrix_bit_set(symbol_by_symbol_matrix,
 	    (guint)symid, (guint)symid);
     }
-    for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
-	Marpa_Symbol_ID from, to;
+    for (rule_id = 0; rule_id < (RULEID)rule_count_of_g; rule_id++) {
+	SYMID from, to;
         AIM item = items_by_rule[rule_id];
 	    // Get the initial item for the rule
 	RULE  rule;
@@ -4725,9 +4648,9 @@ Specifically, if symbol |S1| predicts symbol |S2|, then symbol |S1|
 predicts every rule
 with |S2| on its LHS.
 @<Create the prediction matrix from the symbol-by-symbol matrix@> = {
-AIM* items_by_rule = g->t_AHFA_items_by_rule;
-    Marpa_Symbol_ID from_symid;
-    guint* sort_key_by_rule_id = g_new(guint, no_of_rules);
+    AIM* items_by_rule = g->t_AHFA_items_by_rule;
+    SYMID from_symid;
+    guint* sort_key_by_rule_id = g_new(guint, rule_count_of_g);
     guint no_of_predictable_rules = 0;
     @<Populate |sort_key_by_rule_id| with first pass value;
 	calculate |no_of_predictable_rules|@>@/
@@ -4756,8 +4679,8 @@ so that it can be used as the index in a bit vector.
 @<Populate |sort_key_by_rule_id| with first pass value;
 calculate |no_of_predictable_rules|@> =
 {
-  Marpa_Rule_ID rule_id;
-  for (rule_id = 0; rule_id < (Marpa_Rule_ID) no_of_rules; rule_id++)
+  RULEID rule_id;
+  for (rule_id = 0; rule_id < (RULEID) rule_count_of_g; rule_id++)
     {
       AIM item = items_by_rule[rule_id];
       SYMID postdot;
@@ -4775,13 +4698,15 @@ calculate |no_of_predictable_rules|@> =
 }
 
 @ @<Populate |rule_by_sort_key|@> =
-{ Marpa_Rule_ID rule_id;
-for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
-    rule_by_sort_key[rule_id] = RULE_by_ID(g, rule_id);
-}
-g_qsort_with_data(rule_by_sort_key, (gint)no_of_rules,
-    sizeof(RULE), cmp_by_rule_sort_key,
-    (gpointer)sort_key_by_rule_id);
+{
+  RULEID rule_id;
+  for (rule_id = 0; rule_id < (RULEID) rule_count_of_g; rule_id++)
+    {
+      rule_by_sort_key[rule_id] = RULE_by_ID (g, rule_id);
+    }
+  g_qsort_with_data (rule_by_sort_key, (gint)rule_count_of_g,
+		     sizeof (RULE), cmp_by_rule_sort_key,
+		     (gpointer) sort_key_by_rule_id);
 }
 
 @ @<Function definitions@> = static gint
@@ -4804,17 +4729,20 @@ gint cmp_by_rule_sort_key(gconstpointer ap,
 @ We have now sorted the rules into the final sort key order.
 With this final version of the sort keys,
 populate the index from rule id to sort key.
-@<Populate |sort_key_by_rule_id| with second pass value@> = {
-guint sort_key;
-for (sort_key = 0; sort_key < no_of_rules; sort_key++) {
-     RULE  rule = rule_by_sort_key[sort_key];
+@<Populate |sort_key_by_rule_id| with second pass value@> =
+{
+  guint sort_key;
+  for (sort_key = 0; sort_key < rule_count_of_g; sort_key++)
+    {
+      RULE rule = rule_by_sort_key[sort_key];
       sort_key_by_rule_id[rule->t_id] = sort_key;
-} }
+    }
+}
 
 @ @<Populate the prediction matrix@> =
 {
-  prediction_matrix = matrix_create (no_of_symbols, no_of_predictable_rules);
-  for (from_symid = 0; from_symid < (Marpa_Symbol_ID) no_of_symbols;
+  prediction_matrix = matrix_create (symbol_count_of_g, no_of_predictable_rules);
+  for (from_symid = 0; from_symid < (SYMID) symbol_count_of_g;
        from_symid++)
     {
       // for every row of the symbol-by-symbol matrix
@@ -4891,26 +4819,26 @@ item_list_for_new_state = obstack_alloc (&g->t_obs,
 	}
     }
 }
-p_new_state = DQUEUE_PUSH((*states_p), AHFAD);@/
+p_new_state = DQUEUE_PUSH((*states_p), AHFA_Object);@/
     p_new_state->t_items = item_list_for_new_state;
     p_new_state->t_item_count = no_of_items_in_new_state;
     { AHFA queued_AHFA_state = assign_AHFA_state(p_new_state, duplicates);
         if (queued_AHFA_state) {
 		 /* The new state would be a duplicate.
 		 Back it out and return the one that already exists */
-	    (void)DQUEUE_POP((*states_p), AHFAD);
+	    (void)DQUEUE_POP((*states_p), AHFA_Object);
 	    obstack_free(&g->t_obs, item_list_for_new_state);
 	    return queued_AHFA_state;
 	}
     }
     // The new state was added -- finish up its data
-    p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE((*states_p), AHFAD);
+    p_new_state->t_key.t_id = p_new_state - DQUEUE_BASE((*states_p), AHFA_Object);
     LV_AHFA_is_Predicted(p_new_state) = 1;
     p_new_state->t_has_completed_start_rule = 0;
     LV_Leo_LHS_ID_of_AHFA(p_new_state) = -1;
     p_new_state->t_empty_transition = NULL;
-    p_new_state->t_to_ahfa_ary = to_ahfa_array_new(g);
-    p_new_state->t_complete_symbol_count = 0;
+    LV_TRANSs_of_AHFA(p_new_state) = transitions_new(g);
+    LV_Complete_SYM_Count_of_AHFA(p_new_state) = 0;
     @<Calculate postdot symbols for predicted state@>@/
     return p_new_state;
 }
@@ -4948,30 +4876,208 @@ p_new_state = DQUEUE_PUSH((*states_p), AHFAD);@/
     bv_free (postdot_v);
 }
 
-@** Transition Code.
-@d To_AHFA_of_AHFA_by_SYMID(from_ahfa, id) ((from_ahfa)->t_to_ahfa_ary[id])
+@** Transition (TRANS) Code.
+This code deals with data which is accessed
+as a function of AHFA state and symbol.
+The most important data
+of this type are the AHFA state transitions,
+which is why the per-AHFA-per-symbol data is called
+"transition" data.
+But per-AHFA symbol completion data is also
+a function of AHFA state and symbol.
+@ This operation is at the heart of the parse engine,
+and worth a careful look.
+Speed is probably optimal.
+Time complexity is fine --- $O(1)$ in the length of the input.
+@ But this solution is is very space-intensive---%
+perhaps $O(\v g\v^2)$.
+Ordinarily, for code which is executed this heavily,
+I would worry about a speed versus space tradeoff of this kind.
+But these arrays are extremely sparse,
+Many rows of the array have only one or two entries.
+There are alternatives
+which save a lot of space in return for a small overhead in time.
+@ A very similar problem has been the subject of considerable
+study---%
+LALR and LR(0) state tables.
+These also index by state and symbol, and their usage is very
+similar to that expected for the AHFA lookups.
+@ Bison's solution is probably worth study.
+This is a kind of perfect hashing, and quite complex.
+I do wonder if it would not be over-engineering
+in the libmarpa context.
+In practical applications, a binary search, or even
+a linear search,
+may have be fastest implementation for
+the average case.
+@ The trend is for memory to get cheap,
+favoring the sparse 2-dimensional array
+which is the present solution.
+But I expect the trend will also be for grammars to get larger.
+This would be a good issue to run some benchmarks on,
+once I stabilize the C code implemention.
+
+@d TRANS_of_AHFA_by_SYMID(from_ahfa, id)
+    (*(TRANSs_of_AHFA(from_ahfa)+(id)))
+@d To_AHFA_of_TRANS(trans) (to_ahfa_of_transition_get(trans))
+@d LV_To_AHFA_of_TRANS(trans) ((trans)->t_ur.t_to_ahfa)
+@d Completion_Count_of_TRANS(trans)
+    (completion_count_of_transition_get(trans))
+@d LV_Completion_Count_of_TRANS(trans) ((trans)->t_ur.t_completion_count)
+@d To_AHFA_of_AHFA_by_SYMID(from_ahfa, id)
+     (To_AHFA_of_TRANS(TRANS_of_AHFA_by_SYMID((from_ahfa), (id))))
+@d Completion_Count_of_AHFA_by_SYMID(from_ahfa, id)
+     (Completion_Count_of_TRANS(TRANS_of_AHFA_by_SYMID((from ahfa), (id))))
 @d To_AHFA_of_EIM_by_SYMID(eim, id) To_AHFA_of_AHFA_by_SYMID(AHFA_of_EIM(eim), (id))
+@ @<Private incomplete structures@> =
+struct s_transition;
+typedef struct s_transition* TRANS;
+@ @<Private typedefs@> = typedef gint AEX;
+@ @<Private structures@> =
+struct s_transition_ur {
+    AHFA t_to_ahfa;
+    gint t_completion_count;
+};
+struct s_transition {
+    struct s_transition_ur t_ur;
+    AEX t_aex[1];
+};
+@ @d TRANSs_of_AHFA(ahfa) ((ahfa)->t_transitions)
+@d LV_TRANSs_of_AHFA(ahfa) TRANSs_of_AHFA(ahfa)
+@<Widely aligned AHFA state elements@> =
+    TRANS* t_transitions;
+@ @<Private function prototypes@> =
+static inline AHFA to_ahfa_of_transition_get(TRANS transition);
+@ @<Function definitions@> =
+static inline AHFA to_ahfa_of_transition_get(TRANS transition) {
+     if (!transition) return NULL;
+     return transition->t_ur.t_to_ahfa;
+}
+@ @<Private function prototypes@> =
+static inline gint completion_count_of_transition_get(TRANS transition);
+@ @<Function definitions@> =
+static inline gint completion_count_of_transition_get(TRANS transition) {
+     if (!transition) return 0;
+     return transition->t_ur.t_completion_count;
+}
+
+@ @<Private function prototypes@> =
+static inline
+TRANS transition_new(struct obstack *obstack, AHFA to_ahfa, gint aim_ix);
+@ @<Function definitions@> =
+static inline
+TRANS transition_new(struct obstack *obstack, AHFA to_ahfa, gint aim_ix) {
+     TRANS transition;
+     transition = obstack_alloc (obstack, sizeof (transition[0]));
+     transition->t_ur.t_to_ahfa = to_ahfa;
+     transition->t_ur.t_completion_count = aim_ix;
+     return transition;
+}
 
 @ @<Private function prototypes@> = static inline
-AHFA* to_ahfa_array_new(struct marpa_g* g);
+TRANS* transitions_new(struct marpa_g* g);
 @ @<Function definitions@> = static inline
-AHFA* to_ahfa_array_new(struct marpa_g* g) {
+TRANS* transitions_new(struct marpa_g* g) {
     gint symbol_count = SYM_Count_of_G(g);
     gint symid = 0;
-    AHFA* new_to_ahfa_array = g_malloc(symbol_count * sizeof(AHFA));
-    while (symid < symbol_count) new_to_ahfa_array[symid++] = NULL; /*
+    TRANS* transitions;
+    transitions = g_malloc(symbol_count * sizeof(transitions[0]));
+    while (symid < symbol_count) transitions[symid++] = NULL; /*
         |g_malloc0| will not work because NULL is not guaranteed
 	to be a bitwise zero. */
-    return new_to_ahfa_array;
+    return transitions;
 }
 
-@ @<Function definitions@> = static inline
-void AHFA_transition_add(AHFA from_ahfa, SYMID symid, AHFA to_ahfa)
+@ @<Private function prototypes@> =
+static inline
+void transition_add(struct obstack *obstack, AHFA from_ahfa, SYMID symid, AHFA to_ahfa);
+@ @<Function definitions@> =
+static inline
+void transition_add(struct obstack *obstack, AHFA from_ahfa, SYMID symid, AHFA to_ahfa)
 {
-    from_ahfa->t_to_ahfa_ary[symid] = to_ahfa;
+    TRANS* transitions = TRANSs_of_AHFA(from_ahfa);
+    TRANS transition = transitions[symid];
+    if (!transition) {
+        transitions[symid] = transition_new(obstack, to_ahfa, 0);
+	return;
+    }
+    transition->t_ur.t_to_ahfa = to_ahfa;
+    return;
 }
-@ @<Private function prototypes@> = static inline
-void AHFA_transition_add(AHFA from_ahfa, SYMID symid, AHFA to_ahfa);
+
+@ @<Private function prototypes@> =
+static inline
+void completion_count_inc(struct obstack *obstack, AHFA from_ahfa, SYMID symid);
+@ @<Function definitions@> =
+static inline
+void completion_count_inc(struct obstack *obstack, AHFA from_ahfa, SYMID symid)
+{
+    TRANS* transitions = TRANSs_of_AHFA(from_ahfa);
+    TRANS transition = transitions[symid];
+    if (!transition) {
+        transitions[symid] = transition_new(obstack, NULL, 1);
+	return;
+    }
+    transition->t_ur.t_completion_count++;
+    return;
+}
+
+@*0 Trace Functions.
+@<Public function prototypes@> =
+gint marpa_AHFA_state_transitions(struct marpa_g* g,
+    Marpa_AHFA_State_ID AHFA_state_id,
+    GArray *result);
+@ @<Function definitions@> =
+gint marpa_AHFA_state_transitions(struct marpa_g* g,
+    Marpa_AHFA_State_ID AHFA_state_id,
+    GArray *result) {
+
+    @<Return |-2| on failure@>@;
+    AHFA from_ahfa_state;
+    TRANS* transitions;
+    SYMID symid;
+    gint symbol_count;
+
+    @<Fail if grammar not precomputed@>@;
+    @<Fail if grammar |AHFA_state_id| is invalid@>@;
+    @<Fail grammar if elements of |result| are not |sizeof(gint)|@>@;
+    from_ahfa_state = AHFA_by_ID(AHFA_state_id);
+    transitions = TRANSs_of_AHFA(from_ahfa_state); 
+    symbol_count = SYM_Count_of_G(g);
+    g_array_set_size(result, 0);
+    for (symid = 0; symid < symbol_count; symid++) {
+        AHFA to_ahfa_state = To_AHFA_of_TRANS(transitions[symid]);
+	if (!to_ahfa_state) continue;
+	g_array_append_val (result, symid);
+	g_array_append_val (result, ID_of_AHFA(to_ahfa_state));
+    }
+    return result->len;
+}
+
+@** Empty Transition Code.
+@d Empty_Transition_of_AHFA(state) ((state)->t_empty_transition)
+@*0 Trace Functions.
+@<Public function prototypes@> =
+@ @<Public function prototypes@> =
+Marpa_AHFA_State_ID marpa_AHFA_state_empty_transition(struct marpa_g* g,
+     Marpa_AHFA_State_ID AHFA_state_id);
+@ In the external accessor,
+-1 is a valid return value, indicating no empty transition.
+@<Function definitions@> =
+AHFAID marpa_AHFA_state_empty_transition(struct marpa_g* g,
+     AHFAID AHFA_state_id) {
+    AHFA state;
+    AHFA empty_transition_state;
+    @<Return |-2| on failure@>@/
+    @<Fail if grammar not precomputed@>@/
+    @<Fail if grammar |AHFA_state_id| is invalid@>@/
+    state = AHFA_by_ID(AHFA_state_id);
+    empty_transition_state = Empty_Transition_of_AHFA (state);
+    if (empty_transition_state)
+      return ID_of_AHFA (empty_transition_state);
+    return -1;
+}
+
 
 @** Populating the Terminal Boolean Vector.
 @<Populate the Terminal Boolean Vector@> = {
@@ -5741,8 +5847,8 @@ The only awkwardness takes place
 when the second source is added, and the first one must
 be recopied to make way for pointers to the linked lists.
 @d EIM_FATAL_THRESHOLD (G_MAXINT/4)
-@d Complete_SYMIDARY_of_EIM(item) 
-    Complete_SYMIDARY_of_AHFA(AHFA_of_EIM(item))
+@d Complete_SYMIDs_of_EIM(item) 
+    Complete_SYMIDs_of_AHFA(AHFA_of_EIM(item))
 @d Complete_SYM_Count_of_EIM(item)
     Complete_SYM_Count_of_AHFA(AHFA_of_EIM(item))
 @d Leo_LHS_ID_of_EIM(eim) Leo_LHS_ID_of_AHFA(AHFA_of_EIM(eim))
@@ -7848,7 +7954,7 @@ this means that the parse is exhausted.
 add those Earley items it "causes".
 @<Add new Earley items for |cause|@> =
 {
-  Marpa_Symbol_ID *complete_symbols = Complete_SYMIDARY_of_EIM (cause);
+  Marpa_Symbol_ID *complete_symbols = Complete_SYMIDs_of_EIM (cause);
   gint count = Complete_SYM_Count_of_EIM (cause);
   ES middle = Origin_of_EIM (cause);
   gint symbol_ix;
@@ -8666,7 +8772,6 @@ gint marpa_eval_setup(struct marpa_r* r, Marpa_Rule_ID rule_id, Marpa_Earley_Set
     const gint no_parse = -1;
     @<Bocage setup locals@>@;
     r_update_earley_sets(r);
-    obstack_init(&bocage_setup_obs);
     @<Return if function guards fail;
 	set |end_of_parse_es| and |completed_start_rule|@>@;
     @<Find |start_eim|@>@;
