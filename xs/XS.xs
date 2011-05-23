@@ -310,16 +310,6 @@ CODE:
 OUTPUT:
     RETVAL
 
-Marpa_Symbol_ID
-symbol_alias( g, symbol_id )
-    Grammar *g;
-    Marpa_Symbol_ID symbol_id;
-CODE:
-    RETVAL = marpa_symbol_alias_create(g, symbol_id);
-    if (RETVAL < 0) { XSRETURN_UNDEF; }
-OUTPUT:
-    RETVAL
-
 void
 symbol_lhs_rule_ids( g, symbol_id )
     Grammar *g;
@@ -1151,16 +1141,32 @@ PPCODE:
     }
 
 void
-current_earley_set_size( r_wrapper )
+latest_earley_set( r_wrapper )
     R_Wrapper *r_wrapper;
 PPCODE:
     {
       struct marpa_r *r = r_wrapper->r;
-      gint current_earley_set_size = marpa_current_earley_set_size (r);
-      if (current_earley_set_size < 0) {
-	  croak ("Problem in r->current_earley_set_size(): %s", marpa_r_error (r));
+      gint latest_earley_set = marpa_latest_earley_set(r);
+      if (latest_earley_set < 0)
+	{
+      croak ("Problem with r->latest_earley_set(): %s",
+		 marpa_r_error (r));
 	}
-      XPUSHs (sv_2mortal (newSViv (current_earley_set_size)));
+      XPUSHs (sv_2mortal (newSViv (latest_earley_set)));
+    }
+
+void
+earley_set_size( r_wrapper, set_ordinal )
+    R_Wrapper *r_wrapper;
+    Marpa_Earley_Set_ID set_ordinal;
+PPCODE:
+    {
+      struct marpa_r *r = r_wrapper->r;
+      gint earley_set_size = marpa_earley_set_size (r, set_ordinal);
+      if (earley_set_size < 0) {
+	  croak ("Problem in r->earley_set_size(): %s", marpa_r_error (r));
+	}
+      XPUSHs (sv_2mortal (newSViv (earley_set_size)));
     }
 
 void
@@ -1211,7 +1217,7 @@ PPCODE:
       gint origin_earleme = marpa_earley_item_origin (r);
       if (origin_earleme < 0)
 	{
-      croak ("Problem finding trace earley item origin: %s",
+      croak ("Problem with r->earley_item_origin(): %s",
 		 marpa_r_error (r));
 	}
       XPUSHs (sv_2mortal (newSViv (origin_earleme)));
@@ -1311,7 +1317,7 @@ source_middle( r_wrapper )
 PPCODE:
     { struct marpa_r* r = r_wrapper->r;
     gint middle = marpa_source_middle(r);
-    if (middle <= -2) { croak("Problem finding trace source middle: %s", marpa_r_error(r)); }
+    if (middle <= -2) { croak("Problem with r->source_middle(): %s", marpa_r_error(r)); }
     if (middle == -1) { XSRETURN_UNDEF; }
     XPUSHs( sv_2mortal( newSViv(middle) ) );
     }
@@ -1405,16 +1411,16 @@ PPCODE:
     }
 
 void
-trace_earleme( r_wrapper )
+trace_earley_set( r_wrapper )
     R_Wrapper *r_wrapper;
 PPCODE:
     {
       struct marpa_r *r = r_wrapper->r;
-      gint trace_earleme = marpa_trace_earleme (r);
-      if (trace_earleme < 0) {
-	  croak ("Problem in r->trace_earleme(): %s", marpa_r_error (r));
+      gint trace_earley_set = marpa_trace_earley_set (r);
+      if (trace_earley_set < 0) {
+	  croak ("Problem in r->trace_earley_set(): %s", marpa_r_error (r));
 	}
-      XPUSHs (sv_2mortal (newSViv (trace_earleme)));
+      XPUSHs (sv_2mortal (newSViv (trace_earley_set)));
     }
 
 void
