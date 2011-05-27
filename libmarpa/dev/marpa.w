@@ -3446,8 +3446,8 @@ typedef gint Marpa_AHFA_Item_ID;
 @d LV_Sort_Key_of_AIM(aim) Sort_Key_of_AIM(aim)
 @<Private structures@> =
 struct s_AHFA_item {
-    Marpa_AHFA_Item_ID t_sort_key;
-    RULE  t_production;
+    gint t_sort_key;
+    RULE t_production;
     @<Int aligned AHFA item elements@>@;
     gint t_position; /* position in the RHS, -1 for a completion */
 };
@@ -3460,6 +3460,12 @@ The one list contains the AHFA items themselves, in
 AHFA item ID order.
 The other is indexed by rule ID, and contains a pointer to
 the first AHFA item for that rule.
+@ Because AHFA items are in an array, the predecessor can
+be found by incrementing the AIM pointer,
+the successor can be found by decrementing it,
+and AIM pointers can be portably compared.
+A lot of code relies on these facts.
+@d AIM_by_ID(g, id) ((g)->t_AHFA_items+(id))
 @<Widely aligned grammar elements@> =
    AIM t_AHFA_items;
    AIM* t_AHFA_items_by_rule;
@@ -3480,7 +3486,6 @@ if (g->t_AHFA_items_by_rule) { g_free(g->t_AHFA_items_by_rule); };
 
 @*0 AHFA Item Accessors.
 @*1 AHFA Item ID.
-@d AIM_by_ID(g, id) ((g)->t_AHFA_items+(id))
 
 @*1 AHFA Item Postdot Symbol.
 |-1| if the item is a completion.
@@ -3568,8 +3573,8 @@ That means that I can avoid the overhead of checking the array
 size when adding each new AHFA item.
 @<Function definitions@> =
 static inline
-void create_AHFA_items(struct marpa_g* g) {
-    Marpa_Rule_ID rule_id;
+void create_AHFA_items(GRAMMAR g) {
+    RULEID rule_id;
     guint no_of_items;
     guint no_of_rules = rule_count(g);
     AIM base_item = g_new(struct s_AHFA_item, Size_of_G(g));
@@ -3635,12 +3640,36 @@ for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
 g->t_AHFA_items_by_rule = items_by_rule;
 }
 
+@ @<Private function prototypes@> =
+static gint cmp_by_aimid (gconstpointer a,
+	gconstpointer b, gpointer user_data);
+@ This functions sorts a list of pointers to
+AHFA items by AHFA item id,
+which is their most natural order.
+Once the AFHA states are created,
+they are restored to this order.
+For portability,
+it requires the AIMs to be in an array.
+@ @<Function definitions@> =
+static gint cmp_by_aimid (gconstpointer ap,
+	gconstpointer bp,
+	gpointer user_data @, G_GNUC_UNUSED) {
+    AIM a = *(AIM*)ap;
+    AIM b = *(AIM*)bp;
+    return a-b;
+}
+
+@ @<Private function prototypes@> =
+static gint cmp_by_postdot_and_aimid (gconstpointer a,
+	gconstpointer b, gpointer user_data);
 @ The AHFA items were created with a temporary ID which sorts them
 by rule, then by position within that rule.  We need one that sort the AHFA items
 by (from major to minor) postdot symbol, then rule, then position.
 A postdot symbol of $-1$ should sort high.
+This comparison function is used in the logic to change the AHFA item ID's
+from their temporary values to their final ones.
 @ @<Function definitions@> =
-static gint cmp_by_AHFA_item_id (gconstpointer ap,
+static gint cmp_by_postdot_and_aimid (gconstpointer ap,
 	gconstpointer bp, gpointer user_data @, G_GNUC_UNUSED) {
     AIM a = *(AIM*)ap;
     AIM b = *(AIM*)bp;
@@ -3652,24 +3681,34 @@ static gint cmp_by_AHFA_item_id (gconstpointer ap,
     if (b_postdot < 0) return -1;
     return a_postdot-b_postdot;
 }
-@ @<Private function prototypes@> =
-static gint cmp_by_AHFA_item_id (gconstpointer a,
-	gconstpointer b, gpointer user_data);
-@ @<Set up the AHFA item ids@> = { Marpa_AHFA_Item_ID item_id;
-AIM* sort_array = g_new(struct s_AHFA_item*, no_of_items);
-AIM items = g->t_AHFA_items;
-for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
-    /* Create an array of pointers to the old items,
-      in order to sort them
-      */
-    sort_array[item_id] = items+item_id; 
+
+@ Change the AHFA ID's from their temporary form to their
+final form.
+Pointers to the AHFA items are copied to a temporary array
+which is then sorted in the order required for the new ID.
+As a result, the final AHFA ID number will be the same as
+the index in this temporary arra.
+A final loop then indexes through
+the temporary array and writes the index to the pointed-to
+AHFA item as its new, final ID.
+@<Set up the AHFA item ids@> =
+{
+  Marpa_AHFA_Item_ID item_id;
+  AIM *sort_array = g_new (struct s_AHFA_item *, no_of_items);
+  AIM items = g->t_AHFA_items;
+  for (item_id = 0; item_id < (Marpa_AHFA_Item_ID) no_of_items; item_id++)
+    {
+      sort_array[item_id] = items + item_id;
+    }
+  g_qsort_with_data (sort_array,
+		     (gint) no_of_items, sizeof (AIM), cmp_by_postdot_and_aimid,
+		     (gpointer) NULL);
+  for (item_id = 0; item_id < (Marpa_AHFA_Item_ID) no_of_items; item_id++)
+    {
+      LV_Sort_Key_of_AIM (sort_array[item_id]) = item_id;
+    }
+  g_free (sort_array);
 }
-g_qsort_with_data(sort_array,
-    (gint)no_of_items, sizeof(AIM), cmp_by_AHFA_item_id, (gpointer)NULL);
-for (item_id = 0; item_id < (Marpa_AHFA_Item_ID)no_of_items; item_id++) {
-    LV_Sort_Key_of_AIM(sort_array[item_id]) = item_id;
-}
-g_free(sort_array); }
 
 @** AHFA State (AHFA) Code.
 
@@ -3795,16 +3834,49 @@ guint t_complete_symbol_count;
 SYMID* t_complete_symbols;
 
 @*0 AHFA Item Container.
-@ @d AIM_Count_of_AHFA(ahfa) ((ahfa)->t_item_count)
-@d LV_AIM_Count_of_AHFA(ahfa) AIM_Count_of_AHFA(ahfa)
-@<Int aligned AHFA state elements@> =
-guint t_item_count;
 @ @d AIMs_of_AHFA(ahfa) ((ahfa)->t_items)
+@d AIM_of_AHFA_by_AEX(ahfa, aex) (AIMs_of_AHFA(ahfa)[aex])
 @d LV_AIMs_of_AHFA(ahfa) AIMs_of_AHFA(ahfa)
+@d AIM_Count_of_AHFA(ahfa) ((ahfa)->t_item_count)
+@d LV_AIM_Count_of_AHFA(ahfa) AIM_Count_of_AHFA(ahfa)
+@d AEX_of_AHFA_by_AIM(ahfa, aim) aex_of_ahfa_by_aim_get((ahfa), (aim))
 @<Widely aligned AHFA state elements@> =
 AIM* t_items;
+@ @<Int aligned AHFA state elements@> =
+guint t_item_count;
+@ This function assumes that the caller knows that the AHFA item
+is in the AHFA state.
+@<Private function prototypes@> =
+static inline AEX aex_of_ahfa_by_aim_get(AHFA ahfa, AIM aim_sought);
+@ Binary search is overkill for discovered states,
+not even repaying the overhead.
+But prediction states can get larger,
+and the overhead is always low.
+An alternative is to have different search routines based on the number
+of AIM items, but that is more overhead.
+Perhaps better to just search than
+to spend cycles figuring out how to search.
+@<Function definitions@> =
+static inline AEX aex_of_ahfa_by_aim_get(AHFA ahfa, AIM sought_aim)
+{
+    AIM* const aims = AIMs_of_AHFA(ahfa);
+    gint aim_count = AIM_Count_of_AHFA(ahfa);
+    gint hi = aim_count - 1;
+    gint lo = 0;
+    while (hi >= lo) { // A binary search
+       gint trial_aex = lo+(hi-lo)/2; // guards against overflow
+       AIM trial_aim = aims[trial_aex];
+       if (trial_aim == sought_aim) return trial_aex;
+       if (trial_aim < sought_aim) {
+           lo = trial_aex+1;
+       } else {
+           hi = trial_aex-1;
+       }
+  }
+  return -1;
+}
 
-@*0. Is AHFA Predicted?.
+@*0 Is AHFA Predicted?.
 @ This boolean indicates whether the
 {\bf AHFA state} is predicted,
 as opposed to whether it contains any predicted 
@@ -3865,21 +3937,7 @@ return AHFA_state_id < AHFA_Count_of_G(g) && AHFA_state_id >= 0;
 static inline gint AHFA_state_id_is_valid(
 const struct marpa_g *g, AHFAID AHFA_state_id);
 
-@*0 Convert AHFA index to AHFA ID.
-@ Given an AHFA state
-and an index into the array of items for an AHFA state,
-return the |AHFA_Item_ID|.
-The caller must ensure that
-the index is in range.
-@<Function definitions@> =
-static inline Marpa_AHFA_Item_ID AHFA_state_item_ix2id(
-const struct marpa_g *g, const AHFA state, guint item_ix) {
-   return state->t_items[item_ix] - g->t_AHFA_items;
-}
-@ @<Private function prototypes@> =
-static inline Marpa_AHFA_Item_ID AHFA_state_item_ix2id(
-const struct marpa_g *g, const AHFA state, guint item_ix);
-
+    
 @*0 Postdot Symbols.
 @d Postdot_SYM_Count_of_AHFA(state) ((state)->t_postdot_sym_count)
 @d LV_Postdot_SYM_Count_of_AHFA(state) Postdot_SYM_Count_of_AHFA(state) 
@@ -3909,7 +3967,13 @@ marpa_AHFA_state_item_count(struct marpa_g* g, AHFAID AHFA_state_id)
 @ @<Public function prototypes@> =
 gint marpa_AHFA_state_item_count(struct marpa_g* g, Marpa_AHFA_State_ID AHFA_state_id);
 
-@ @<Function definitions@> =
+@ @<Public function prototypes@> =
+Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
+     Marpa_AHFA_State_ID AHFA_state_id,
+	guint item_ix);
+@ @d AIMID_of_AHFA_by_AEX(g, ahfa, aex)
+   ((ahfa)->t_items[aex] - (g)->t_AHFA_items)
+@<Function definitions@> =
 Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
      AHFAID AHFA_state_id,
 	guint item_ix) {
@@ -3925,12 +3989,8 @@ Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
 	g->t_error = "invalid state item ix";
 	return failure_indicator;
     }
-    return AHFA_state_item_ix2id(g, state, item_ix);
+    return AIMID_of_AHFA_by_AEX(g, state, item_ix);
 }
-@ @<Public function prototypes@> =
-Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g* g,
-     Marpa_AHFA_State_ID AHFA_state_id,
-	guint item_ix);
 
 @ @<Function definitions@> =
 gint marpa_AHFA_state_is_predict(struct marpa_g* g,
@@ -4088,7 +4148,7 @@ void create_AHFA_states(struct marpa_g* g) {
        the |DQUEUE|'s data */
    ahfa_count_of_g = LV_AHFA_Count_of_G(g) = DQUEUE_END(states);
    @<Populate the completed symbol data in the transitions@>@;
-   @<Populate the Leo base AEXes@>@;
+   @<Resort the AIMs and populate the Leo base AEXes@>@;
    @<Free locals for creating AHFA states@>@;
 }
 
@@ -4194,8 +4254,34 @@ NEXT_AHFA_STATE: ;
      }
 }
 
-@ @<Populate the Leo base AEXes@> = {
-     ;
+@ For every AHFA item which can be a Leo base, and any transition
+(or postdot) symbol that leads to a Leo completion, put the AEX
+into the |TRANS| structure, for memoization.
+@<Resort the AIMs and populate the Leo base AEXes@> =
+{
+  gint ahfa_id;
+  for (ahfa_id = 0; ahfa_id < ahfa_count_of_g; ahfa_id++)
+    {
+      AHFA ahfa = AHFA_of_G_by_ID(g, ahfa_id);
+      TRANS* const transitions = TRANSs_of_AHFA(ahfa);
+      AIM *aims = AIMs_of_AHFA (ahfa);
+      gint aim_count = AIM_Count_of_AHFA (ahfa);
+      AEX aex;
+      g_qsort_with_data(aims, aim_count, sizeof (AIM*), cmp_by_aimid, NULL);
+      for (aex = 0; aex < aim_count; aex++)
+	{
+	  AIM ahfa_item = aims[aex];
+	  SYMID postdot = Postdot_SYMID_of_AIM (ahfa_item);
+	  if (postdot >= 0)
+	    {
+	      TRANS transition = transitions[postdot];
+	      AHFA to_ahfa = To_AHFA_of_TRANS (transition);
+	      if (!AHFA_is_Leo_Completion (to_ahfa))
+		continue;
+	      LV_Leo_Base_AEX_of_TRANS (transition) = aex;
+	    }
+	}
+    }
 }
 
 @ @<Free locals for creating AHFA states@> =
@@ -4928,6 +5014,7 @@ once I stabilize the C code implemention.
 
 @d TRANS_of_AHFA_by_SYMID(from_ahfa, id)
     (*(TRANSs_of_AHFA(from_ahfa)+(id)))
+@d TRANS_of_EIM_by_SYMID(eim, id) TRANS_of_AHFA_by_SYMID(AHFA_of_EIM(eim), (id))
 @d To_AHFA_of_TRANS(trans) (to_ahfa_of_transition_get(trans))
 @d LV_To_AHFA_of_TRANS(trans) ((trans)->t_ur.t_to_ahfa)
 @d Completion_Count_of_TRANS(trans)
@@ -5908,6 +5995,8 @@ the Earley set.
 @d Origin_Earleme_of_EIM(item) (Earleme_of_ES(Origin_of_EIM(item)))
 @d Origin_Ord_of_EIM(item) (Ord_of_ES(Origin_of_EIM(item)))
 @d Origin_of_EIM(item) ((item)->t_key.t_origin)
+@d AIM_of_EIM_by_AEX(eim, aex) AIM_of_AHFA_by_AEX(AHFA_of_EIM(eim), (aex))
+@d AEX_of_EIM_by_AIM(eim, aim) AEX_of_AHFA_by_AIM(AHFA_of_EIM(eim), (aim))
 @<Private incomplete structures@> =
 struct s_earley_item;
 typedef struct s_earley_item* EIM;
@@ -8822,6 +8911,31 @@ location, the same AHFA item in the other must be, also.
 This happen frequently enough to be an issue even for practical
 grammars.
 
+@*0 Sources of Leo Path Items.
+A Leo path consists of a series of Earley items:
+\li at the bottom, exactly one Leo base item;
+\li at the top, exactly one Leo completion item;
+\li in between, zero or more Leo path items.
+@ Leo base items and Leo completion items can have a variety
+of non-Leo sources.
+Leo completion items can have multiple Leo sources,
+though no other source can have the same middle earleme
+as a Leo source.
+@ When expanded, Leo path items can have multiple sources.
+However, the sources of a single Leo path item
+will result from the same Leo predecessor.
+As consequences:
+\li All the sources of an expanded Leo path item will have the same
+Earley item predecessor,
+the Leo base item of the Leo predecessor.
+\li All these sources will also have the same middle
+earleme, the Earley set of the Leo predecessor.
+\li Every source of the Leo path item will have a cause
+and the transition symbol of the Leo predecessor
+will be on the LHS of at least one completion in all of those causes.
+\li The Leo transition symbol will be the postdot symbol in exactly
+one AHFA item in the AHFA state of the Earley item predecessor.
+
 @** Ur-Node (UR) Code.
 Ur is a German word for "primordial", which is used
 a lot in academic writing to designate precursors---%
@@ -9049,7 +9163,10 @@ set |end_of_parse_es| and |completed_start_rule|@> =
     }
 }
 
-@ @<Traverse Earley sets to create bocage@>=
+@ |predecessor_aim| and |predot|
+are guaranteed to be defined,
+since neither a prediction or the null parse AHFA item is ever on the stack.
+@<Traverse Earley sets to create bocage@>=
 {
     UR_Const ur_node;
     const URS ur_node_stack = URS_of_R(r);
@@ -9058,6 +9175,11 @@ set |end_of_parse_es| and |completed_start_rule|@> =
     {
         const EIM_Const parent_earley_item = EIM_of_UR(ur_node);
         const AEX parent_aex = AEX_of_UR(ur_node);
+	const AIM parent_aim = AIM_of_EIM_by_AEX (parent_earley_item, parent_aex);
+	const AIM predecessor_aim = parent_aim - 1;
+	const SYMID transition_symbol_id = Postdot_SYMID_of_AIM(predecessor_aim);
+	/* Note that the postdot symbol of the predecessor is NOT necessary the
+	   predot symbol, because there may be nulling symbols in between. */
         guint source_type = Source_Type_of_EIM (parent_earley_item);
         @<Push child Earley items from token sources@>@;
         @<Push child Earley items from completion sources@>@;
@@ -9080,6 +9202,28 @@ static inline void push_ur_node_if_new(
     EIM earley_item,
     AEX ahfa_element_ix)
 {
+    if (!psia_test_and_set(obs, per_es_data, earley_item, ahfa_element_ix)) {
+	ur_node_push(ur_node_stack, earley_item, ahfa_element_ix);
+    }
+}
+
+@ The |PSIA| is a container of data that is per Earley-set, per Earley item,
+and per AEX.  Thus, Per-Set-Item-Aex, or PSIA.
+This function ensures that the appropriate |PSIA| boolean is set,
+and returns that boolean's value prior to the call.
+@<Private function prototypes@> =
+static inline gint psia_test_and_set(
+    struct obstack* obs,
+    struct s_bocage_setup_per_es* per_es_data,
+    EIM earley_item,
+    AEX ahfa_element_ix);
+@ @<Function definitions@> = 
+static inline gint psia_test_and_set(
+    struct obstack* obs,
+    struct s_bocage_setup_per_es* per_es_data,
+    EIM earley_item,
+    AEX ahfa_element_ix)
+{
     const gint aim_count_of_item = AIM_Count_of_EIM(earley_item);
     const Marpa_Earley_Set_ID set_ordinal = ES_Ord_of_EIM(earley_item);
     OR** nodes_by_item = per_es_data[set_ordinal].t_aexes_by_item;
@@ -9093,45 +9237,60 @@ static inline void push_ur_node_if_new(
 	    nodes_by_aex[ahfa_element_ix] = NULL;
 	}
     }
-    @<Push ur-node if not in |nodes_by_aex|@>@;
-}
-
-@ @<Push ur-node if not in |nodes_by_aex|@> = {
     if (!nodes_by_aex[ahfa_element_ix]) {
 	nodes_by_aex[ahfa_element_ix] = &dummy_or_node;
-	ur_node_push(ur_node_stack, earley_item, ahfa_element_ix);
+	return 0;
     }
+    return 1;
 }
 
 @ @<Push child Earley items from token sources@> =
 {
   SRCL source_link = NULL;
-  EIM push_candidate = NULL;
+  EIM predecessor_earley_item = NULL;
   switch (source_type)
     {
     case SOURCE_IS_TOKEN:
-      push_candidate = Predecessor_of_EIM (parent_earley_item);
+      predecessor_earley_item = Predecessor_of_EIM (parent_earley_item);
       break;
     case SOURCE_IS_AMBIGUOUS:
       source_link = First_Token_Link_of_EIM (parent_earley_item);
       if (source_link)
 	{
-	  push_candidate = Predecessor_of_SRCL (source_link);
+	  predecessor_earley_item = Predecessor_of_SRCL (source_link);
 	  source_link = Next_SRCL_of_SRCL (source_link);
 	}
     }
-    if (push_candidate && EIM_is_Predicted(push_candidate)) {
-	  /* Or-nodes are not built from predictions */
-          push_candidate = NULL;
+    if (predecessor_earley_item && EIM_is_Predicted(predecessor_earley_item)) {
+	  @<Set boolean in PSIA for initial nulls@>@;
+          predecessor_earley_item = NULL;
     }
-  for (;;)
-    {
-      if (push_candidate) {
-	    push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data, push_candidate, 0);
-	}
-	if (!source_link) break;
-	push_candidate = Predecessor_of_SRCL (source_link);
+    for (;;)
+      {
+	if (predecessor_earley_item)
+	  {
+	    AEX predecessor_aex =
+	      AEX_of_EIM_by_AIM (predecessor_earley_item, predecessor_aim);
+	    push_ur_node_if_new (ur_node_stack, &bocage_setup_obs, per_es_data,
+				 predecessor_earley_item, predecessor_aex);
+	  }
+	if (!source_link)
+	  break;
+	predecessor_earley_item = Predecessor_of_SRCL (source_link);
 	source_link = Next_SRCL_of_SRCL (source_link);
+      }
+}
+
+@ If there are initial nulls, set a boolean in the PSIA
+so that I will know to create the chain of or-nodes for them.
+We don't need to stack the prediction, because it can have
+no other descendants.
+@<Set boolean in PSIA for initial nulls@> = {
+    if (Position_of_AIM(predecessor_aim) > 0) {
+        AEX predecessor_aex = AEX_of_EIM_by_AIM(predecessor_earley_item,
+	    predecessor_aim);
+	psia_test_and_set(&bocage_setup_obs, per_es_data, 
+	    predecessor_earley_item, predecessor_aex);
     }
 }
 
@@ -9158,15 +9317,30 @@ static inline void push_ur_node_if_new(
     }
     if (predecessor_earley_item && EIM_is_Predicted (predecessor_earley_item))
       {
-	/* Or-nodes are not built from predictions */
+	@<Set boolean in PSIA for initial nulls@>@;
 	predecessor_earley_item = NULL;
       }
   while (cause_earley_item)
     {
-      if (predecessor_earley_item) {
-	  push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data, predecessor_earley_item, 0);
+    if (predecessor_earley_item)
+      {
+	const AEX predecessor_aex =
+	  AEX_of_EIM_by_AIM (predecessor_earley_item, predecessor_aim);
+	push_ur_node_if_new (ur_node_stack, &bocage_setup_obs, per_es_data,
+			     predecessor_earley_item, predecessor_aex);
       }
-      push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data, cause_earley_item, 0);
+    {
+      const TRANS cause_completion_data =
+	TRANS_of_EIM_by_SYMID (cause_earley_item, transition_symbol_id);
+      const gint aex_count = Completion_Count_of_TRANS (cause_completion_data);
+      const AEX * const aexes = AEXs_of_TRANS (cause_completion_data);
+      gint ix;
+      for (ix = 0; ix < aex_count; ix++) {
+	  AEX cause_aex = aexes[ix];
+	  push_ur_node_if_new (ur_node_stack, &bocage_setup_obs, per_es_data,
+			   cause_earley_item, cause_aex);
+      }
+    }
       if (!source_link) break;
       predecessor_earley_item = Predecessor_of_SRCL (source_link);
       cause_earley_item = Cause_of_SRCL (source_link);
@@ -9198,8 +9372,26 @@ static inline void push_ur_node_if_new(
   while (cause_earley_item)
     {
 	while (1) {
-	    push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data, cause_earley_item, 0);
+	    {
+	      const TRANS cause_completion_data =
+		TRANS_of_EIM_by_SYMID (cause_earley_item, transition_symbol_id);
+	      const gint aex_count = Completion_Count_of_TRANS (cause_completion_data);
+	      const AEX * const aexes = AEXs_of_TRANS (cause_completion_data);
+	      gint ix;
+	      for (ix = 0; ix < aex_count; ix++) {
+		  AEX cause_aex = aexes[ix];
+		push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data, cause_earley_item, cause_aex);
+	      }
+	    }
 	    if (!leo_predecessor) break;
+	    {
+	      SYMID postdot = Postdot_SYMID_of_LIM (leo_predecessor);
+	      EIM leo_base_earley_item = Base_EIM_of_LIM (leo_predecessor);
+	      TRANS transition = TRANS_of_EIM_by_SYMID (leo_base_earley_item, postdot);
+	      AEX aex = Leo_Base_AEX_of_TRANS (transition);
+	      push_ur_node_if_new(ur_node_stack, &bocage_setup_obs, per_es_data,
+		  leo_base_earley_item, aex);
+	    }
 	    cause_earley_item = Base_EIM_of_LIM(leo_predecessor);
 	    leo_predecessor = Predecessor_LIM_of_LIM(leo_predecessor);
         }
