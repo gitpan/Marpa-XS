@@ -600,7 +600,10 @@ while |libmarpa| is being written.
 These notes will be 
 deleted once development is finished.
 
-@ \li Make sure that |t_is_leo_expanding| is eliminated
+@ \li Make sure that
+|t_is_leo_expanding|
+and |t_is_leo_expansion|
+are eliminated
 when no longer needed.
 
 @ \li Make tracing no longer the default in the recognizer.
@@ -1775,7 +1778,7 @@ Marpa_Symbol_ID lhs_id, Marpa_Symbol_ID* rhs_ids, guint length)
 	const guint rule_length = Length_of_RULE(rule);
 	if (rule_length != length) { goto RULE_IS_NOT_DUPLICATE; }
 	for (rhs_position = 0; rhs_position < rule_length; rhs_position++) {
-	    if (rhs_symid(rule, rhs_position) != rhs_ids[rhs_position]) {
+	    if (RHS_ID_of_RULE(rule, rhs_position) != rhs_ids[rhs_position]) {
 	        goto RULE_IS_NOT_DUPLICATE;
 	    }
 	}
@@ -1872,12 +1875,12 @@ be tiny.
 {
 /* Handle the first symbol as a special case */
 gint rhs_ix = (gint) Length_of_RULE (rule) - 1;
-rh_symbol_list[0] = rhs_symid(rule, (unsigned)rhs_ix);
+rh_symbol_list[0] = RHS_ID_of_RULE(rule, (unsigned)rhs_ix);
 rh_symbol_list_length = 1;
 rhs_ix--;
 for (; rhs_ix >= 0; rhs_ix--) {
     gint higher_ix;
-    Marpa_Symbol_ID new_symid = rhs_symid(rule, (unsigned)rhs_ix);
+    Marpa_Symbol_ID new_symid = RHS_ID_of_RULE(rule, (unsigned)rhs_ix);
     gint next_highest_ix = rh_symbol_list_length - 1;
     while (next_highest_ix >= 0) {
 	Marpa_Symbol_ID current_symid = rh_symbol_list[next_highest_ix];
@@ -1964,7 +1967,7 @@ Marpa_Symbol_ID marpa_rule_rh_symbol(struct marpa_g *g, Marpa_Rule_ID rule_id, g
     @<Fail if grammar |rule_id| is invalid@>@;
     rule = RULE_by_ID(g, rule_id);
     if (Length_of_RULE(rule) <= ix) return -1;
-    return rhs_symid(rule, ix);
+    return RHS_ID_of_RULE(rule, ix);
 }
 @ @<Public function prototypes@> =
 Marpa_Symbol_ID marpa_rule_rh_symbol(struct marpa_g *g, Marpa_Rule_ID rule_id, guint ix);
@@ -1981,17 +1984,10 @@ gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id) {
 @ @<Public function prototypes@> =
 gint marpa_rule_length(struct marpa_g *g, Marpa_Rule_ID rule_id);
 
-@*1 LHS Symbol of Rule.
-@d LHS_ID_of_RULE(production) ((production)->t_symbols[0])
-
-@*1 RHS Symbol of Rule.
-@ @<Function definitions@> =
-static inline Marpa_Symbol_ID
-    rhs_symid(RULE  rule, guint rh_index) {
-	return rule->t_symbols[rh_index+1];
-    }
-@ @<Private function prototypes@> =
-static inline Marpa_Symbol_ID rhs_symid(RULE  rule, guint rh_index);
+@*1 Symbols of the Rule.
+@d LHS_ID_of_RULE(rule) ((rule)->t_symbols[0])
+@d RHS_ID_of_RULE(rule, position)
+    ((rule)->t_symbols[(position)+1])
 
 @*0 Rule ID.
 The {\bf rule ID} is a number which
@@ -2070,7 +2066,7 @@ static inline gint rule_is_productive(struct marpa_g* g, RULE  rule)
 {
 guint rh_ix;
 for (rh_ix = 0; rh_ix < Length_of_RULE(rule); rh_ix++) {
-   Marpa_Symbol_ID rhs_id = rhs_symid(rule, rh_ix);
+   Marpa_Symbol_ID rhs_id = RHS_ID_of_RULE(rule, rh_ix);
    if ( !SYM_by_ID(g, rhs_id)->t_is_productive ) return FALSE;
 }
 return TRUE; }
@@ -2138,7 +2134,7 @@ rule_is_nulling (GRAMMAR g, RULE rule)
   guint rh_ix;
   for (rh_ix = 0; rh_ix < Length_of_RULE (rule); rh_ix++)
     {
-      SYMID rhs_id = rhs_symid (rule, rh_ix);
+      SYMID rhs_id = RHS_ID_of_RULE (rule, rh_ix);
       if (!SYM_by_ID (g, rhs_id)->t_is_nulling)
 	return FALSE;
     }
@@ -2698,7 +2694,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
      guint rhs_ix, rule_length = Length_of_RULE(rule);
      for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
 	 matrix_bit_set(reach_matrix,
-	     (guint)lhs_id, (guint)rhs_symid(rule, rhs_ix));
+	     (guint)lhs_id, (guint)RHS_ID_of_RULE(rule, rhs_ix));
 } } }
 transitive_closure(reach_matrix);
 @ @<Declare census variables@> = Bit_Matrix reach_matrix;
@@ -2862,7 +2858,7 @@ into multiple CHAF rules.
 { guint rhs_ix;
 factor_count = 0;
 for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
-     Marpa_Symbol_ID symid = rhs_symid(rule, rhs_ix);
+     Marpa_Symbol_ID symid = RHS_ID_of_RULE(rule, rhs_ix);
      SYM symbol = SYM_by_ID(g, symid);
      if (symbol->t_is_nulling) continue; /* Do nothing for nulling symbols */
      if (symbol_null_alias(symbol)) {
@@ -2980,7 +2976,7 @@ for the PN rule.
 guint real_symbol_count = piece_end - piece_start + 1;
 for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
    remaining_rhs[piece_rhs_length] =
-   piece_rhs[piece_rhs_length] = rhs_symid(rule, piece_start+piece_rhs_length);
+   piece_rhs[piece_rhs_length] = RHS_ID_of_RULE(rule, piece_start+piece_rhs_length);
 }
 piece_rhs[piece_rhs_length++] = chaf_virtual_symid;
 }
@@ -2997,7 +2993,7 @@ piece_rhs[piece_rhs_length++] = chaf_virtual_symid;
        remaining_rhs_length < chaf_rule_length; remaining_rhs_length++)
     {
       Marpa_Symbol_ID original_id =
-	rhs_symid (rule, piece_start + remaining_rhs_length);
+	RHS_ID_of_RULE (rule, piece_start + remaining_rhs_length);
       SYM alias = symbol_null_alias (SYM_by_ID (g, original_id));
       remaining_rhs[remaining_rhs_length] =
 	alias ? ID_of_SYM (alias) : original_id;
@@ -3014,7 +3010,7 @@ piece_rhs[piece_rhs_length++] = chaf_virtual_symid;
 @ Note, while I have the nulling alias for the first factor,
 |remaining_rhs| is altered to be ready for the NN rule.
 @<Add NP CHAF rule for nullable continuation@> = {
-    Marpa_Symbol_ID proper_id = rhs_symid(rule, first_factor_position);
+    Marpa_Symbol_ID proper_id = RHS_ID_of_RULE(rule, first_factor_position);
     SYM alias = symbol_null_alias(SYM_by_ID(g, proper_id));
     remaining_rhs[first_factor_piece_position] =
 	piece_rhs[first_factor_piece_position] =
@@ -3053,7 +3049,7 @@ real_symbol_count = piece_end - piece_start + 1;
 @ The PP Rule.
 @<Add CHAF rules for proper continuation@> = 
     for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
-	piece_rhs[piece_rhs_length] = rhs_symid(rule, piece_start+piece_rhs_length);
+	piece_rhs[piece_rhs_length] = RHS_ID_of_RULE(rule, piece_start+piece_rhs_length);
     }
     piece_rhs[piece_rhs_length++] = chaf_virtual_symid;
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
@@ -3061,7 +3057,7 @@ real_symbol_count = piece_end - piece_start + 1;
 
 @ The PN Rule.
 @<Add CHAF rules for proper continuation@> = 
-    second_factor_proper_id = rhs_symid(rule, second_factor_position);
+    second_factor_proper_id = RHS_ID_of_RULE(rule, second_factor_position);
     piece_rhs[second_factor_piece_position]
 	= second_factor_alias_id = alias_by_id(g, second_factor_proper_id);
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
@@ -3069,7 +3065,7 @@ real_symbol_count = piece_end - piece_start + 1;
 
 @ The NP Rule.
 @<Add CHAF rules for proper continuation@> = 
-    first_factor_proper_id = rhs_symid(rule, first_factor_position);
+    first_factor_proper_id = RHS_ID_of_RULE(rule, first_factor_position);
     piece_rhs[first_factor_piece_position]
 	= first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
     piece_rhs[second_factor_piece_position] = second_factor_proper_id;
@@ -3103,14 +3099,14 @@ real_symbol_count = piece_end - piece_start + 1;
 @ The PP Rule.
 @<Add final CHAF rules for two factors@> = 
     for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
-	piece_rhs[piece_rhs_length] = rhs_symid(rule, piece_start+piece_rhs_length);
+	piece_rhs[piece_rhs_length] = RHS_ID_of_RULE(rule, piece_start+piece_rhs_length);
     }
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
     @<Set CHAF rule flags and call back@>@;
 
 @ The PN Rule.
 @<Add final CHAF rules for two factors@> =
-    second_factor_proper_id = rhs_symid(rule, second_factor_position);
+    second_factor_proper_id = RHS_ID_of_RULE(rule, second_factor_position);
     piece_rhs[second_factor_piece_position]
 	= second_factor_alias_id = alias_by_id(g, second_factor_proper_id);
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
@@ -3118,7 +3114,7 @@ real_symbol_count = piece_end - piece_start + 1;
 
 @ The NP Rule.
 @<Add final CHAF rules for two factors@> =
-    first_factor_proper_id = rhs_symid(rule, first_factor_position);
+    first_factor_proper_id = RHS_ID_of_RULE(rule, first_factor_position);
     piece_rhs[first_factor_piece_position]
 	= first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
     piece_rhs[second_factor_piece_position] = second_factor_proper_id;
@@ -3151,7 +3147,7 @@ real_symbol_count = piece_end - piece_start + 1;
 @ The P Rule.
 @<Add final CHAF rules for one factor@> = 
     for (piece_rhs_length = 0; piece_rhs_length < real_symbol_count; piece_rhs_length++) {
-	piece_rhs[piece_rhs_length] = rhs_symid(rule, piece_start+piece_rhs_length);
+	piece_rhs[piece_rhs_length] = RHS_ID_of_RULE(rule, piece_start+piece_rhs_length);
     }
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
     @<Set CHAF rule flags and call back@>@;
@@ -3160,7 +3156,7 @@ real_symbol_count = piece_end - piece_start + 1;
 a nulling rule.
 @<Add final CHAF rules for one factor@> =
 if (piece_start < nullable_suffix_ix) {
-    first_factor_proper_id = rhs_symid(rule, first_factor_position);
+    first_factor_proper_id = RHS_ID_of_RULE(rule, first_factor_position);
     first_factor_alias_id = alias_by_id(g, first_factor_proper_id);
     piece_rhs[first_factor_piece_position] = first_factor_alias_id;
     chaf_rule = rule_start(g, current_lhs_id, piece_rhs, piece_rhs_length);
@@ -3364,7 +3360,7 @@ for (rule_id = 0; rule_id < (Marpa_Rule_ID)no_of_rules; rule_id++) {
      rule_length = Length_of_RULE(rule);
      proper_id = -1;
      for (rhs_ix = 0; rhs_ix < rule_length; rhs_ix++) {
-	 Marpa_Symbol_ID symid = rhs_symid(rule, rhs_ix);
+	 Marpa_Symbol_ID symid = RHS_ID_of_RULE(rule, rhs_ix);
 	 SYM symbol = SYM_by_ID(g, symid);
 	 if (symbol->t_is_nullable) continue; /* After the CHAF rewrite, nullable $\E$ nulling */
 	 if (proper_id >= 0) goto NEXT_RULE; /* More
@@ -3705,7 +3701,7 @@ static inline void create_AHFA_items(struct marpa_g* g);
   guint rhs_ix;
   for (rhs_ix = 0; rhs_ix < Length_of_RULE(rule); rhs_ix++)
     {
-      SYMID rh_symid = rhs_symid (rule, rhs_ix);
+      SYMID rh_symid = RHS_ID_of_RULE (rule, rhs_ix);
       SYM symbol = SYM_by_ID (g, rh_symid);
       if (!symbol->t_is_nullable)
 	{
@@ -6164,6 +6160,7 @@ static inline EIM earley_item_create(const RECCE r,
   new_item->t_key = key;
   new_item->t_source_type = NO_SOURCE;
   Ord_of_EIM(new_item) = count - 1;
+  EIM_is_Leo_Expansion(new_item) = 0; /* The default */
   LV_EIM_is_Leo_Expanded(new_item) = 1; /* Will be unset when
      and if a Leo link is added */
   top_of_work_stack = WORK_EIM_PUSH(r);
@@ -6298,9 +6295,11 @@ This interpretation fits the purpose,
 which is to tell code which encounters
 this Leo item whether there are Leo items which need expansion.
 @d EIM_is_Leo_Expanded(eim) ((eim)->t_is_leo_expanded)
+@d EIM_is_Leo_Expansion(eim) ((eim)->t_is_leo_expansion)
 @d LV_EIM_is_Leo_Expanded(eim) EIM_is_Leo_Expanded(eim)
 @<Bit aligned Earley item elements@> =
 unsigned int t_is_leo_expanded:1;
+unsigned int t_is_leo_expansion:1;
 
 @ @<Private function prototypes@> =
 static const char* invalid_source_type_message(guint type);
@@ -8850,6 +8849,7 @@ must be created.
 			To_AHFA_of_EIM_by_SYMID (base_eim_of_this_lim,
 						 postdot_symbol_of_this_lim));
   leo_path_lengths++;
+  EIM_is_Leo_Expansion(new_eim_for_this_path) = 1;
   completion_link_add (r, new_eim_for_this_path,
       base_eim_of_this_lim,
       previous_eim_on_this_path);
@@ -9048,7 +9048,7 @@ are settled.
 static inline void ur_node_stack_init(URS stack);
 @ @<Function definitions@> =
 static inline void ur_node_stack_init(URS stack) {
-MARPA_DEBUG2("ur_node_stack_init %s", G_STRLOC);
+MARPA_DEBUG2_OFF("ur_node_stack_init %s", G_STRLOC);
     obstack_init(&stack->t_obs);
     stack->t_base = ur_node_new(stack, 0);
     ur_node_stack_reset(stack);
@@ -9065,10 +9065,10 @@ static inline void ur_node_stack_reset(URS stack) {
 static inline void ur_node_stack_destroy(URS stack);
 @ @<Function definitions@> =
 static inline void ur_node_stack_destroy(URS stack) {
-MARPA_DEBUG2("ur_node_stack_destroy %s", G_STRLOC);
+MARPA_DEBUG2_OFF("ur_node_stack_destroy %s", G_STRLOC);
     if (stack->t_base) obstack_free(&stack->t_obs, NULL);
     stack->t_base = NULL;
-MARPA_DEBUG2("ur_node_stack_destroy %s", G_STRLOC);
+MARPA_DEBUG2_OFF("ur_node_stack_destroy %s", G_STRLOC);
 }
 
 @ @<Private function prototypes@> =
@@ -9124,12 +9124,15 @@ the parse bocage can contain cycles.
 @<Private incomplete structures@> =
 struct s_and_node;
 typedef struct s_and_node* AND;
-@ @<Private structures@> =
+@
+@d OR_of_AND(and) ((and)->t_current)
+@d Predecessor_OR_of_AND(and) ((and)->t_predecessor)
+@d Cause_OR_of_AND(and) ((and)->t_cause)
+@<Private structures@> =
 struct s_and_node {
-    AND t_predecessor;
-    AND t_cause;
-    gint t_token_length;
-    AND t_sibling;
+    OR t_current;
+    OR t_predecessor;
+    OR t_cause;
 };
 typedef struct s_and_node AND_Object;
 
@@ -9210,22 +9213,33 @@ for final or-nodes.
 @d DRAFT_OR_NODE -2
 @d DRAFT_NULL_OR_NODE -3
 @d TOKEN_OR_NODE -5
-@d Type_of_OR(or) ((or)->t_trivial.t_position)
-@d ES_Ord_of_OR(or) ((or)->t_trivial.t_end_set_ordinal)
 @ C89 guarantees that common initial sequences
 may be accessed via different members of a union.
-@<Or-node structure common initial sequence@> =
+@d ES_Ord_of_OR(or) ((or)->t_trivial.t_end_set_ordinal)
+@ These two occupy the same positiion.  Draft or-nodes
+have their type (always a negative number) 
+here,
+which is replaced with their position (always non-negative)
+when the or-node becomes final.
+@d Type_of_OR(or) ((or)->t_trivial.t_position)
+@d Position_of_OR(or) ((or)->t_trivial.t_position)
+@<Or-node common initial sequence@> =
 gint t_position;
 gint t_end_set_ordinal;
+@ All or-nodes except non-null draft or-nodes begin with
+this sequence.
+@<Or-node typical common initial sequence@> =
+@<Or-node common initial sequence@>@;
+RULE t_rule;
+gint t_start_set_ordinal;
 @ In the case of a trivial or-node, |t_and_nodes|
 will be NULL, and the or-node structure itself contain
 the and-node.
 @d RULE_of_OR(or) ((or)->t_trivial.t_rule)
 @d Start_ES_Ord_of_OR(or) ((or)->t_trivial.t_start_set_ordinal)
+@d ANDs_of_OR(or) ((or)->t_trivial.t_and_nodes)
 @<Final Or-nodes common initial sequence@> =
-@<Or-node structure common initial sequence@>@;
-RULE t_rule;
-gint t_start_set_ordinal;
+@<Or-node typical common initial sequence@>@;
 AND t_and_nodes;
 @
 @d EIM_of_OR(or) ((or)->t_draft.t_earley_item)
@@ -9234,7 +9248,7 @@ AND t_and_nodes;
 @<Private structures@> =
 struct s_draft_or_node
 {
-    @<Or-node structure common initial sequence@>@;
+    @<Or-node common initial sequence@>@;
   EIM t_earley_item;
   AEX t_aex;
   LIM t_leo_item;
@@ -9245,19 +9259,26 @@ struct s_draft_or_node
 @<Private structures@> =
 struct s_draft_null_or_node
 {
-    @<Final Or-nodes common initial sequence@>@;
+    @<Or-node typical common initial sequence@>@;
     gint t_symbol_instance;
 };
+@ A trivial or-node is one which contains only
+one and-node.  It is called trivial because an or-node
+represents a choice and there is only one choice.
+@d Trivial_AND_of_OR(or) (&(or)->t_trivial.t_and_node)
+@<Private structures@> =
 struct s_trivial_or_node
 {
     @<Final Or-nodes common initial sequence@>@;
       AND_Object t_and_node;
 };
+@ @<Private structures@> =
 struct s_non_trivial_or_node
 {
     @<Final Or-nodes common initial sequence@>@;
       gint t_and_node_count;
 };
+@ @<Private structures@> =
 union u_or_node {
     gint t_type;
     struct s_draft_or_node t_draft;
@@ -9312,7 +9333,7 @@ B_of_R(r) = NULL;
 
 @*0 The Bocage Obstack.
 Create an obstack with the lifetime of the bocage.
-@d OBS_of_BOC(b) ((b)->t_obs);
+@d OBS_of_BOC(b) ((b)->t_obs)
 @<Widely aligned bocage elements@> = struct obstack t_obs;
 @ @<Initialize bocage elements@> = obstack_init(&b->t_obs);
 @ @<Destroy bocage elements, final phase@> = obstack_free(&b->t_obs, NULL);
@@ -9324,12 +9345,12 @@ gint marpa_bocage_new(struct marpa_r* r, Marpa_Rule_ID rule_id, Marpa_Earley_Set
     const gint no_parse = -1;
     const gint null_parse = 0;
     @<Bocage setup locals@>@;
-MARPA_DEBUG2("marpa_bocage_new, b=%p", B_of_R(r));
+MARPA_DEBUG2_OFF("marpa_bocage_new, b=%p", B_of_R(r));
     r_update_earley_sets(r);
     @<Return if function guards fail;
 	set |end_of_parse_es| and |completed_start_rule|@>@;
     b = g_slice_new(BOC_Object);
-MARPA_DEBUG2("Allocated bocage %p", b);
+MARPA_DEBUG2_OFF("Allocated bocage %p", b);
     @<Initialize bocage elements@>@;
     @<Find |start_eim|, |start_aim| and |start_aex|@>@;
     LV_Phase_of_R(r) = evaluation_phase;
@@ -9384,7 +9405,7 @@ set |end_of_parse_es| and |completed_start_rule|@> =
 	break;
       }
 
-MARPA_DEBUG2("ordinal=%d", ordinal);
+MARPA_DEBUG2_OFF("ordinal=%d", ordinal);
     if (ordinal == -1)
       {
 	end_of_parse_es = Current_ES_of_R (r);
@@ -9416,7 +9437,7 @@ MARPA_DEBUG2("ordinal=%d", ordinal);
 	}
       completed_start_rule = RULE_by_ID (g, rule_id);
     }
-MARPA_DEBUG2("ordinal=%d", ordinal);
+MARPA_DEBUG2_OFF("ordinal=%d", ordinal);
     if (ordinal == 0) {  // If this is a null parse
 	 return null_parse;
     }
@@ -9475,16 +9496,18 @@ never on the stack.
     while ((ur_node = ur_node_pop(ur_node_stack)))
     {
         const EIM_Const parent_earley_item = EIM_of_UR(ur_node);
-        const AEX parent_aex = AEX_of_UR(ur_node);
-	const AIM parent_aim = AIM_of_EIM_by_AEX (parent_earley_item, parent_aex);
-	const AIM predecessor_aim = parent_aim - 1;
-	const SYMID transition_symbol_id = Postdot_SYMID_of_AIM(predecessor_aim);
-	/* Note that the postdot symbol of the predecessor is NOT necessarily the
-	   predot symbol, because there may be nulling symbols in between. */
-        guint source_type = Source_Type_of_EIM (parent_earley_item);
-        @<Push child Earley items from token sources@>@;
-        @<Push child Earley items from completion sources@>@;
-        @<Push child Earley items from Leo sources@>@;
+	if (!EIM_is_Leo_Expansion(parent_earley_item)) {
+	    const AEX parent_aex = AEX_of_UR(ur_node);
+	    const AIM parent_aim = AIM_of_EIM_by_AEX (parent_earley_item, parent_aex);
+	    const AIM predecessor_aim = parent_aim - 1;
+	    const SYMID transition_symbol_id = Postdot_SYMID_of_AIM(predecessor_aim);
+	    /* Note that the postdot symbol of the predecessor is NOT necessarily the
+	       predot symbol, because there may be nulling symbols in between. */
+	    guint source_type = Source_Type_of_EIM (parent_earley_item);
+	    @<Push child Earley items from token sources@>@;
+	    @<Push child Earley items from completion sources@>@;
+	    @<Push child Earley items from Leo sources@>@;
+	}
     }
 }
 
@@ -9501,12 +9524,20 @@ never on the stack.
   psar_init (and_psar, AHFA_Count_of_G (g));
 MARPA_DEBUG3_OFF("%s SYMI count = %d", G_STRLOC, SYMI_Count_of_G (g));
   psar_init (or_psar, SYMI_Count_of_G (g));
-MARPA_DEBUG3("%s or_node_estimate=%d", G_STRLOC, or_node_estimate);
+MARPA_DEBUG3_OFF("%s or_node_estimate=%d", G_STRLOC, or_node_estimate);
   ORs_of_B (b) = first_or_node = next_or_node = g_new (OR_Object, or_node_estimate);
   for (earley_set_ordinal = 0; earley_set_ordinal < earley_set_count; earley_set_ordinal++)
   {
+      OR draft_or_node;
       const ES_Const earley_set = ES_of_R_by_Ord (r, earley_set_ordinal);
+      const OR first_or_node_of_earley_set = next_or_node;
+      psar_dealloc(or_psar);
       @<Create the draft or-nodes for |earley_set_ordinal|@>@;
+      for (draft_or_node = first_or_node_of_earley_set;
+	  draft_or_node < next_or_node;
+	  draft_or_node++) {
+	  @<Convert |draft_or_node| to final or-node@>@;
+      }
   }
   ORs_of_B (b) = g_renew (OR_Object, first_or_node, next_or_node - first_or_node);
   psar_destroy (and_psar);
@@ -9572,8 +9603,8 @@ Or-nodes are not added for predicted AHFA items.
   if (ahfa_item_symbol_instance >= 0)
     {
       OR or_node;
-MARPA_DEBUG3_OFF("%s or_psl SYMI = %d", G_STRLOC, ahfa_item_symbol_instance);
-MARPA_DEBUG3("main or-node EIM = %s aex=%d", eim_tag(earley_item), aex);
+MARPA_DEBUG3("%s or_psl SYMI = %d", G_STRLOC, ahfa_item_symbol_instance);
+MARPA_DEBUG3_OFF("main or-node EIM = %s aex=%d", eim_tag(earley_item), aex);
 MARPA_ASSERT(ahfa_item_symbol_instance < SYMI_Count_of_G(g));
       or_node = PSL_Datum (or_psl, ahfa_item_symbol_instance);
       if (!or_node || ES_Ord_of_OR(or_node) != earley_set_ordinal)
@@ -9604,15 +9635,17 @@ The exception is where there is no predecessor,
 and this is the case if |Draft_Position_of_OR(or_node) == 0|.
 @<Add nulling token or-nodes@> =
 {
-  gint null_count = Null_Count_of_AIM (ahfa_item);
+  const gint null_count = Null_Count_of_AIM (ahfa_item);
+  const RULE rule = RULE_of_AIM (ahfa_item);
+  const gint first_null_symbol_instance =
+      ahfa_item_symbol_instance < 0 ? SYMI_of_RULE (rule) : ahfa_item_symbol_instance + 1;
   if (null_count > 0)
     {
       gint i;
-      for (i = 1; i <= null_count; i++)
+      for (i = 0; i < null_count; i++)
 	{
-	  gint symbol_instance = ahfa_item_symbol_instance + null_count;
+	  const gint symbol_instance = first_null_symbol_instance + i;
 	  OR or_node = PSL_Datum (or_psl, symbol_instance);
-MARPA_DEBUG3_OFF ("%s or_psl SYMI = %d", G_STRLOC, symbol_instance);
 MARPA_DEBUG3("adding nulling token or-node EIM = %s aex=%d", eim_tag(earley_item), aex);
 	  MARPA_ASSERT (symbol_instance < SYMI_Count_of_G (g));
 	  if (!or_node || ES_Ord_of_OR (or_node) != earley_set_ordinal)
@@ -9623,10 +9656,17 @@ MARPA_DEBUG3("adding nulling token or-node EIM = %s aex=%d", eim_tag(earley_item
 	    }
 	  Type_of_OR (or_node) = DRAFT_NULL_OR_NODE;
 	  ES_Ord_of_OR (or_node) = earley_set_ordinal;
-	  Start_ES_Ord_of_OR (or_node) =
-	    Ord_of_ES (Origin_of_EIM (earley_item));
+	  Start_ES_Ord_of_OR (or_node) = origin_ordinal;
 	  SYMI_of_OR (or_node) = symbol_instance;
-	  RULE_of_OR (or_node) = RULE_of_AIM (ahfa_item);
+	  RULE_of_OR (or_node) = rule;
+MARPA_DEBUG2("symbol_instance = %d", symbol_instance);
+MARPA_DEBUG2("ahfa_item_symbol_instance = %d", ahfa_item_symbol_instance);
+MARPA_DEBUG2("or_psl RULE = %d", ID_of_RULE(rule));
+MARPA_DEBUG3("%s or_psl SYMI_of_RULE = %d", G_STRLOC, SYMI_of_RULE(rule));
+	  MARPA_ASSERT (SYMI_of_OR(or_node) <
+	      SYMI_of_RULE(rule) +
+	      Length_of_RULE(rule));
+	  MARPA_ASSERT (SYMI_of_OR(or_node) >= SYMI_of_RULE(rule));
 	}
     }
 }
@@ -9718,13 +9758,19 @@ There will always be a predecessor, since these nulling
 or-nodes follow a completion.
 @<Add Leo path nulling token or-nodes@> =
 {
-  gint null_count = Null_Count_of_AIM (leo_path_ahfa_item);
+  const gint null_count = Null_Count_of_AIM (leo_path_ahfa_item);
+  const RULE rule = RULE_of_AIM (leo_path_ahfa_item);
+  const gint leo_origin_ordinal = Ord_of_ES (Origin_of_EIM (leo_base_earley_item));
+  const gint first_null_symbol_instance =
+      leo_path_item_symbol_instance < 0
+	  ? SYMI_of_RULE (rule)
+	  : leo_path_item_symbol_instance + 1;
   if (null_count > 0)
     {
       gint i;
-      for (i = 1; i <= null_count; i++)
+      for (i = 0; i < null_count; i++)
 	{
-	  const gint symbol_instance = leo_path_item_symbol_instance + null_count;
+	  const gint symbol_instance = first_null_symbol_instance + i;
 	  OR or_node = PSL_Datum (or_psl, symbol_instance);
 	  MARPA_ASSERT (symbol_instance < SYMI_Count_of_G (g));
 	  if (!or_node || ES_Ord_of_OR (or_node) != earley_set_ordinal)
@@ -9735,14 +9781,54 @@ or-nodes follow a completion.
 	    }
 	  Type_of_OR (or_node) = DRAFT_NULL_OR_NODE;
 	  ES_Ord_of_OR (or_node) = earley_set_ordinal;
-	  Start_ES_Ord_of_OR (or_node) =
-	    Ord_of_ES (Origin_of_EIM (leo_base_earley_item));
+	  Start_ES_Ord_of_OR (or_node) = leo_origin_ordinal;
 	  SYMI_of_OR (or_node) = symbol_instance;
-	  RULE_of_OR (or_node) = RULE_of_AIM (leo_path_ahfa_item);
-	}
+	  RULE_of_OR (or_node) = rule;
+	  MARPA_ASSERT (SYMI_of_OR(or_node) <
+	      SYMI_of_RULE(rule) + Length_of_RULE(rule));
+	  MARPA_ASSERT (SYMI_of_OR(or_node) >= SYMI_of_RULE(rule)); }
     }
 }
 
+@ @<Convert |draft_or_node| to final or-node@> = {
+     switch (Type_of_OR(draft_or_node)) {
+     case DRAFT_NULL_OR_NODE:
+	@<Convert null |draft_or_node| to final or-node@>@;
+     break;
+     case DRAFT_OR_NODE:
+	@<Convert non-null |draft_or_node| to final or-node@>@;
+     break;
+     }
+}
+
+@ @<Convert null |draft_or_node| to final or-node@> = {
+    const gint symbol_instance = SYMI_of_OR(draft_or_node);
+    const RULE rule = RULE_of_OR(draft_or_node);
+    const gint position = symbol_instance - SYMI_of_RULE(rule);
+    MARPA_ASSERT(position < Length_of_RULE(rule));
+    MARPA_ASSERT(position >= 0);
+    OR cause = (OR)SYM_by_ID(g, RHS_ID_of_RULE(rule, position));
+    OR predecessor = NULL;
+    Position_of_OR(draft_or_node) = position;
+    if (position > 0) {
+	const gint origin_ordinal = Start_ES_Ord_of_OR(draft_or_node);
+	PSL or_psl;
+	@<Claim the PSL for |origin_ordinal| as |or_psl|@>@;
+        predecessor = PSL_Datum (or_psl, symbol_instance - 1);
+    }
+    @<Create trivial and-node in |draft_or_node|@>@;
+}
+
+@ @<Create trivial and-node in |draft_or_node|@> = {
+    const AND and_node = Trivial_AND_of_OR(draft_or_node);
+    ANDs_of_OR(draft_or_node) = NULL;
+    OR_of_AND(and_node) = draft_or_node;
+    Predecessor_OR_of_AND(and_node) = predecessor;
+    Cause_OR_of_AND(and_node) = cause;
+}
+
+@ @<Convert non-null |draft_or_node| to final or-node@> = {
+}
 
 @ @<Push ur-node if new@> = {
     if (!psia_test_and_set
@@ -9752,7 +9838,7 @@ or-nodes follow a completion.
 MARPA_DEBUG4_OFF("Adding ur-node for %s aex=%d or_node_estimate before = %d",
 eim_tag(ur_earley_item), ur_aex, or_node_estimate);
 	or_node_estimate += 1 + Null_Count_of_AIM(ur_aim);
-MARPA_DEBUG4("Adding ur-node for %s aex=%d or_node_estimate after = %d",
+MARPA_DEBUG4_OFF("Adding ur-node for %s aex=%d or_node_estimate after = %d",
 eim_tag(ur_earley_item), ur_aex, or_node_estimate);
       }
 }
@@ -9789,7 +9875,7 @@ MARPA_ASSERT(ahfa_element_ix < aim_count_of_item);
 	}
     }
     if (!nodes_by_aex[ahfa_element_ix]) {
-MARPA_DEBUG4("PSIA Set S=%d I=%s A=%d", set_ordinal, eim_tag(earley_item), ahfa_element_ix);
+MARPA_DEBUG4_OFF("PSIA Set S=%d I=%s A=%d", set_ordinal, eim_tag(earley_item), ahfa_element_ix);
 	nodes_by_aex[ahfa_element_ix] = dummy_or_node;
 	return 0;
     }
@@ -9845,7 +9931,7 @@ no other descendants.
 MARPA_DEBUG4_OFF("Initial nulls for %s aex=%d or_node_estimate before = %d",
 eim_tag(predecessor_earley_item), predecessor_aex, or_node_estimate);
 	or_node_estimate += Null_Count_of_AIM(predecessor_aim);
-MARPA_DEBUG4("Initial nulls for %s aex=%d or_node_estimate after = %d",
+MARPA_DEBUG4_OFF("Initial nulls for %s aex=%d or_node_estimate after = %d",
 eim_tag(predecessor_earley_item), predecessor_aex, or_node_estimate);
 	psia_test_and_set(&bocage_setup_obs, per_es_data, 
 	    predecessor_earley_item, predecessor_aex);
@@ -9955,7 +10041,7 @@ eim_tag(predecessor_earley_item), predecessor_aex, or_node_estimate);
 MARPA_DEBUG4_OFF("Adding ur-node for %s aex=%d or_node_estimate before = %d",
 eim_tag(ur_earley_item), ur_aex, or_node_estimate);
 	      or_node_estimate += 1 + Null_Count_of_AIM(ur_aim+1);
-MARPA_DEBUG4("Adding ur-node for %s aex=%d or_node_estimate after = %d",
+MARPA_DEBUG4_OFF("Adding ur-node for %s aex=%d or_node_estimate after = %d",
 eim_tag(ur_earley_item), ur_aex, or_node_estimate);
 		  @<Push ur-node if new@>@;
 	    }
@@ -10042,7 +10128,7 @@ gint marpa_bocage_free(struct marpa_r* r) {
 
 @ @<Free bocage@> = {
     BOC b = B_of_R(r);
-MARPA_DEBUG2("Freeing bocage %p", b);
+MARPA_DEBUG2_OFF("Freeing bocage %p", b);
     if (b) {
 	@<Destroy bocage elements, all phases@>;
 	g_slice_free(BOC_Object, b);
@@ -10494,7 +10580,7 @@ rhs_closure (struct marpa_g *g, Bit_Vector bv)
 	  rule_length = Length_of_RULE(rule);
 	  for (rh_ix = 0; rh_ix < rule_length; rh_ix++)
 	    {
-	      if (!bv_bit_test (bv, (guint) rhs_symid (rule, rh_ix)))
+	      if (!bv_bit_test (bv, (guint) RHS_ID_of_RULE (rule, rh_ix)))
 		goto NEXT_RULE;
 	    }
 	  /* If I am here, the bits for the RHS symbols are all
@@ -10995,37 +11081,6 @@ static inline void psar_dealloc(const PSAR psar) {
      psar->t_first_free_psl = psar->t_first_psl;
 }
 
-
-@ A PSL dealloc removes an owner's claim to the PSL,
-and puts it back on the free list.
-It does {\bf not} clear out the data.
-A deallocated PSL contains stale data.
-@<Private function prototypes@> =
-static inline void psl_dealloc(const PSAR psar, const PSL psl);
-@ @<Function definitions@> =
-static inline void psl_dealloc(const PSAR psar, const PSL psl) {
-    if (!psl) return;
-    (*psl->t_owner) = NULL;
-    psl->t_owner = NULL;
-    @<Unlink |psl| from |psar|@>@;
-    @<Link |psl| into |psar| after |t_first_free_psl|@>@;
-}
-@ @<Unlink |psl| from |psar|@> = {
-    if (!psl->t_prev) { // If |psl| was first, set a new first PSL
-         psar->t_first_psl = psar->t_first_psl->t_next;
-	 psar->t_first_psl->t_prev = NULL;
-    } else {
-         psl->t_prev->t_next = psl->t_next;
-	 /* |psl->t_next != NULL| if |psl| is in use */
-         psl->t_next->t_prev = psl->t_prev;
-    }
-}
-@ @<Link |psl| into |psar| after |t_first_free_psl|@> = {
-    PSL first_free = psar->t_first_free_psl;
-    psl->t_next = first_free->t_next;
-    psl->t_prev = first_free;
-    first_free->t_next = psl;
-}
 @ This function ``claims" a PSL.
 The address of the claimed PSL and the PSAR
 from which to claim it are arguments.
@@ -11504,6 +11559,7 @@ internal matters on |STDERR|.
 @d MARPA_DEBUG5_OFF(a, b, c, d, e)
 @<Debug macros@> =
 #define MARPA_DEBUG @[ 0 @]
+#define MARPA_ENABLE_ASSERT @[ 1 @]
 #if MARPA_DEBUG
 #define MARPA_DEBUG1(a) @[ g_debug((a)) @]
 #define MARPA_DEBUG2(a, b) @[ g_debug((a),(b)) @]
@@ -11517,6 +11573,12 @@ internal matters on |STDERR|.
 #define MARPA_DEBUG3(a, b, c) @[@]
 #define MARPA_DEBUG4(a, b, c, d) @[@]
 #define MARPA_ASSERT(exp) @[@]
+#endif
+
+#if MARPA_ENABLE_ASSERT
+#undef MARPA_ASSERT
+#define MARPA_ASSERT(expr) do { if G_LIKELY (expr) ; else \
+       g_error ("%s: assertion failed %s", G_STRLOC, #expr); } while (0)
 #endif
 
 @*0 Earley Item Tag.
