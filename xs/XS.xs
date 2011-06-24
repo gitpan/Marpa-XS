@@ -825,7 +825,6 @@ PPCODE:
     Grammar *g = g_wrapper->g;
     GArray* const gint_array = g_wrapper->gint_array;
     const gint result = marpa_AHFA_state_transitions(g, AHFA_state_id, gint_array);
-    g_debug("%d result=%d", __LINE__, result);
     if (result < 0) {
 	  croak ("Problem in AHFA_state_transitions(): %s", marpa_g_error (g));
     }
