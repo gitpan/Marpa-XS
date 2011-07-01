@@ -1,17 +1,17 @@
 #!perl
 # Copyright 2011 Jeffrey Kegler
-# This file is part of Marpa::PP.  Marpa::PP is free software: you can
+# This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
 # either version 3 of the License, or (at your option) any later version.
 #
-# Marpa::PP is distributed in the hope that it will be useful,
+# Marpa::XS is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser
-# General Public License along with Marpa::PP.  If not, see
+# General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 # Two rules which start with nullables, and cycle.
 
@@ -21,10 +21,11 @@ use warnings;
 
 use Test::More tests => 4;
 
+use lib 'tool/lib';
 use Marpa::Test;
 
 BEGIN {
-    Test::More::use_ok('Marpa::PP');
+    Test::More::use_ok('Marpa::XS');
 }
 
 ## no critic (Subroutines::RequireArgUnpacking)
@@ -79,29 +80,34 @@ $grammar->precompute();
 # changes as anything.
 # So I do not treat the difference as a bug.
 
-my @expected3 = ();
-if ($Marpa::USING_PP) {
-    push @expected3, qw{
-        S(-;f(S(n(A);f(S(-;f(S(n(A);f(A))))))))
-        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))))
-        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))))
-        S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))))
-        S(-;f(S(n(A);f(S(n(A);f(A))))))
-        S(-;f(S(n(A);f(S(n(A);f(S(-;f(A))))))))
-        S(-;f(S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))))
-        S(-;f(S(n(A);f(S(n(A);f(S(n(A);-)))))))
-    };
-} ## end if ($Marpa::USING_PP)
+my @expected2 = qw{
+    S(-;f(S(n(A);f(A))))
+    S(-;f(S(n(A);f(S(-;f(A))))))
+    S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))
+    S(-;f(S(n(A);f(S(n(A);-)))))       
+    S(n(A);f(S(-;f(A))))
+    S(n(A);f(S(-;f(S(n(A);-)))))
+    S(n(A);f(S(n(A);-)))
+    S(n(A);f(A))
+};
 
-push @expected3, qw{
-    S(n(A);f(S(-;f(S(n(A);f(A))))))
-    S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))
-    S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))
-    S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))
-    S(n(A);f(S(n(A);f(A))))
-    S(n(A);f(S(n(A);f(S(-;f(A))))))
-    S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))
-    S(n(A);f(S(n(A);f(S(n(A);-)))))
+my @expected3 = qw{
+ S(-;f(S(n(A);f(S(-;f(S(n(A);f(A))))))))
+ S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))))
+ S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))))
+ S(-;f(S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))))
+ S(-;f(S(n(A);f(S(n(A);f(A))))))
+ S(-;f(S(n(A);f(S(n(A);f(S(-;f(A))))))))
+ S(-;f(S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))))
+ S(-;f(S(n(A);f(S(n(A);f(S(n(A);-)))))))
+ S(n(A);f(S(n(A);f(A))))
+ S(n(A);f(S(n(A);f(S(-;f(A))))))
+ S(n(A);f(S(n(A);f(S(-;f(S(n(A);-)))))))
+ S(n(A);f(S(n(A);f(S(n(A);-)))))
+      S(n(A);f(S(-;f(S(n(A);f(A))))))
+      S(n(A);f(S(-;f(S(n(A);f(S(-;f(A))))))))
+      S(n(A);f(S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))))
+      S(n(A);f(S(-;f(S(n(A);f(S(n(A);-)))))))
 };
 
 my @expected = (
@@ -112,17 +118,7 @@ my @expected = (
             S(n(A);-)
             }
     ],
-    [   qw{
-            S(-;f(S(n(A);f(S(-;f(A))))))
-            S(-;f(S(n(A);f(S(-;f(S(n(A);-)))))))
-            S(-;f(S(n(A);f(S(n(A);-)))))
-            S(-;f(S(n(A);f(A))))
-            S(n(A);f(S(-;f(A))))
-            S(n(A);f(S(-;f(S(n(A);-)))))
-            S(n(A);f(S(n(A);-)))
-            S(n(A);f(A))
-            }
-    ],
+    \@expected2,
     \@expected3,
 );
 
@@ -135,9 +131,11 @@ for my $input_length ( 1 .. 3 ) {
     while ( my $value_ref = $recce->value() ) {
         push @values, ${$value_ref};
     }
+    my $values = join "\n", sort @values;
+    my $expected_values = join "\n", sort @{$expected};
+    # die if $values ne $expected_values;
     Marpa::Test::is(
-        ( join "\n", sort @values ),
-        ( join "\n", sort @{$expected} ),
+        $values, $expected_values,
         "value for input length $input_length"
     );
 } ## end for my $input_length ( 1 .. 3 )

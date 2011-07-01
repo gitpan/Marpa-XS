@@ -361,12 +361,20 @@ sub Marpa::XS::Recognizer::show_or_nodes {
     my $text;
     my @data = ();
     my $id = 0;
-    OR_NODE: for (;;) {
-	my ($origin, $set, $rule, $position) = $recce_c->or_node($id++);
-	last OR_NODE if not defined $origin;
-        my $desc = 'R' . $rule . q{:} . $position . q{@} . $origin . q{-} . $set;
-        push @data, [$origin, $set, $rule, $position, $desc];
-    }
+    OR_NODE: for ( ;; ) {
+        my ( $origin, $set, $rule, $position ) = $recce_c->or_node( $id++ );
+        last OR_NODE if not defined $origin;
+        my $origin_earleme  = $recce_c->earleme($origin);
+        my $current_earleme = $recce_c->earleme($set);
+        my $desc =
+              'R' 
+            . $rule . q{:}
+            . $position . q{@}
+            . $origin_earleme . q{-}
+            . $current_earleme;
+        push @data,
+            [ $origin_earleme, $current_earleme, $rule, $position, $desc ];
+    } ## end for ( ;; )
     my @sorted_data = map { $_->[-1] } sort {
         $a->[0] <=> $b->[0]
 	or $a->[1] <=> $b->[1]
@@ -1461,13 +1469,6 @@ sub Marpa::XS::Recognizer::value {
         Marpa::exception("Maximum parse count ($max_parses) exceeded");
     }
 
-    if (not $parse_count) {
-	$recce_c->eval_clear();
-	if ( not defined $recce_c->eval_setup(-1, -1) ) {
-	    Marpa::exception( qq{libmarpa's marpa_value() call failed\n} );
-	}
-    }
-
     for my $arg_hash (@arg_hashes) {
 
         if ( exists $arg_hash->{end} ) {
@@ -1527,6 +1528,13 @@ sub Marpa::XS::Recognizer::value {
             if @unknown_arg_names;
 
     } ## end for my $arg_hash (@arg_hashes)
+
+    if (not $parse_count) {
+	$recce_c->eval_clear();
+	if ( not defined $recce_c->eval_setup(-1, ($parse_set_arg // -1)) ) {
+	    Marpa::exception( qq{libmarpa's marpa_value() call failed\n} );
+	}
+    }
 
     my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
     my $grammar_c     = $grammar->[Marpa::XS::Internal::Grammar::C];
@@ -1677,7 +1685,10 @@ sub Marpa::XS::Recognizer::value {
                 ];
 
             if ( $ranking_method eq 'constant' ) {
-                push @task_list, [Marpa::XS::Internal::Task::RANK_ALL],
+                push @task_list, [Marpa::XS::Internal::Task::RANK_ALL],;
+            }
+
+	    push @task_list,
                     [
                     Marpa::XS::Internal::Task::POPULATE_DEPTH, 0,
                     [$start_or_node]
@@ -1686,7 +1697,6 @@ sub Marpa::XS::Recognizer::value {
                     Marpa::XS::Internal::Task::POPULATE_OR_NODE,
                     $start_or_node
                     ];
-            } ## end if ( $ranking_method eq 'constant' )
 
             next TASK;
 
@@ -2430,7 +2440,8 @@ sub Marpa::XS::Recognizer::value {
 
             } ## end for my $link_work_item (@link_worklist)
 
-            my @child_and_nodes = values %and_node_data;
+            my @child_and_nodes =
+                map { $and_node_data{$_} } sort keys %and_node_data;
 
             for my $and_node (@child_and_nodes) {
 
@@ -2793,7 +2804,9 @@ sub Marpa::XS::Recognizer::value {
 
             # No or-nodes at next depth?
             # Great, we are done!
-            my @or_nodes_at_next_depth = values %or_nodes_at_next_depth;
+            my @or_nodes_at_next_depth =
+                map { $or_nodes_at_next_depth{$_} }
+                sort keys %or_nodes_at_next_depth;
             next TASK if not scalar @or_nodes_at_next_depth;
 
             push @task_list,
@@ -2817,6 +2830,19 @@ sub Marpa::XS::Recognizer::value {
         $_->[Marpa::XS::Internal::Iteration_Node::CHOICES]->[0]
             ->[Marpa::XS::Internal::Choice::AND_NODE]
     } @{$iteration_stack};
+
+    my $BOCAGE_DEBUG = 0;
+    if (   $BOCAGE_DEBUG
+        && $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT] <= 1 )
+    {
+        my $old_or_nodes = $recce->old_show_or_nodes();
+        my $new_or_nodes = $recce->show_or_nodes();
+        if ( $old_or_nodes ne $new_or_nodes ) {
+            say STDERR "OLD:\n", $old_or_nodes;
+            say STDERR "NEW:\n", $new_or_nodes;
+            die;
+        }
+    } ## end if ( $BOCAGE_DEBUG && $recce->[...])
 
     return Marpa::XS::Internal::Recognizer::evaluate( $recce, \@stack );
 
