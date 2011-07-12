@@ -6222,7 +6222,8 @@ static inline EIM earley_item_create(const RECCE r,
 @ @<Private function prototypes@> =
 static inline
 EIM old_earley_item_assign (const RECCE r, const ES set, const ES origin, const AHFA state);
-@ @<Function definitions@> =
+@ Now used only in expanding Leo items, and modified under that assumption.
+@<Function definitions@> =
 static inline EIM old_earley_item_assign (
     const RECCE r, const ES set, const ES origin, const AHFA state)
 {
@@ -6233,7 +6234,9 @@ static inline EIM old_earley_item_assign (
     key.t_set = set;
     item = g_tree_lookup(r->t_earley_item_tree, &key);
     if (item) return item;
-    return earley_item_create(r, key);
+    item = earley_item_create(r, key);
+      EIM_is_Leo_Expansion(item) = 1;
+      return item;
 }
 
 @ @<Private function prototypes@> =
@@ -6794,7 +6797,7 @@ union u_postdot_item {
 typedef union u_postdot_item* PIM;
 
 @*0 Symbol of a Postdot Item.
-@d Symbol_ID_of_Postdot_Item(postdot) ((postdot)->t_earley.transition_symid)
+@d SYMID_of_Postdot_Item(postdot) ((postdot)->t_earley.transition_symid)
 
 @ This function searches for the
 first postdot item for an Earley set
@@ -7088,14 +7091,14 @@ union u_source_container {
 @d Token_Value_of_EIM(item) Token_Value_of_Source(Source_of_EIM(item))
 @d Token_Value_of_SRCL(link) Token_Value_of_Source(Source_of_SRCL(link))
 @d LV_Token_Value_of_SRCL(link) Token_Value_of_SRCL(link)
-@d Symbol_ID_of_Source(srcd) ((srcd).t_symbol_id)
-@d Symbol_ID_of_SRC(source) Symbol_ID_of_Source(*(source))
-@d Symbol_ID_of_SRCL(link) Symbol_ID_of_Source(Source_of_SRCL(link))
-@d LV_Symbol_ID_of_SRCL(link) Symbol_ID_of_SRCL(link)
+@d SYMID_of_Source(srcd) ((srcd).t_symbol_id)
+@d SYMID_of_SRC(source) SYMID_of_Source(*(source))
+@d SYMID_of_EIM(eim) SYMID_of_Source(Source_of_EIM(eim))
+@d SYMID_of_SRCL(link) SYMID_of_Source(Source_of_SRCL(link))
 
 @ @d Cause_AHFA_State_ID_of_SRC(source)
     AHFAID_of_EIM((EIM)Cause_of_SRC(source))
-@d Leo_Transition_Symbol_ID_of_SRC(leo_source)
+@d Leo_Transition_SYMID_of_SRC(leo_source)
     Postdot_SYMID_of_LIM((LIM)Predecessor_of_SRC(leo_source))
 
 @
@@ -7367,7 +7370,7 @@ Marpa_Symbol_ID marpa_first_token_link_trace(struct marpa_r *r)
 	source = &(item->t_container.t_unique);
 	r->t_trace_source = source;
 	r->t_trace_next_source_link = NULL;
-	return Symbol_ID_of_SRC (source);
+	return SYMID_of_SRC (source);
       case SOURCE_IS_AMBIGUOUS:
 	{
 	  SRCL full_link =
@@ -7377,7 +7380,7 @@ Marpa_Symbol_ID marpa_first_token_link_trace(struct marpa_r *r)
 	      r->t_trace_source_type = SOURCE_IS_TOKEN;
 	      r->t_trace_next_source_link = Next_SRCL_of_SRCL (full_link);
 	      r->t_trace_source = &(full_link->t_source);
-	      return Symbol_ID_of_SRCL (full_link);
+	      return SYMID_of_SRCL (full_link);
 	    }
 	}
       }
@@ -7415,7 +7418,7 @@ Marpa_Symbol_ID marpa_next_token_link_trace(struct marpa_r *r)
     full_link = r->t_trace_next_source_link;
     r->t_trace_next_source_link = Next_SRCL_of_SRCL (full_link);
     r->t_trace_source = &(full_link->t_source);
-    return Symbol_ID_of_SRCL (full_link);
+    return SYMID_of_SRCL (full_link);
 }
 
 @*1 Trace First Completion Link.
@@ -7658,7 +7661,7 @@ Marpa_Symbol_ID marpa_source_leo_transition_symbol(struct marpa_r *r)
     switch (source_type)
     {
     case SOURCE_IS_LEO:
-	return Leo_Transition_Symbol_ID_of_SRC(source);
+	return Leo_Transition_SYMID_of_SRC(source);
     }
     R_ERROR(invalid_source_type_message(source_type));
     return failure_indicator;
@@ -8899,7 +8902,6 @@ must be created.
 			To_AHFA_of_EIM_by_SYMID (base_eim_of_this_lim,
 						 postdot_symbol_of_this_lim));
   leo_path_lengths++;
-  EIM_is_Leo_Expansion(new_eim_for_this_path) = 1;
   completion_link_add (r, new_eim_for_this_path,
       base_eim_of_this_lim,
       previous_eim_on_this_path);
@@ -9182,6 +9184,11 @@ G_STRLOC, eim_tag(ur_earley_item), ur_aex);
     while ((ur_node = ur_node_pop(ur_node_stack)))
     {
         const EIM_Const parent_earley_item = EIM_of_UR(ur_node);
+
+MARPA_DEBUG4("%s: Popped ur-node for %s; expansion? = %d",
+    G_STRLOC, eim_tag(parent_earley_item),
+    EIM_is_Leo_Expansion(parent_earley_item));
+
 	if (!EIM_is_Leo_Expansion(parent_earley_item)) {
 	    const AEX parent_aex = AEX_of_UR(ur_node);
 	    const AIM parent_aim = AIM_of_EIM_by_AEX (parent_earley_item, parent_aex);
@@ -9191,7 +9198,7 @@ G_STRLOC, eim_tag(ur_earley_item), ur_aex);
 	       predot symbol, because there may be nulling symbols in between. */
 	    guint source_type = Source_Type_of_EIM (parent_earley_item);
 	    MARPA_ASSERT(!EIM_is_Predicted(parent_earley_item))@;
-	    MARPA_DEBUG3("parent_earley_item=%s, parent_aex=%d",
+	    MARPA_DEBUG3("Popped ur-node for eim=%s, aex=%d",
 		eim_tag(parent_earley_item),
 		parent_aex);
 	    @<Push child Earley items from token sources@>@;
@@ -9374,8 +9381,11 @@ G_STRLOC, eim_tag(predecessor_earley_item), predecessor_aex);
     }
   while (cause_earley_item)
     {
+	MARPA_DEBUG2("PSIA from Completion cause=%s", eim_tag(cause_earley_item));
 	if (predecessor_earley_item)
 	  {
+	    MARPA_DEBUG2("PSIA from Completion predecessor=%s",
+	    eim_tag(predecessor_earley_item));
 	    if (EIM_is_Predicted (predecessor_earley_item))
 	      {
 		@<Set boolean in PSIA for initial nulls@>@;
@@ -9496,6 +9506,8 @@ a parse bocage can contain cycles.
 
 @<Public typedefs@> =
 typedef gint Marpa_Or_Node_ID;
+@ @<Private typedefs@> =
+typedef Marpa_Or_Node_ID ORID;
 
 @*0 Relationship of Earley Items to Or-Nodes.
 Several Earley items may be the source of the same or-node,
@@ -9569,10 +9581,11 @@ Position is |DUMMY_OR_NODE| for dummy or-nodes,
 Position is the dot position.
 @d DUMMY_OR_NODE -1
 @d TOKEN_OR_NODE -2
-@d Position_of_OR(or) ((or)->t_draft.t_position)
-@d Type_of_OR(or) ((or)->t_draft.t_position)
-@d RULE_of_OR(or) ((or)->t_draft.t_rule)
-@d Origin_Ord_of_OR(or) ((or)->t_draft.t_start_set_ordinal)
+@d Position_of_OR(or) ((or)->t_final.t_position)
+@d Type_of_OR(or) ((or)->t_final.t_position)
+@d RULE_of_OR(or) ((or)->t_final.t_rule)
+@d Origin_Ord_of_OR(or) ((or)->t_final.t_start_set_ordinal)
+@d ID_of_OR(or) ((or)->t_final.t_id)
 @d ES_Ord_of_OR(or) ((or)->t_draft.t_end_set_ordinal)
 @d DANDs_of_OR(or) ((or)->t_draft.t_draft_and_node)
 @ C89 guarantees that common initial sequences
@@ -9582,6 +9595,7 @@ gint t_position;
 gint t_end_set_ordinal;
 RULE t_rule;
 gint t_start_set_ordinal;
+ORID t_id;
 @ @<Private structures@> =
 struct s_draft_or_node
 {
@@ -9593,7 +9607,6 @@ struct s_final_or_node
 {
     @<Or-node common initial sequence@>@;
     gint t_and_node_id;
-    gint t_and_node_count;
 };
 @ @<Private structures@> =
 union u_or_node {
@@ -9625,46 +9638,104 @@ OR_Count_of_B(b) = 0;
 
 @ @<Create the or-nodes for all earley sets@> =
 {
-  PSAR_Object and_per_es_arena;
-  const PSAR and_psar = &and_per_es_arena;
+  const gint earley_set_count_of_r = ES_Count_of_R (r);
+  gint unique_draft_and_node_count = 0;
+  @<Create the bocage nodes@>@;
+  @<Mark duplicate draft and-nodes@>@;
+}
+
+@ @<Create the bocage nodes@> =
+{
   PSAR_Object or_per_es_arena;
   const PSAR or_psar = &or_per_es_arena;
-  const gint earley_set_count = ES_Count_of_R (r);
   gint work_earley_set_ordinal;
-  PSL this_earley_set_psl;
   OR last_or_node = NULL ;
-  psar_init (and_psar, AHFA_Count_of_G (g));
-MARPA_OFF_DEBUG3("%s SYMI count = %d", G_STRLOC, SYMI_Count_of_G (g));
-  psar_init (or_psar, SYMI_Count_of_G (g));
   ORs_of_B (b) = g_new (OR, or_node_estimate);
+  psar_init (or_psar, SYMI_Count_of_G (g));
   for (work_earley_set_ordinal = 0;
-      work_earley_set_ordinal < earley_set_count;
+      work_earley_set_ordinal < earley_set_count_of_r;
       work_earley_set_ordinal++)
   {
       const ES_Const earley_set = ES_of_R_by_Ord (r, work_earley_set_ordinal);
+    EIM* const eims_of_es = EIMs_of_ES(earley_set);
+    const gint item_count = EIM_Count_of_ES (earley_set);
+      PSL this_earley_set_psl;
+    OR** const nodes_by_item = per_es_data[work_earley_set_ordinal].t_aexes_by_item;
       psar_dealloc(or_psar);
 #define PSL_ES_ORD work_earley_set_ordinal
 #define CLAIMED_PSL this_earley_set_psl
       @<Claim the or-node PSL for |PSL_ES_ORD| as |CLAIMED_PSL|@>@;
-      @<Create the bocage nodes for |work_earley_set_ordinal|@>@;
-  }
-  ORs_of_B(b) = g_renew (OR, ORs_of_B(b), OR_Count_of_B(b));
-  psar_destroy (and_psar);
-  psar_destroy (or_psar);
-}
-
-@ @<Create the bocage nodes for |work_earley_set_ordinal|@> =
-{
-    OR** const nodes_by_item = per_es_data[work_earley_set_ordinal].t_aexes_by_item;
-    EIM* const eims_of_es = EIMs_of_ES(earley_set);
-    const gint item_count = EIM_Count_of_ES (earley_set);
     @<Create the or-nodes for |work_earley_set_ordinal|@>@;
     @<Create the draft and-nodes for |work_earley_set_ordinal|@>@;
+  }
+  psar_destroy (or_psar);
+  ORs_of_B(b) = g_renew (OR, ORs_of_B(b), OR_Count_of_B(b));
+}
+
+@ @<Mark duplicate draft and-nodes@> =
+{
+  OR * const or_nodes_of_b = ORs_of_B (b);
+  const gint or_node_count_of_b = OR_Count_of_B(b);
+  PSAR_Object and_per_es_arena;
+  const PSAR and_psar = &and_per_es_arena;
+  gint or_node_id;
+  psar_init (and_psar, rule_count_of_g+symbol_count_of_g);
+  for (or_node_id = 0; 
+      or_node_id < or_node_count_of_b;
+      or_node_id++)
+  {
+      const OR work_or_node = or_nodes_of_b[or_node_id];
+    @<Mark the duplicate draft and-nodes for |work_or_node|@>@;
+  }
+  psar_destroy (and_psar);
+}
+
+@ I think the and PSL's and or PSL's are not actually used at the
+same time, so the same field might be used for both.
+More significantly, a simple $O(n^2)$ sort of the 
+draft and-nodes would spot duplicates more efficiently in 99%
+of cases, although it would not be $O(n)$ as the PSL's are.
+The best of both worlds could be had by using the sort when
+there are less than, say, 7 and-nodes, and the PSL's otherwise.
+@<Mark the duplicate draft and-nodes for |work_or_node|@> =
+{
+  DAND dand = DANDs_of_OR (work_or_node);
+  DAND next_dand = Next_DAND_of_DAND (dand);
+  ORID work_or_node_id = ID_of_OR(work_or_node);
+  /* Only if there is more than one draft and-node */
+  if (next_dand)
+    {
+      gint origin_ordinal = Origin_Ord_of_OR (work_or_node);
+      psar_dealloc(and_psar);
+      while (dand)
+	{
+	  OR predecessor = Predecessor_OR_of_DAND (dand);
+	  WHEID wheid = WHEID_of_OR(Cause_OR_of_DAND(dand));
+	  const gint middle_ordinal =
+	    predecessor ? ES_Ord_of_OR (predecessor) : origin_ordinal;
+	  PSL and_psl;
+	  PSL *psl_owner = &per_es_data[middle_ordinal].t_and_psl;
+	  MARPA_DEBUG3("Claiming psl at ordinal=%d as %s", middle_ordinal, G_STRINGIFY(and_psl));
+	  MARPA_DEBUG2("psl_owner=%p", psl_owner);
+	  if (!*psl_owner) psl_claim (psl_owner, and_psar);
+	  and_psl = *psl_owner;
+	  if (GPOINTER_TO_INT(PSL_Datum(and_psl, wheid)) == work_or_node_id) {
+	      /* Mark this draft and-node as a duplicate */
+	      Cause_OR_of_DAND(dand) = NULL;
+	  } else {
+	      /* Increment the count of unique draft and-nodes */
+	      PSL_Datum(and_psl, wheid) = GINT_TO_POINTER(work_or_node_id);
+	      unique_draft_and_node_count++;
+	  }
+	  dand = Next_DAND_of_DAND (dand);
+	}
+    }
 }
 
 @ @<Create the or-nodes for |work_earley_set_ordinal|@> =
 {
     gint item_ordinal;
+MARPA_DEBUG2("CREATING OR-NODES at %d", work_earley_set_ordinal);
     for (item_ordinal = 0; item_ordinal < item_count; item_ordinal++)
     {
 	OR* const work_nodes_by_aex = nodes_by_item[item_ordinal];
@@ -9726,13 +9797,12 @@ MARPA_ASSERT(ahfa_item_symbol_instance < SYMI_Count_of_G(g))@;
 	  @<Set |last_or_node| to a new or-node@>@;
 	  or_node = last_or_node;
 	  PSL_Datum (or_psl, ahfa_item_symbol_instance) = last_or_node;
-  MARPA_DEBUG3("%s: or_psl symi=%d", G_STRLOC, ahfa_item_symbol_instance );
+  MARPA_DEBUG3("%s: Setting or_psl symi=%d", G_STRLOC, ahfa_item_symbol_instance );
 	  Origin_Ord_of_OR(or_node) = Origin_Ord_of_EIM(work_earley_item);
 	  ES_Ord_of_OR(or_node) = work_earley_set_ordinal;
 	  RULE_of_OR(or_node) = rule;
 	  Position_of_OR (or_node) =
 	      ahfa_item_symbol_instance - SYMI_of_RULE (rule) + 1;
-MARPA_DEBUG3("%s or_psl SYMI = %d", G_STRLOC, ahfa_item_symbol_instance);
 MARPA_DEBUG3("main or-node EIM = %s aex=%d", eim_tag(work_earley_item), work_aex);
 MARPA_DEBUG3("Created or-node %s at %s", or_tag(or_node), G_STRLOC);
 	  DANDs_of_OR(or_node) = NULL;
@@ -9751,6 +9821,7 @@ or arranging to test it.
   const gint or_node_id = OR_Count_of_B (b)++;
   OR *or_nodes_of_b = ORs_of_B (b);
   last_or_node = (OR)obstack_alloc (&OBS_of_B(b), sizeof(OR_Object));
+  ID_of_OR(last_or_node) = or_node_id;
   if (G_UNLIKELY(or_node_id >= or_node_estimate))
     {
       MARPA_ASSERT(0);
@@ -9793,7 +9864,7 @@ MARPA_OFF_DEBUG3("adding nulling token or-node EIM = %s aex=%d",
 		const OR cause = (OR)SYM_by_ID( RHS_ID_of_RULE (rule, rhs_ix ) );
 		@<Set |last_or_node| to a new or-node@>@;
 		or_node = PSL_Datum (or_psl, symbol_instance) = last_or_node ;
-  MARPA_DEBUG3("%s: or_psl symi=%d", G_STRLOC, symbol_instance );
+  MARPA_DEBUG3("%s: Setting or_psl symi=%d", G_STRLOC, symbol_instance );
 		Origin_Ord_of_OR (or_node) = work_origin_ordinal;
 		ES_Ord_of_OR (or_node) = work_earley_set_ordinal;
 		RULE_of_OR (or_node) = rule;
@@ -9980,10 +10051,18 @@ Note that this puts a limit on the number of symbols
 and rules in a grammar --- their total must fit in an
 int.
 @d WHEID_of_SYMID(symid) (rule_count_of_g+(symid))
+@d WHEID_of_SYM(sym) WHEID_of_SYMID(ID_of_SYM(sym))
 @d WHEID_of_RULEID(ruleid) (ruleid)
 @d WHEID_of_RULE(rule) WHEID_of_RULEID(ID_of_RULE(rule))
+@d WHEID_of_OR(or) (
+    wheid = (Type_of_OR(or) == TOKEN_OR_NODE) ?
+        WHEID_of_SYM((SYM)or) :
+        WHEID_of_RULE(RULE_of_OR(or))
+    )
+
 @<Private typedefs@> =
 typedef gint WHEID;
+
 
 @** Draft And-Node (DAND) Code.
 The draft and-nodes are used while the bocage is
@@ -10017,6 +10096,7 @@ DAND draft_and_node_new(struct obstack *obs, OR predecessor, OR cause)
     DAND draft_and_node = obstack_alloc (obs, sizeof(DAND_Object));
     Predecessor_OR_of_DAND(draft_and_node) = predecessor;
     Cause_OR_of_DAND(draft_and_node) = cause;
+    MARPA_ASSERT(cause);
     return draft_and_node;
 }
 
@@ -10085,7 +10165,18 @@ predecessor.  Set |or-node| to 0 if there is none.
 
 @ @<Create draft and-nodes for |or_node|@> =
 {
+    guint work_source_type = Source_Type_of_EIM (work_earley_item);
+    const AIM work_ahfa_item = AIM_of_EIM_by_AEX (work_earley_item, work_aex);
+    MARPA_ASSERT (work_ahfa_item >= AIM_by_ID (1))@;
+    const AIM work_predecessor_aim = work_ahfa_item - 1;
+    const gint work_symbol_instance = SYMI_of_AIM (work_ahfa_item);
+    OR work_proper_or_node;
+    Set_OR_from_Ord_and_SYMI (work_proper_or_node, work_origin_ordinal,
+			      work_symbol_instance);
+
     @<Create Leo draft and-nodes@>@;
+    @<Create draft and-nodes for token sources@>@;
+    @<Create draft and-nodes for completion sources@>@;
 }
 
 @ @<Create Leo draft and-nodes@> = {
@@ -10156,7 +10247,7 @@ predecessor.  Set |or-node| to 0 if there is none.
   if (higher_path_leo_item) {
       @<Use Leo base data to set |path_or_node|@>@;
   } else {
-      @<Use |work_earley_item| to set |path_or_node|@>@;
+      path_or_node = work_proper_or_node;
   }
 }
 
@@ -10178,6 +10269,8 @@ predecessor.  Set |or-node| to 0 if there is none.
       const AEX cause_aex = aexes[ix];
       OR dand_cause;
       Set_OR_from_EIM_and_AEX(dand_cause, cause_earley_item, cause_aex);
+      MARPA_DEBUG4("dand_cause=%p, set at Leo bottom from %s,%d", dand_cause,
+           eim_tag(cause_earley_item), cause_aex);
       draft_and_node_add (&bocage_setup_obs, path_or_node,
 			  dand_predecessor, dand_cause);
     }
@@ -10198,6 +10291,7 @@ MARPA_DEBUG4("Getting PSIA of %d,%d,%d",
        psia_item_ordinal,
        psia_aex);
   psia_or = psia_nodes_by_aex ? psia_nodes_by_aex[psia_aex] : NULL;
+MARPA_DEBUG2("Got PSIA: %p", psia_or);
 }
 
 @ @<Use Leo base data to set |path_or_node|@> =
@@ -10210,20 +10304,126 @@ MARPA_DEBUG4("Getting PSIA of %d,%d,%d",
   Set_OR_from_Ord_and_SYMI (path_or_node, origin_ordinal, symbol_instance);
 }
 
-@ @<Use |work_earley_item| to set |path_or_node|@>=;
-{
-  const AIM aim = AIM_of_EIM_by_AEX (work_earley_item, 0);
-  const gint symi = SYMI_of_AIM (aim);
-  Set_OR_from_Ord_and_SYMI(path_or_node, work_origin_ordinal, symi);
-}
-
 @ @<Add the draft and-nodes to an upper Leo path or-node@> =
 {
   OR dand_cause;
   const SYMI symbol_instance = SYMI_of_Completed_RULE(previous_path_rule);
   const gint origin_ordinal = Ord_of_ES(ES_of_LIM(path_leo_item));
   Set_OR_from_Ord_and_SYMI(dand_cause, origin_ordinal, symbol_instance);
+  MARPA_DEBUG2("dand_cause=%p, set from Leo item", dand_cause);
   draft_and_node_add (&bocage_setup_obs, path_or_node,
+	  dand_predecessor, dand_cause);
+}
+
+@ @<Create draft and-nodes for token sources@> =
+{
+  SRCL source_link = NULL;
+  EIM predecessor_earley_item = NULL;
+  SYMID token_id = -1;
+  switch (work_source_type)
+    {
+    case SOURCE_IS_TOKEN:
+      predecessor_earley_item = Predecessor_of_EIM (work_earley_item);
+      token_id = SYMID_of_EIM(work_earley_item);
+      break;
+    case SOURCE_IS_AMBIGUOUS:
+      source_link = First_Token_Link_of_EIM (work_earley_item);
+      if (source_link)
+	{
+	  predecessor_earley_item = Predecessor_of_SRCL (source_link);
+	  token_id = SYMID_of_SRCL(source_link);
+	  source_link = Next_SRCL_of_SRCL (source_link);
+	}
+    }
+    while (token_id >= 0) 
+      {
+	@<Add draft and-node for token source@>@;
+	if (!source_link) break;
+	predecessor_earley_item = Predecessor_of_SRCL (source_link);
+        token_id = SYMID_of_SRCL(source_link);
+	source_link = Next_SRCL_of_SRCL (source_link);
+      }
+}
+
+@ @<Add draft and-node for token source@> =
+{
+  OR dand_predecessor;
+  const SYM symbol = SYM_by_ID(token_id);
+  @<Set |dand_predecessor|@>@;
+  MARPA_DEBUG3("dand_cause=%p, set from symbol %d", symbol, token_id);
+  draft_and_node_add (&bocage_setup_obs, work_proper_or_node,
+	  dand_predecessor, (OR)symbol);
+}
+
+@ @<Set |dand_predecessor|@> =
+{
+   if (EIM_is_Predicted(predecessor_earley_item)) {
+       dand_predecessor = NULL;
+   } else {
+	const AEX predecessor_aex =
+	    AEX_of_EIM_by_AIM (predecessor_earley_item, work_predecessor_aim);
+      Set_OR_from_EIM_and_AEX(dand_predecessor, predecessor_earley_item, predecessor_aex);
+   }
+}
+
+@ @<Create draft and-nodes for completion sources@> =
+{
+  SRCL source_link = NULL;
+  EIM predecessor_earley_item = NULL;
+  EIM cause_earley_item = NULL;
+  const SYMID transition_symbol_id = Postdot_SYMID_of_AIM(work_predecessor_aim);
+  switch (work_source_type)
+    {
+    case SOURCE_IS_COMPLETION:
+      predecessor_earley_item = Predecessor_of_EIM (work_earley_item);
+      cause_earley_item = Cause_of_EIM (work_earley_item);
+      break;
+    case SOURCE_IS_AMBIGUOUS:
+      source_link = First_Completion_Link_of_EIM (work_earley_item);
+      if (source_link)
+	{
+	  predecessor_earley_item = Predecessor_of_SRCL (source_link);
+	  cause_earley_item = Cause_of_SRCL (source_link);
+	  source_link = Next_SRCL_of_SRCL (source_link);
+	}
+	break;
+    }
+  while (cause_earley_item)
+    {
+      const TRANS cause_completion_data =
+	TRANS_of_EIM_by_SYMID (cause_earley_item, transition_symbol_id);
+      const gint aex_count = Completion_Count_of_TRANS (cause_completion_data);
+      const AEX * const aexes = AEXs_of_TRANS (cause_completion_data);
+      gint ix;
+MARPA_DEBUG4("%s: TRANS of %s, sym=%d", G_STRLOC,
+    eim_tag(cause_earley_item), transition_symbol_id);
+MARPA_DEBUG4("%s: aexes=%p, aex_count=%d", G_STRLOC, aexes, aex_count);
+	    MARPA_DEBUG3("%s transition_symbol_id=%d",
+		G_STRLOC, transition_symbol_id);
+      for (ix = 0; ix < aex_count; ix++) {
+	  const AEX cause_aex = aexes[ix];
+	    @<Add draft and-node for completion source@>@;
+      }
+      if (!source_link) break;
+      predecessor_earley_item = Predecessor_of_SRCL (source_link);
+      cause_earley_item = Cause_of_SRCL (source_link);
+      source_link = Next_SRCL_of_SRCL (source_link);
+    }
+}
+
+@ @<Add draft and-node for completion source@> =
+{
+  OR dand_predecessor;
+  OR dand_cause;
+  const gint middle_ordinal = Origin_Ord_of_EIM(cause_earley_item);
+  const AIM cause_ahfa_item = AIM_of_EIM_by_AEX(cause_earley_item, cause_aex);
+  const SYMI cause_symbol_instance =
+      SYMI_of_Completed_RULE(RULE_of_AIM(cause_ahfa_item));
+  @<Set |dand_predecessor|@>@;
+  Set_OR_from_Ord_and_SYMI(dand_cause, middle_ordinal, cause_symbol_instance);
+  MARPA_DEBUG5("dand_cause=%p, set as completion from %s,%d,%d", dand_cause,
+           eim_tag(cause_earley_item), middle_ordinal, cause_symbol_instance);
+  draft_and_node_add (&bocage_setup_obs, work_proper_or_node,
 	  dand_predecessor, dand_cause);
 }
 
@@ -10307,7 +10507,8 @@ MARPA_DEBUG3("%s B_of_R=%p", G_STRLOC, B_of_R(r));
 @ @<Declare bocage locals@> =
 @<Return |-2| on failure@>@;
 const GRAMMAR_Const g = G_of_R(r);
-gint rule_count_of_g = RULE_Count_of_G(g);
+const gint rule_count_of_g = RULE_Count_of_G(g);
+const gint symbol_count_of_g = SYM_Count_of_G(g);
 BOC b;
 ES end_of_parse_es;
 RULE completed_start_rule;
@@ -10315,8 +10516,8 @@ EIM start_eim = NULL;
 AIM start_aim = NULL;
 AEX start_aex = -1;
 struct obstack bocage_setup_obs;
-guint total_earley_items_in_parse;
-guint or_node_estimate = 0;
+gint total_earley_items_in_parse;
+gint or_node_estimate = 0;
 
 @ @<Private incomplete structures@> =
 struct s_bocage_setup_per_es;
@@ -11429,15 +11630,17 @@ psar_init (const PSAR psar, gint length)
 static inline void psar_destroy(const PSAR psar)
 {
     PSL psl = psar->t_first_psl;
+MARPA_DEBUG3("%s psl=%p", G_STRLOC, psl);
     while (psl)
       {
 	PSL next_psl = psl->t_next;
 	PSL *owner = psl->t_owner;
-MARPA_OFF_DEBUG3("%s owner=%p", G_STRLOC, owner);
+MARPA_DEBUG3("%s owner=%p", G_STRLOC, owner);
 	if (owner)
 	  *owner = NULL;
 	g_slice_free1 (Sizeof_PSL (psar), psl);
 	psl = next_psl;
+MARPA_DEBUG3("%s psl=%p", G_STRLOC, psl);
       }
 }
 @ @<Function definitions@> =
