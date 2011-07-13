@@ -9588,6 +9588,8 @@ Position is the dot position.
 @d ID_of_OR(or) ((or)->t_final.t_id)
 @d ES_Ord_of_OR(or) ((or)->t_draft.t_end_set_ordinal)
 @d DANDs_of_OR(or) ((or)->t_draft.t_draft_and_node)
+@d First_ANDID_of_OR(or) ((or)->t_final.t_first_and_node_id)
+@d AND_Count_of_OR(or) ((or)->t_final.t_and_node_count)
 @ C89 guarantees that common initial sequences
 may be accessed via different members of a union.
 @<Or-node common initial sequence@> =
@@ -9606,7 +9608,8 @@ struct s_draft_or_node
 struct s_final_or_node
 {
     @<Or-node common initial sequence@>@;
-    gint t_and_node_id;
+    gint t_first_and_node_id;
+    gint t_and_node_count;
 };
 @ @<Private structures@> =
 union u_or_node {
@@ -9618,33 +9621,39 @@ typedef union u_or_node OR_Object;
 @ @<Private global variables@> =
 static const gint dummy_or_node_type = DUMMY_OR_NODE;
 static const OR dummy_or_node = (OR)&dummy_or_node_type;
+
 @ @d ORs_of_B(b) ((b)->t_or_nodes)
-@ @d OR_Count_of_B(b) ((b)->t_or_node_count)
+@d OR_Count_of_B(b) ((b)->t_or_node_count)
+@d ANDs_of_B(b) ((b)->t_and_nodes)
+@d AND_Count_of_B(b) ((b)->t_and_node_count)
 @<Widely aligned bocage elements@> =
 OR* t_or_nodes;
+AND t_and_nodes;
 gint t_or_node_count;
+gint t_and_node_count;
 @ @<Initialize bocage elements@> =
 ORs_of_B(b) = NULL;
 OR_Count_of_B(b) = 0;
+ANDs_of_B(b) = NULL;
+AND_Count_of_B(b) = 0;
 @ @<Destroy bocage elements, main phase@> =
 {
   OR* or_nodes = ORs_of_B (b);
+  AND and_nodes = ANDs_of_B (b);
   if (or_nodes)
     {
       g_free (or_nodes);
       ORs_of_B (b) = NULL;
     }
+  if (and_nodes)
+    {
+      g_free (and_nodes);
+      ANDs_of_B (b) = NULL;
+    }
 }
 
-@ @<Create the or-nodes for all earley sets@> =
-{
-  const gint earley_set_count_of_r = ES_Count_of_R (r);
-  gint unique_draft_and_node_count = 0;
-  @<Create the bocage nodes@>@;
-  @<Mark duplicate draft and-nodes@>@;
-}
-
-@ @<Create the bocage nodes@> =
+@*0 Create the Or-Nodes.
+@<Create the or-nodes for all earley sets@> =
 {
   PSAR_Object or_per_es_arena;
   const PSAR or_psar = &or_per_es_arena;
@@ -9670,66 +9679,6 @@ OR_Count_of_B(b) = 0;
   }
   psar_destroy (or_psar);
   ORs_of_B(b) = g_renew (OR, ORs_of_B(b), OR_Count_of_B(b));
-}
-
-@ @<Mark duplicate draft and-nodes@> =
-{
-  OR * const or_nodes_of_b = ORs_of_B (b);
-  const gint or_node_count_of_b = OR_Count_of_B(b);
-  PSAR_Object and_per_es_arena;
-  const PSAR and_psar = &and_per_es_arena;
-  gint or_node_id;
-  psar_init (and_psar, rule_count_of_g+symbol_count_of_g);
-  for (or_node_id = 0; 
-      or_node_id < or_node_count_of_b;
-      or_node_id++)
-  {
-      const OR work_or_node = or_nodes_of_b[or_node_id];
-    @<Mark the duplicate draft and-nodes for |work_or_node|@>@;
-  }
-  psar_destroy (and_psar);
-}
-
-@ I think the and PSL's and or PSL's are not actually used at the
-same time, so the same field might be used for both.
-More significantly, a simple $O(n^2)$ sort of the 
-draft and-nodes would spot duplicates more efficiently in 99%
-of cases, although it would not be $O(n)$ as the PSL's are.
-The best of both worlds could be had by using the sort when
-there are less than, say, 7 and-nodes, and the PSL's otherwise.
-@<Mark the duplicate draft and-nodes for |work_or_node|@> =
-{
-  DAND dand = DANDs_of_OR (work_or_node);
-  DAND next_dand = Next_DAND_of_DAND (dand);
-  ORID work_or_node_id = ID_of_OR(work_or_node);
-  /* Only if there is more than one draft and-node */
-  if (next_dand)
-    {
-      gint origin_ordinal = Origin_Ord_of_OR (work_or_node);
-      psar_dealloc(and_psar);
-      while (dand)
-	{
-	  OR predecessor = Predecessor_OR_of_DAND (dand);
-	  WHEID wheid = WHEID_of_OR(Cause_OR_of_DAND(dand));
-	  const gint middle_ordinal =
-	    predecessor ? ES_Ord_of_OR (predecessor) : origin_ordinal;
-	  PSL and_psl;
-	  PSL *psl_owner = &per_es_data[middle_ordinal].t_and_psl;
-	  MARPA_DEBUG3("Claiming psl at ordinal=%d as %s", middle_ordinal, G_STRINGIFY(and_psl));
-	  MARPA_DEBUG2("psl_owner=%p", psl_owner);
-	  if (!*psl_owner) psl_claim (psl_owner, and_psar);
-	  and_psl = *psl_owner;
-	  if (GPOINTER_TO_INT(PSL_Datum(and_psl, wheid)) == work_or_node_id) {
-	      /* Mark this draft and-node as a duplicate */
-	      Cause_OR_of_DAND(dand) = NULL;
-	  } else {
-	      /* Increment the count of unique draft and-nodes */
-	      PSL_Datum(and_psl, wheid) = GINT_TO_POINTER(work_or_node_id);
-	      unique_draft_and_node_count++;
-	  }
-	  dand = Next_DAND_of_DAND (dand);
-	}
-    }
 }
 
 @ @<Create the or-nodes for |work_earley_set_ordinal|@> =
@@ -9779,6 +9728,7 @@ MARPA_DEBUG4("Setting PSIA for work_nodes_by_aex=%p,aex=%d to %p",
     @<Add Leo or-nodes@>@;
 }
 
+@*0 Non-Leo Or-Nodes.
 @ Add the main or-node---%
 the one that corresponds directly to this AHFA item.
 The exception are predicted AHFA items.
@@ -9882,7 +9832,8 @@ MARPA_OFF_DEBUG3("or = %p, setting DAND = %p", or_node, DANDs_of_OR(or_node));
     }
 }
 
-@ @<Add Leo or-nodes@> = {
+@*0 Leo Or-Nodes.
+@<Add Leo or-nodes@> = {
   SRCL source_link = NULL;
   EIM cause_earley_item = NULL;
   LIM leo_predecessor = NULL;
@@ -10427,6 +10378,87 @@ MARPA_DEBUG4("%s: aexes=%p, aex_count=%d", G_STRLOC, aexes, aex_count);
 	  dand_predecessor, dand_cause);
 }
 
+@ @<Mark duplicate draft and-nodes@> =
+{
+  OR * const or_nodes_of_b = ORs_of_B (b);
+  const gint or_node_count_of_b = OR_Count_of_B(b);
+  PSAR_Object and_per_es_arena;
+  const PSAR and_psar = &and_per_es_arena;
+  gint or_node_id = 0;
+  psar_init (and_psar, rule_count_of_g+symbol_count_of_g);
+  while (or_node_id < or_node_count_of_b) {
+      const OR work_or_node = or_nodes_of_b[or_node_id];
+    @<Mark the duplicate draft and-nodes for |work_or_node|@>@;
+    or_node_id++;
+  }
+  psar_destroy (and_psar);
+}
+
+@ I think the and PSL's and or PSL's are not actually used at the
+same time, so the same field might be used for both.
+More significantly, a simple $O(n^2)$ sort of the 
+draft and-nodes would spot duplicates more efficiently in 99%
+of cases, although it would not be $O(n)$ as the PSL's are.
+The best of both worlds could be had by using the sort when
+there are less than, say, 7 and-nodes, and the PSL's otherwise.
+@ The use of PSL's is slightly different here.
+The PSL is not needed to find the draft and-nodes -- it's
+essentially just a boolean to indicate whether it exists.
+But "stale" booleans must still be detected.
+The solutiion adopted is to put the parent or-node
+into the PSL.
+If the PSL contains the current parent or-node,
+the draft and-node is a duplicate within that or-node.
+Otherwise, it's the first such draft and-node.
+@<Mark the duplicate draft and-nodes for |work_or_node|@> =
+{
+  DAND dand = DANDs_of_OR (work_or_node);
+  DAND next_dand = Next_DAND_of_DAND (dand);
+  ORID work_or_node_id = ID_of_OR(work_or_node);
+  /* Only if there is more than one draft and-node */
+  if (next_dand)
+    {
+      gint origin_ordinal = Origin_Ord_of_OR (work_or_node);
+      psar_dealloc(and_psar);
+      while (dand)
+	{
+	  OR psl_or_node;
+	  OR predecessor = Predecessor_OR_of_DAND (dand);
+	  WHEID wheid = WHEID_of_OR(Cause_OR_of_DAND(dand));
+	  const gint middle_ordinal =
+	    predecessor ? ES_Ord_of_OR (predecessor) : origin_ordinal;
+	  PSL and_psl;
+	  PSL *psl_owner = &per_es_data[middle_ordinal].t_and_psl;
+	  /* The or-node used as a boolean in the PSL */
+	  MARPA_DEBUG3("Claiming psl at ordinal=%d as %s", middle_ordinal, G_STRINGIFY(and_psl));
+	  MARPA_DEBUG2("psl_owner=%p", psl_owner);
+	  if (!*psl_owner) psl_claim (psl_owner, and_psar);
+	  and_psl = *psl_owner;
+	  psl_or_node = (OR)PSL_Datum(and_psl, wheid);
+	  if (psl_or_node && ID_of_OR(psl_or_node) == work_or_node_id)
+	  {
+	      /* Mark this draft and-node as a duplicate */
+	      Cause_OR_of_DAND(dand) = NULL;
+	      MARPA_DEBUG2("or_node=%d, duplicate dand",
+		  ID_of_OR(work_or_node));
+	  } else {
+	      /* Increment the count of unique draft and-nodes */
+	      PSL_Datum(and_psl, wheid) = work_or_node;
+	      unique_draft_and_node_count++;
+	      MARPA_DEBUG3("or_node=%d, unique dand=%d",
+		  ID_of_OR(work_or_node), 
+		  unique_draft_and_node_count);
+	  }
+	  dand = Next_DAND_of_DAND (dand);
+	}
+    } else {
+	  unique_draft_and_node_count++;
+	  MARPA_DEBUG3("or_node=%d, unique dand=%d",
+	      ID_of_OR(work_or_node), 
+	      unique_draft_and_node_count);
+    }
+}
+
 @** And-Node (AND) Code.
 The or-nodes are part of the parse bocage.
 They are analogous to the and-nodes of a standard parse forest,
@@ -10436,7 +10468,12 @@ of Chomsky Normal Form.
 As another difference between it and a parse forest,
 the parse bocage can contain cycles.
 
-@<Private incomplete structures@> =
+@<Public typedefs@> =
+typedef gint Marpa_And_Node_ID;
+@ @<Private typedefs@> =
+typedef Marpa_And_Node_ID ANDID;
+
+@ @<Private incomplete structures@> =
 struct s_and_node;
 typedef struct s_and_node* AND;
 @
@@ -10450,6 +10487,104 @@ struct s_and_node {
     OR t_cause;
 };
 typedef struct s_and_node AND_Object;
+
+@ @<Create the final and-nodes for all earley sets@> =
+{
+  gint unique_draft_and_node_count = 0;
+  @<Mark duplicate draft and-nodes@>@;
+  @<Create the final and-node array@>@;
+}
+
+@ @<Create the final and-node array@> =
+{
+  const gint or_count_of_b = OR_Count_of_B (b);
+  gint or_node_id;
+  gint and_node_id = 0;
+  const OR *ors_of_b = ORs_of_B (b);
+  const AND ands_of_b = ANDs_of_B (b) =
+    g_new (AND_Object, unique_draft_and_node_count);
+  for (or_node_id = 0; or_node_id < or_count_of_b; or_node_id++)
+    {
+      gint and_count_of_parent_or = 0;
+      const OR or_node = ors_of_b[or_node_id];
+      DAND dand = DANDs_of_OR (or_node);
+	First_ANDID_of_OR(or_node) = and_node_id;
+      while (dand)
+	{
+	  const OR cause_or_node = Cause_OR_of_DAND (dand);
+	  if (cause_or_node)
+	    { /* Duplicates draft and-nodes
+	    were marked by nulling the cause or-node */
+	      const AND and_node = ands_of_b + and_node_id;
+	      OR_of_AND (and_node) = or_node;
+	      Predecessor_OR_of_AND (and_node) =
+		Predecessor_OR_of_DAND (dand);
+	      Cause_OR_of_AND (and_node) = cause_or_node;
+	      MARPA_DEBUG3("or_node=%d, find and=%d",
+		  ID_of_OR(or_node), and_node_id);
+	      and_node_id++;
+	      and_count_of_parent_or++;
+	    }
+	    dand = Next_DAND_of_DAND(dand);
+	}
+	AND_Count_of_OR(or_node) = and_count_of_parent_or;
+    }
+    AND_Count_of_B (b) = and_node_id;
+    MARPA_DEBUG3("and_node_id=%d unique DAND count = %d",
+	and_node_id, unique_draft_and_node_count);
+    MARPA_ASSERT(and_node_id == unique_draft_and_node_count);
+}
+
+@*0 Trace Functions.
+
+@ @<Private function prototypes@> =
+gint marpa_and_node(struct marpa_r *r, int and_node_id, int *and_data);
+@ @<Function definitions@> =
+gint marpa_and_node(struct marpa_r *r, int and_node_id, int *and_data)
+{
+  BOC b = B_of_R(r);
+  AND and_nodes;
+  @<Return |-2| on failure@>@;
+  @<Fail if recognizer has fatal error@>@;
+  if (Phase_of_R(r) != evaluation_phase) {
+    R_ERROR("recce not being evaluated");
+    return failure_indicator;
+  }
+  if (!b) {
+      R_ERROR("no bocage");
+      return failure_indicator;
+  }
+  and_nodes = ANDs_of_B(b);
+  if (!and_nodes) {
+      R_ERROR("no and nodes");
+      return failure_indicator;
+  }
+  if (and_node_id < 0) {
+      R_ERROR("bad and node id");
+      return failure_indicator;
+  }
+  if (and_node_id >= AND_Count_of_B(b)) {
+      return -1;
+  }
+  {
+      const AND and_node = and_nodes + and_node_id;
+      const OR predecessor_or = Predecessor_OR_of_AND(and_node);
+      const ORID predecessor_or_id = predecessor_or ? ID_of_OR(predecessor_or) : -1;
+      const OR cause_or = Cause_OR_of_AND(and_node);
+      ORID cause_or_id = -1;
+      SYMID symbol_id = -1;
+      if (Type_of_OR(cause_or) == TOKEN_OR_NODE) {
+           symbol_id = ID_of_SYM((SYM)cause_or);
+      } else {
+           cause_or_id = ID_of_OR(cause_or);
+      }
+      and_data[0] = ID_of_OR(OR_of_AND(and_node));
+      and_data[1] = predecessor_or_id;
+      and_data[2] = cause_or_id;
+      and_data[3] = symbol_id;
+  }
+  return 1;
+}
 
 @** The Parse Bocage.
 @ Pre-initialization is making the elements safe for the deallocation logic
@@ -10619,8 +10754,10 @@ MARPA_OFF_DEBUG2("ordinal=%d", ordinal);
 
 @ @<Traverse Earley sets to create bocage@>=
 {
+  const gint earley_set_count_of_r = ES_Count_of_R (r);
     @<Populate the PSIA data@>@;
     @<Create the or-nodes for all earley sets@>@;
+    @<Create the final and-nodes for all earley sets@>@;
 }
 
 @ Predicted AHFA states can be skipped since they
@@ -10754,8 +10891,8 @@ MARPA_OFF_DEBUG3("%s B_of_R=%p", G_STRLOC, B_of_R(r));
       or_data[1] = ES_Ord_of_OR(or_node);
       or_data[2] = ID_of_RULE(RULE_of_OR(or_node));
       or_data[3] = Position_of_OR(or_node);
-      or_data[4] = 0; /* Count of and-nodes */
-      or_data[5] = 0; /* ID of first and-node */
+      or_data[4] = First_ANDID_of_OR(or_node);
+      or_data[5] = AND_Count_of_OR(or_node);
   }
   return 1;
 }
@@ -11630,17 +11767,17 @@ psar_init (const PSAR psar, gint length)
 static inline void psar_destroy(const PSAR psar)
 {
     PSL psl = psar->t_first_psl;
-MARPA_DEBUG3("%s psl=%p", G_STRLOC, psl);
+MARPA_OFF_DEBUG3("%s psl=%p", G_STRLOC, psl);
     while (psl)
       {
 	PSL next_psl = psl->t_next;
 	PSL *owner = psl->t_owner;
-MARPA_DEBUG3("%s owner=%p", G_STRLOC, owner);
+MARPA_OFF_DEBUG3("%s owner=%p", G_STRLOC, owner);
 	if (owner)
 	  *owner = NULL;
 	g_slice_free1 (Sizeof_PSL (psar), psl);
 	psl = next_psl;
-MARPA_DEBUG3("%s psl=%p", G_STRLOC, psl);
+MARPA_OFF_DEBUG3("%s psl=%p", G_STRLOC, psl);
       }
 }
 @ @<Function definitions@> =
@@ -12198,11 +12335,11 @@ internal matters on |STDERR|.
 #define MARPA_DEBUG @[ 0 @]
 #define MARPA_ENABLE_ASSERT @[ 0 @]
 #if MARPA_DEBUG
-#define MARPA_DEBUG1(a) @[ g_debug((a)) @]
-#define MARPA_DEBUG2(a, b) @[ g_debug((a),(b)) @]
-#define MARPA_DEBUG3(a, b, c) @[ g_debug((a),(b),(c)) @]
-#define MARPA_DEBUG4(a, b, c, d) @[ g_debug((a),(b),(c),(d)) @]
-#define MARPA_DEBUG5(a, b, c, d, e) @[ g_debug((a),(b),(c),(d),(e)) @]
+#define MARPA_DEBUG1(a) @[ g_debug((a)); @]
+#define MARPA_DEBUG2(a, b) @[ g_debug((a),(b)); @]
+#define MARPA_DEBUG3(a, b, c) @[ g_debug((a),(b),(c)); @]
+#define MARPA_DEBUG4(a, b, c, d) @[ g_debug((a),(b),(c),(d)); @]
+#define MARPA_DEBUG5(a, b, c, d, e) @[ g_debug((a),(b),(c),(d),(e)); @]
 #define MARPA_ASSERT(expr) do { if G_LIKELY (expr) ; else \
        g_error ("%s: assertion failed %s", G_STRLOC, #expr); } while (0);
 #else /* if not |MARPA_DEBUG| */

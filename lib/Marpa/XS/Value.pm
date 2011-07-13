@@ -259,6 +259,112 @@ sub Marpa::XS::Recognizer::old_show_and_node {
 
 } ## end sub Marpa::XS::Recognizer::old_show_and_node
 
+sub Marpa::XS::Recognizer::old_show_and_nodes {
+    my ($recce) = @_;
+    my $text;
+    my @data = ();
+    my $id = 0;
+    my $and_nodes = $recce->[Marpa::XS::Internal::Recognizer::AND_NODES];
+    my $or_nodes = $recce->[Marpa::XS::Internal::Recognizer::OR_NODES];
+    my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
+    AND_NODE: for my $and_node ( @{$and_nodes} ) {
+        my $origin_earleme = $and_node->[Marpa::XS::Internal::And_Node::START_EARLEME];
+        my $current_earleme = $and_node->[Marpa::XS::Internal::And_Node::END_EARLEME];
+	my $middle_earleme = $and_node->[Marpa::XS::Internal::And_Node::CAUSE_EARLEME];
+	my $position = $and_node->[Marpa::XS::Internal::And_Node::POSITION] + 1;
+	my $rule = $and_node->[Marpa::XS::Internal::And_Node::RULE_ID];
+        my $token_name =
+            $and_node->[Marpa::XS::Internal::And_Node::TOKEN_NAME];
+	my $symbol = -1;
+	if (defined $token_name) {
+	    $symbol = $symbol_hash->{$token_name};
+	}
+        my $desc =
+              'R' 
+            . $rule . q{:}
+            . $position . q{@}
+            . $origin_earleme . q{-}
+            . $current_earleme;
+	my $cause_rule = -1;
+	my $cause_id  = $and_node->[Marpa::XS::Internal::And_Node::CAUSE_ID];
+	if (defined $cause_id) {
+	    my $cause = $or_nodes->[$cause_id];
+	    $cause_rule = $cause->[Marpa::XS::Internal::Or_Node::RULE_ID];
+	    $desc .= 'C' . $cause_rule;
+	} else {
+	    $desc .= 'S' . $symbol;
+	}
+	$desc .= q{@} . $middle_earleme;
+        push @data,
+            [ $origin_earleme, $current_earleme, $rule, $position,
+		$middle_earleme,
+		$cause_rule,
+		($symbol // -1),
+		$desc ];
+    } ## end for ( ;; )
+    my @sorted_data = map { $_->[-1] } sort {
+        $a->[0] <=> $b->[0]
+	or $a->[1] <=> $b->[1]
+	or $a->[2] <=> $b->[2]
+	or $a->[3] <=> $b->[3]
+	or $a->[4] <=> $b->[4]
+	or $a->[5] <=> $b->[5]
+	or $a->[6] <=> $b->[6]
+    } @data;
+    return (join "\n", @sorted_data) . "\n";;
+}
+
+sub Marpa::XS::Recognizer::show_and_nodes {
+    my ($recce) = @_;
+    my $recce_c     = $recce->[Marpa::XS::Internal::Recognizer::C];
+    my $text;
+    my @data = ();
+    my $id = 0;
+    AND_NODE: for ( ;; ) {
+        my ( $parent, $predecessor, $cause, $symbol ) = $recce_c->and_node( $id++ );
+        last AND_NODE if not defined $parent;
+        my ( $origin, $set, $rule, $position ) = $recce_c->or_node( $parent );
+        my $origin_earleme  = $recce_c->earleme($origin);
+        my $current_earleme = $recce_c->earleme($set);
+	my $middle_earleme = $origin_earleme;
+	if (defined $predecessor) {
+	    my ( undef, $predecessor_set, ) = $recce_c->or_node( $predecessor );
+	    $middle_earleme = $recce_c->earleme($predecessor_set);
+	}
+        my $desc =
+              'R' 
+            . $rule . q{:}
+            . $position . q{@}
+            . $origin_earleme . q{-}
+            . $current_earleme;
+	my $cause_rule = -1;
+	if (defined $cause) {
+	    ( undef, undef, $cause_rule ) = $recce_c->or_node( $cause );
+	    $desc .= 'C' . $cause_rule;
+	} else {
+	    $desc .= 'S' . $symbol;
+	}
+	$desc .= q{@} . $middle_earleme;
+        push @data,
+            [ $origin_earleme, $current_earleme, $rule, $position,
+		$middle_earleme,
+		$cause_rule,
+		($symbol // -1),
+		$desc ];
+    } ## end for ( ;; )
+    my @sorted_data = map { $_->[-1] } sort {
+        $a->[0] <=> $b->[0]
+	or $a->[1] <=> $b->[1]
+	or $a->[2] <=> $b->[2]
+	or $a->[3] <=> $b->[3]
+	or $a->[4] <=> $b->[4]
+	or $a->[5] <=> $b->[5]
+	or $a->[6] <=> $b->[6]
+    } @data;
+    return (join "\n", @sorted_data) . "\n";;
+}
+
 sub Marpa::XS::Recognizer::old_show_or_node {
     my ( $recce, $or_node, $verbose, ) = @_;
     $verbose //= 0;
@@ -383,7 +489,6 @@ sub Marpa::XS::Recognizer::show_or_nodes {
     } @data;
     return (join "\n", @sorted_data) . "\n";;
 }
-
 
 sub Marpa::XS::brief_iteration_node {
     my ($iteration_node) = @_;
@@ -2835,13 +2940,18 @@ sub Marpa::XS::Recognizer::value {
     if (   $BOCAGE_DEBUG
         && $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT] <= 1 )
     {
-	say STDERR join " ", __FILE__, __LINE__;
+	say STDERR "Checking old vs. new bocage";
         my $old_or_nodes = $recce->old_show_or_nodes();
         my $new_or_nodes = $recce->show_or_nodes();
         if ( $old_or_nodes ne $new_or_nodes ) {
             say STDERR "OLD:\n", $old_or_nodes;
             say STDERR "NEW:\n", $new_or_nodes;
-            die;
+        }
+        my $old_and_nodes = $recce->old_show_and_nodes();
+        my $new_and_nodes = $recce->show_and_nodes();
+        if ( $old_and_nodes ne $new_and_nodes ) {
+            say STDERR "OLD:\n", $old_and_nodes;
+            say STDERR "NEW:\n", $new_and_nodes;
         }
     } ## end if ( $BOCAGE_DEBUG && $recce->[...])
 
