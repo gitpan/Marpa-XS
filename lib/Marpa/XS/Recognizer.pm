@@ -54,12 +54,16 @@ my $structure = <<'END_OF_STRUCTURE';
     END
     CLOSURES
     TRACE_ACTIONS
+    TRACE_AND_NODES
+    TRACE_BOCAGE
+    TRACE_OR_NODES
     TRACE_VALUES
     TRACE_TASKS
     TRACING
     MAX_PARSES
     NULL_VALUES
     RANKING_METHOD
+    TOKEN_VALUES
 
     { The following fields must be reinitialized when
     evaluation is reset }
@@ -68,9 +72,7 @@ my $structure = <<'END_OF_STRUCTURE';
     PARSE_COUNT :{ number of parses in an ambiguous parse :}
 
     AND_NODES
-    AND_NODE_HASH
     OR_NODES
-    OR_NODE_HASH
 
     ITERATION_STACK
 
@@ -199,6 +201,7 @@ sub Marpa::XS::Recognizer::new {
     $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] = 'none';
     $recce->[Marpa::XS::Internal::Recognizer::MAX_PARSES]     = 0;
     $recce->[Marpa::XS::Internal::Recognizer::SLOTS]     = Marpa::PP::Internal::Slot->new();
+    $recce->[Marpa::XS::Internal::Recognizer::TOKEN_VALUES]     = {};
     $recce->reset_evaluation();
 
     $recce->set(@arg_hashes);
@@ -262,9 +265,12 @@ use constant RECOGNIZER_OPTIONS => [
         ranking_method
         too_many_earley_items
         trace_actions
+        trace_and_nodes
+        trace_bocage
         trace_earley_sets
         trace_fh
         trace_file_handle
+        trace_or_nodes
         trace_tasks
         trace_terminals
         trace_values
@@ -287,9 +293,7 @@ sub Marpa::XS::Recognizer::reset_evaluation {
     $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]       = 0;
     $recce->[Marpa::XS::Internal::Recognizer::SINGLE_PARSE_MODE] = undef;
     $recce->[Marpa::XS::Internal::Recognizer::AND_NODES]         = [];
-    $recce->[Marpa::XS::Internal::Recognizer::AND_NODE_HASH]     = {};
     $recce->[Marpa::XS::Internal::Recognizer::OR_NODES]          = [];
-    $recce->[Marpa::XS::Internal::Recognizer::OR_NODE_HASH]      = {};
     $recce->[Marpa::XS::Internal::Recognizer::ITERATION_STACK]   = [];
     $recce->[Marpa::XS::Internal::Recognizer::EVALUATOR_RULES]   = [];
     return;
@@ -373,6 +377,42 @@ sub Marpa::XS::Recognizer::set {
                 $recce->[Marpa::XS::Internal::Recognizer::TRACING] = 1;
             }
         } ## end if ( defined( my $value = $args->{'trace_actions'} ))
+
+        if ( defined( my $value = $args->{'trace_and_nodes'} ) ) {
+            Marpa::exception('trace_and_nodes must be set to a number >= 0')
+                if $value !~ /\A\d+\z/xms;
+            $recce->[Marpa::XS::Internal::Recognizer::TRACE_AND_NODES] =
+                $value + 0;
+            if ($value) {
+                say {$trace_fh} "Setting trace_and_nodes option to $value"
+                    or Marpa::exception("Cannot print: $ERRNO");
+                $recce->[Marpa::XS::Internal::Recognizer::TRACING] = 1;
+            }
+        } ## end if ( defined( my $value = $args->{'trace_and_nodes'} ...))
+
+        if ( defined( my $value = $args->{'trace_bocage'} ) ) {
+            Marpa::exception('trace_bocage must be set to a number >= 0')
+                if $value !~ /\A\d+\z/xms;
+            $recce->[Marpa::XS::Internal::Recognizer::TRACE_BOCAGE] =
+                $value + 0;
+            if ($value) {
+                say {$trace_fh} "Setting trace_bocage option to $value"
+                    or Marpa::exception("Cannot print: $ERRNO");
+                $recce->[Marpa::XS::Internal::Recognizer::TRACING] = 1;
+            }
+        } ## end if ( defined( my $value = $args->{'trace_bocage'} ...))
+
+        if ( defined( my $value = $args->{'trace_or_nodes'} ) ) {
+            Marpa::exception('trace_or_nodes must be set to a number >= 0')
+                if $value !~ /\A\d+\z/xms;
+            $recce->[Marpa::XS::Internal::Recognizer::TRACE_OR_NODES] =
+                $value + 0;
+            if ($value) {
+                say {$trace_fh} "Setting trace_or_nodes option to $value"
+                    or Marpa::exception("Cannot print: $ERRNO");
+                $recce->[Marpa::XS::Internal::Recognizer::TRACING] = 1;
+            }
+        } ## end if ( defined( my $value = $args->{'trace_or_nodes'} ...))
 
         if ( defined( my $value = $args->{'trace_tasks'} ) ) {
             Marpa::exception('trace_tasks must be set to a number >= 0')
@@ -963,6 +1003,8 @@ sub Marpa::XS::Recognizer::alternative {
     my $slot = $slots->slot($value);
     $length //= 1;
 
+    $recce->[Marpa::XS::Internal::Recognizer::TOKEN_VALUES]->{join q{;}, 
+	$recce_c->current_earleme(), $length, $symbol_name} = $value;
     my $result = $recce_c->alternative( $symbol_id, $slot, $length );
     Marpa::exception(
         qq{"$symbol_name" already scanned with length $length at location },

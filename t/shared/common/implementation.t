@@ -249,37 +249,33 @@ Marpa::Test::is( 49, $value, 'Implementation Example Value 2' );
 # end-before-line: '^END_TRACE_OUTPUT$'
 
 my $expected_trace_output = <<'END_TRACE_OUTPUT';
-Pushed value from a12 T@0-1_Number: Number = \42
-Popping 1 values to evaluate a12 T@0-1_Number, rule: 2: Factor -> Number
+Pushed value from R2:1@0-1S3@0: Number = \42
+Popping 1 values to evaluate R2:1@0-1S3@0, rule: 2: Factor -> Number
 Calculated and pushed value: 42
-Pushed value from a9 R4:1@0-1T@1-2_Multiply: Multiply = \'*'
-Pushed value from a10 T@2-3_Number: Number = \1
-Popping 1 values to evaluate a10 T@2-3_Number, rule: 2: Factor -> Number
+Pushed value from R4:2@0-2S5@1: Multiply = \'*'
+Pushed value from R2:1@2-3S3@2: Number = \1
+Popping 1 values to evaluate R2:1@2-3S3@2, rule: 2: Factor -> Number
 Calculated and pushed value: 1
-Popping 3 values to evaluate a8 R4:2@0-2F2@2-3, rule: 4: Factor -> Factor Multiply Factor
+Popping 3 values to evaluate R4:3@0-3C2@2, rule: 4: Factor -> Factor Multiply Factor
 Calculated and pushed value: 42
-Popping 1 values to evaluate a7 F4@0-3, rule: 1: Term -> Factor
+Popping 1 values to evaluate R1:1@0-3C4@0, rule: 1: Term -> Factor
 Calculated and pushed value: 42
-Pushed value from a4 R3:1@0-3T@3-4_Add: Add = \'+'
-Pushed value from a6 T@4-5_Number: Number = \7
-Popping 1 values to evaluate a6 T@4-5_Number, rule: 2: Factor -> Number
+Pushed value from R3:2@0-4S4@3: Add = \'+'
+Pushed value from R2:1@4-5S3@4: Number = \7
+Popping 1 values to evaluate R2:1@4-5S3@4, rule: 2: Factor -> Number
 Calculated and pushed value: 7
-Popping 1 values to evaluate a3 F2@4-5, rule: 1: Term -> Factor
+Popping 1 values to evaluate R1:1@4-5C2@4, rule: 1: Term -> Factor
 Calculated and pushed value: 7
-Popping 3 values to evaluate a2 R3:2@0-4F1@4-5, rule: 3: Term -> Term Add Term
+Popping 3 values to evaluate R3:3@0-5C1@4, rule: 3: Term -> Term Add Term
 Calculated and pushed value: 49
-Popping 1 values to evaluate a1 F3@0-5, rule: 0: Expression -> Term
+Popping 1 values to evaluate R0:1@0-5C3@0, rule: 0: Expression -> Term
 Calculated and pushed value: 49
-New Virtual Rule: a0 F0@0-5, rule: 5: Expression['] -> Expression
+New Virtual Rule: R5:1@0-5C0@0, rule: 5: Expression['] -> Expression
 Symbol count is 1, now 1 rules
 END_TRACE_OUTPUT
 
 # Marpa::PP::Display::End
 
-$trace_output =~ s/ [ ] to [ ] evaluate [ ] a\d+ [ ] / to evaluate aNN /xmsg;
-$expected_trace_output =~ s/ [ ] to [ ] evaluate [ ] a\d+ [ ] / to evaluate aNN /xmsg;
-$trace_output =~ s/ [ ] value [ ] from [ ] a\d+ [ ] / value from aNN /xmsg;
-$expected_trace_output =~ s/ [ ] value [ ] from [ ] a\d+ [ ] / value from aNN /xmsg;
 Marpa::Test::is( $trace_output,
     $expected_trace_output, 'Implementation Example Trace Output' );
 

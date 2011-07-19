@@ -20,7 +20,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION $STRING_VERSION @ISA $DEBUG);
-$VERSION = '0.005_032';
+$VERSION = '0.005_033';
 $STRING_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 $DEBUG = 0;
@@ -134,6 +134,9 @@ require Marpa::XS::Callback;
 *Marpa::Recognizer::set = \&Marpa::XS::Recognizer::set;
 *Marpa::Recognizer::show_earley_sets = \&Marpa::XS::Recognizer::show_earley_sets;
 *Marpa::Recognizer::show_and_nodes = \&Marpa::XS::Recognizer::show_and_nodes;
+*Marpa::Recognizer::show_bocage = \&Marpa::XS::Recognizer::show_bocage;
+*Marpa::Recognizer::show_iteration_stack = \&Marpa::XS::Recognizer::show_iteration_stack;
+*Marpa::Recognizer::show_iteration_node = \&Marpa::XS::Recognizer::show_iteration_node;
 *Marpa::Recognizer::old_show_and_nodes = \&Marpa::XS::Recognizer::old_show_and_nodes;
 *Marpa::Recognizer::show_or_nodes = \&Marpa::XS::Recognizer::show_or_nodes;
 *Marpa::Recognizer::old_show_or_nodes = \&Marpa::XS::Recognizer::old_show_or_nodes;

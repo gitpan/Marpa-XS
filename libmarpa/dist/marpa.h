@@ -1,5 +1,5 @@
-/*1315:*/
-#line 12509 "./marpa.w"
+/*1306:*/
+#line 12371 "./marpa.w"
 
 /*
  * Copyright 2011 Jeffrey Kegler
@@ -23,8 +23,8 @@
  * It is not intended to be modified directly
  */
 
-/*:1315*//*1316:*/
-#line 12533 "./marpa.w"
+/*:1306*//*1307:*/
+#line 12395 "./marpa.w"
 
 #ifndef __MARPA_H__
 #define __MARPA_H__ 
@@ -75,7 +75,7 @@ GLIB_VAR const guint marpa_binary_age;
 #line 699 "./marpa.w"
 struct marpa_g;
 /*:44*//*609:*/
-#line 5369 "./marpa.w"
+#line 5377 "./marpa.w"
 
 struct marpa_r;
 /*:609*/
@@ -101,15 +101,15 @@ typedef gint Marpa_Rule_ID;
 
 typedef gint Marpa_AHFA_Item_ID;
 /*:452*//*498:*/
-#line 3941 "./marpa.w"
+#line 3949 "./marpa.w"
 
 typedef gint Marpa_AHFA_State_ID;
 
 /*:498*//*618:*/
-#line 5428 "./marpa.w"
+#line 5436 "./marpa.w"
 typedef gint Marpa_Recognizer_ID;
 /*:618*//*625:*/
-#line 5454 "./marpa.w"
+#line 5462 "./marpa.w"
 
 enum marpa_phase{
 no_such_phase= 0,
@@ -120,28 +120,28 @@ error_phase
 };
 typedef enum marpa_phase Marpa_Phase;
 /*:625*//*713:*/
-#line 5929 "./marpa.w"
+#line 5937 "./marpa.w"
 typedef gint Marpa_Earleme;
 /*:713*//*715:*/
-#line 5933 "./marpa.w"
+#line 5941 "./marpa.w"
 typedef gint Marpa_Earley_Set_ID;
-/*:715*//*744:*/
-#line 6152 "./marpa.w"
+/*:715*//*745:*/
+#line 6161 "./marpa.w"
 typedef gint Marpa_Earley_Item_ID;
-/*:744*//*1026:*/
-#line 9507 "./marpa.w"
+/*:745*//*1016:*/
+#line 9360 "./marpa.w"
 
 typedef gint Marpa_Or_Node_ID;
-/*:1026*//*1089:*/
-#line 10471 "./marpa.w"
+/*:1016*//*1079:*/
+#line 10326 "./marpa.w"
 
 typedef gint Marpa_And_Node_ID;
-/*:1089*//*1284:*/
-#line 12254 "./marpa.w"
+/*:1079*//*1275:*/
+#line 12115 "./marpa.w"
 
 typedef const gchar*Marpa_Message_ID;
 
-/*:1284*/
+/*:1275*/
 #line 693 "./marpa.w"
 
 /*211:*/
@@ -152,15 +152,15 @@ typedef void(Marpa_Symbol_Callback)(struct marpa_g*g,Marpa_Symbol_ID id);
 #line 2279 "./marpa.w"
 
 typedef void(Marpa_Rule_Callback)(struct marpa_g*g,Marpa_Rule_ID id);
-/*:318*//*1286:*/
-#line 12261 "./marpa.w"
+/*:318*//*1277:*/
+#line 12122 "./marpa.w"
 
 typedef void(Marpa_G_Message_Callback)(struct marpa_g*g,Marpa_Message_ID id);
-/*:1286*//*1294:*/
-#line 12296 "./marpa.w"
+/*:1277*//*1285:*/
+#line 12157 "./marpa.w"
 
 typedef void(Marpa_R_Message_Callback)(struct marpa_r*r,Marpa_Message_ID id);
-/*:1294*/
+/*:1285*/
 #line 694 "./marpa.w"
 
 /*112:*/
@@ -476,244 +476,240 @@ Marpa_Symbol_ID marpa_AHFA_item_postdot(struct marpa_g*g,Marpa_AHFA_Item_ID item
 
 gint marpa_AHFA_item_sort_key(struct marpa_g*g,Marpa_AHFA_Item_ID item_id);
 /*:475*//*523:*/
-#line 4110 "./marpa.w"
+#line 4118 "./marpa.w"
 
 guint marpa_AHFA_state_count(struct marpa_g*g);
 
 /*:523*//*525:*/
-#line 4123 "./marpa.w"
+#line 4131 "./marpa.w"
 
 gint marpa_AHFA_state_item_count(struct marpa_g*g,Marpa_AHFA_State_ID AHFA_state_id);
 
 /*:525*//*526:*/
-#line 4126 "./marpa.w"
+#line 4134 "./marpa.w"
 
 Marpa_AHFA_Item_ID marpa_AHFA_state_item(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id,
 guint item_ix);
 /*:526*//*529:*/
-#line 4161 "./marpa.w"
+#line 4169 "./marpa.w"
 
 gint marpa_AHFA_state_is_predict(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id);
 
 /*:529*//*531:*/
-#line 4171 "./marpa.w"
+#line 4179 "./marpa.w"
 
 Marpa_Rule_ID marpa_AHFA_completed_start_rule(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id);
 /*:531*//*536:*/
-#line 4235 "./marpa.w"
+#line 4243 "./marpa.w"
 
 Marpa_Symbol_ID marpa_AHFA_state_leo_lhs_symbol(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id);
 /*:536*//*602:*/
-#line 5300 "./marpa.w"
+#line 5308 "./marpa.w"
 
 gint marpa_AHFA_state_transitions(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id,
 GArray*result);
 /*:602*//*605:*/
-#line 5334 "./marpa.w"
+#line 5342 "./marpa.w"
 
 /*:605*//*606:*/
-#line 5335 "./marpa.w"
+#line 5343 "./marpa.w"
 
 Marpa_AHFA_State_ID marpa_AHFA_state_empty_transition(struct marpa_g*g,
 Marpa_AHFA_State_ID AHFA_state_id);
 /*:606*//*612:*/
-#line 5380 "./marpa.w"
+#line 5388 "./marpa.w"
 
 struct marpa_r*marpa_r_new(const struct marpa_g*const g);
 /*:612*//*615:*/
-#line 5413 "./marpa.w"
+#line 5421 "./marpa.w"
 
 void marpa_r_free(struct marpa_r*r);
 
 /*:615*//*622:*/
-#line 5434 "./marpa.w"
+#line 5442 "./marpa.w"
 
 gint marpa_r_id(struct marpa_r*r);
 
 /*:622*//*628:*/
-#line 5468 "./marpa.w"
+#line 5476 "./marpa.w"
 
 Marpa_Phase marpa_phase(struct marpa_r*r);
 /*:628*//*634:*/
-#line 5496 "./marpa.w"
+#line 5504 "./marpa.w"
 
 guint marpa_current_earleme(struct marpa_r*r);
 /*:634*//*640:*/
-#line 5518 "./marpa.w"
+#line 5526 "./marpa.w"
 
 guint marpa_earley_item_warning_threshold(struct marpa_r*r);
 /*:640*//*642:*/
-#line 5524 "./marpa.w"
+#line 5532 "./marpa.w"
 
 gboolean marpa_earley_item_warning_threshold_set(struct marpa_r*r,guint threshold);
 /*:642*//*646:*/
-#line 5545 "./marpa.w"
+#line 5553 "./marpa.w"
 
 guint marpa_furthest_earleme(struct marpa_r*r);
 /*:646*//*665:*/
-#line 5638 "./marpa.w"
+#line 5646 "./marpa.w"
 
 gint marpa_terminals_expected(struct marpa_r*r,GArray*result);
 /*:665*//*680:*/
-#line 5746 "./marpa.w"
+#line 5754 "./marpa.w"
 
 gboolean marpa_is_use_leo(struct marpa_r*r);
 /*:680*//*683:*/
-#line 5766 "./marpa.w"
+#line 5774 "./marpa.w"
 
 gboolean marpa_is_use_leo_set(struct marpa_r*r,gboolean value);
 
 /*:683*//*686:*/
-#line 5785 "./marpa.w"
+#line 5793 "./marpa.w"
 
 gboolean marpa_is_exhausted(struct marpa_r*r);
 /*:686*//*700:*/
-#line 5867 "./marpa.w"
+#line 5875 "./marpa.w"
 
 union marpa_context_value*marpa_r_context_value(struct marpa_r*r,const gchar*key);
 
 /*:700*//*709:*/
-#line 5903 "./marpa.w"
+#line 5911 "./marpa.w"
 
 Marpa_Error_ID marpa_r_error(const struct marpa_r*r);
 
-/*:709*//*730:*/
-#line 6034 "./marpa.w"
+/*:709*//*731:*/
+#line 6043 "./marpa.w"
 
 Marpa_Earley_Set_ID marpa_trace_earley_set(struct marpa_r*r);
-/*:730*//*732:*/
-#line 6049 "./marpa.w"
+/*:731*//*733:*/
+#line 6058 "./marpa.w"
 
 Marpa_Earley_Set_ID marpa_latest_earley_set(struct marpa_r*r);
-/*:732*//*734:*/
-#line 6067 "./marpa.w"
+/*:733*//*735:*/
+#line 6076 "./marpa.w"
 
 Marpa_Earleme marpa_earleme(struct marpa_r*r,Marpa_Earley_Set_ID set_id);
-/*:734*//*737:*/
-#line 6092 "./marpa.w"
+/*:735*//*738:*/
+#line 6101 "./marpa.w"
 
 gint marpa_earley_set_size(struct marpa_r*r,Marpa_Earley_Set_ID set_id);
-/*:737*//*767:*/
-#line 6405 "./marpa.w"
+/*:738*//*767:*/
+#line 6397 "./marpa.w"
 
 Marpa_AHFA_State_ID
 marpa_old_earley_item_trace(struct marpa_r*r,
 Marpa_Earley_Set_ID origin_set_id,
 Marpa_AHFA_State_ID state_id);
 /*:767*//*771:*/
-#line 6478 "./marpa.w"
+#line 6470 "./marpa.w"
 
 Marpa_Earleme
 marpa_earley_set_trace(struct marpa_r*r,Marpa_Earley_Set_ID set_id);
 /*:771*//*774:*/
-#line 6517 "./marpa.w"
+#line 6509 "./marpa.w"
 
 Marpa_AHFA_State_ID
 marpa_earley_item_trace(struct marpa_r*r,
 Marpa_Earley_Item_ID item_id);
 /*:774*//*806:*/
-#line 6862 "./marpa.w"
+#line 6854 "./marpa.w"
 
 Marpa_Symbol_ID
 marpa_postdot_symbol_trace(struct marpa_r*r,
 Marpa_Symbol_ID symid);
 /*:806*//*809:*/
-#line 6900 "./marpa.w"
+#line 6892 "./marpa.w"
 
 Marpa_Symbol_ID
 marpa_first_postdot_item_trace(struct marpa_r*r);
 /*:809*//*811:*/
-#line 6933 "./marpa.w"
+#line 6925 "./marpa.w"
 
 Marpa_Symbol_ID
 marpa_next_postdot_item_trace(struct marpa_r*r);
 /*:811*//*850:*/
-#line 7354 "./marpa.w"
+#line 7345 "./marpa.w"
 
 Marpa_Symbol_ID marpa_first_token_link_trace(struct marpa_r*r);
 /*:850*//*854:*/
-#line 7399 "./marpa.w"
+#line 7390 "./marpa.w"
 
 Marpa_Symbol_ID marpa_next_token_link_trace(struct marpa_r*r);
 /*:854*//*857:*/
-#line 7431 "./marpa.w"
+#line 7422 "./marpa.w"
 
 Marpa_Symbol_ID marpa_first_completion_link_trace(struct marpa_r*r);
 /*:857*//*861:*/
-#line 7475 "./marpa.w"
+#line 7466 "./marpa.w"
 
 Marpa_Symbol_ID marpa_next_completion_link_trace(struct marpa_r*r);
 /*:861*//*864:*/
-#line 7509 "./marpa.w"
+#line 7500 "./marpa.w"
 
 Marpa_Symbol_ID marpa_first_leo_link_trace(struct marpa_r*r);
 /*:864*//*868:*/
-#line 7556 "./marpa.w"
+#line 7547 "./marpa.w"
 
 Marpa_Symbol_ID marpa_next_leo_link_trace(struct marpa_r*r);
 /*:868*//*874:*/
-#line 7613 "./marpa.w"
+#line 7604 "./marpa.w"
 
 Marpa_AHFA_State_ID marpa_source_predecessor_state(struct marpa_r*r);
 /*:874*//*877:*/
-#line 7650 "./marpa.w"
+#line 7641 "./marpa.w"
 
 Marpa_Symbol_ID marpa_source_leo_transition_symbol(struct marpa_r*r);
 /*:877*//*880:*/
-#line 7692 "./marpa.w"
+#line 7683 "./marpa.w"
 
 Marpa_Earley_Set_ID marpa_source_middle(struct marpa_r*r);
 /*:880*//*882:*/
-#line 7731 "./marpa.w"
+#line 7722 "./marpa.w"
 
 gboolean marpa_source_token_value(struct marpa_r*r,gpointer*value_p);
 /*:882*//*901:*/
-#line 7916 "./marpa.w"
+#line 7907 "./marpa.w"
 gboolean marpa_start_input(struct marpa_r*r);
 /*:901*//*909:*/
-#line 8000 "./marpa.w"
+#line 7991 "./marpa.w"
 gboolean marpa_alternative(struct marpa_r*r,
 Marpa_Symbol_ID token_id,void*value,gint length);
 /*:909*//*927:*/
-#line 8141 "./marpa.w"
+#line 8132 "./marpa.w"
 
 Marpa_Earleme marpa_earleme_complete(struct marpa_r*r);
-/*:927*//*982:*/
-#line 8919 "./marpa.w"
-
-gint marpa_leo_completion_expand(struct marpa_r*r);
-/*:982*//*1106:*/
-#line 10618 "./marpa.w"
+/*:927*//*1097:*/
+#line 10480 "./marpa.w"
 
 gint marpa_bocage_new(struct marpa_r*r,Marpa_Rule_ID rule_id,Marpa_Earley_Set_ID ordinal);
-/*:1106*//*1121:*/
-#line 10831 "./marpa.w"
+/*:1097*//*1112:*/
+#line 10697 "./marpa.w"
 
 gint marpa_bocage_free(struct marpa_r*r);
-/*:1121*//*1290:*/
-#line 12276 "./marpa.w"
+/*:1112*//*1281:*/
+#line 12137 "./marpa.w"
 
 void marpa_g_message_callback_set(struct marpa_g*g,Marpa_G_Message_Callback*cb);
 void marpa_g_message_callback_arg_set(struct marpa_g*g,gpointer cb_arg);
 gpointer marpa_g_message_callback_arg(struct marpa_g*g);
-/*:1290*//*1298:*/
-#line 12313 "./marpa.w"
+/*:1281*//*1289:*/
+#line 12174 "./marpa.w"
 
 void marpa_r_message_callback_set(struct marpa_r*r,Marpa_R_Message_Callback*cb);
 void marpa_r_message_callback_arg_set(struct marpa_r*r,gpointer cb_arg);
 gpointer marpa_r_message_callback_arg(struct marpa_r*r);
-/*:1298*/
+/*:1289*/
 #line 696 "./marpa.w"
 
 
 /*:43*/
-#line 12538 "./marpa.w"
+#line 12400 "./marpa.w"
 
 #endif __MARPA_H__
 
-/*:1316*/
+/*:1307*/
