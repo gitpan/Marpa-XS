@@ -76,20 +76,16 @@
       }
    },
    "provides" : {
-      "Marpa::PP::Internal" : {
-         "file" : "lib/Marpa/XS/PP/Internal.pm",
-         "version" : 0
-      },
-      "Marpa::PP::Internal::Slot" : {
-         "file" : "lib/Marpa/XS/PP/Slot.pm",
-         "version" : 0
-      },
       "Marpa::XS" : {
          "file" : "lib/Marpa/XS.pm",
-         "version" : "0.009_000"
+         "version" : "0.009_001"
       },
       "Marpa::XS::Grammar" : {
          "file" : "lib/Marpa/XS/Grammar.pm",
+         "version" : 0
+      },
+      "Marpa::XS::Internal" : {
+         "file" : "lib/Marpa/XS/Internal.pm",
          "version" : 0
       },
       "Marpa::XS::Internal::Callback" : {
@@ -102,6 +98,10 @@
       },
       "Marpa::XS::Internal::Recognizer" : {
          "file" : "lib/Marpa/XS/Value.pm",
+         "version" : 0
+      },
+      "Marpa::XS::Internal::Slot" : {
+         "file" : "lib/Marpa/XS/Slot.pm",
          "version" : 0
       },
       "Marpa::XS::Internal::Value" : {
@@ -119,5 +119,5 @@
          "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
       }
    },
-   "version" : "0.009_000"
+   "version" : "0.009_001"
 }

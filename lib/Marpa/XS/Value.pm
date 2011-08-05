@@ -93,8 +93,6 @@ my $structure = <<'END_OF_STRUCTURE';
 
     :package=Marpa::XS::Internal::Task
 
-    GRAFT_SUBTREE
-
     ITERATE
     FIX_TREE
     STACK_INODE
@@ -131,7 +129,6 @@ my $structure = <<'END_OF_STRUCTURE';
 
     AND_NODE
     RANK { *NOT* a rank ref }
-    ITERATION_SUBTREE
 
 END_OF_STRUCTURE
     Marpa::offset($structure);
@@ -447,15 +444,6 @@ sub Marpa::XS::Recognizer::show_iteration_node {
             if ($verbose) {
                 $text .= q{; rank=}
                     . $choice->[Marpa::XS::Internal::Choice::RANK];
-                if ( my $saved_subtree =
-                    $choice->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE]
-                    )
-                {
-                    $text
-                        .= q{; }
-                        . ( scalar @{$saved_subtree} )
-                        . ' nodes saved';
-                } ## end if ( my $saved_subtree = $choice->[...])
             } ## end if ($verbose)
             $text .= "\n";
             last CHOICE if not $verbose;
@@ -1691,13 +1679,6 @@ sub Marpa::XS::Recognizer::value {
 
             push @task_list, [Marpa::XS::Internal::Task::FIX_TREE];
 
-            if ( $choices->[0]
-                ->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE] )
-            {
-                push @task_list, [Marpa::XS::Internal::Task::GRAFT_SUBTREE];
-                next TASK;
-            } ## end if ( $choices->[0]->[...])
-
             if ($grammar_has_cycle) {
                 push @task_list, [Marpa::XS::Internal::Task::CHECK_FOR_CYCLE];
                 next TASK;
@@ -1773,6 +1754,7 @@ sub Marpa::XS::Recognizer::value {
 
             # If the work list is undefined, initialize it to the entire stack
             $iteration_node_worklist //= [ 0 .. $#{$iteration_stack} ];
+            # We are done fixing the tree if the worklist is empty
             next TASK if not scalar @{$iteration_node_worklist};
             my $working_node_ix = $iteration_node_worklist->[-1];
 
@@ -1785,7 +1767,6 @@ sub Marpa::XS::Recognizer::value {
                     or Marpa::exception('print to trace handle failed');
             } ## end if ($trace_tasks)
 
-            # We are done fixing the tree is the worklist is empty
 
             my $working_node = $iteration_stack->[$working_node_ix];
             my $choices =
@@ -1839,207 +1820,10 @@ sub Marpa::XS::Recognizer::value {
                 next TASK;
             } ## end for my $field ( ...)
 
-            # If we have all the child nodes and the rank is clean,
-            # pop this node from the worklist and move on.
-            if ( $working_node->[Marpa::XS::Internal::Iteration_Node::CLEAN] )
-            {
-                pop @{$iteration_node_worklist};
-                next FIX_TREE_LOOP;
-            }
-
-            # If this is a constant rank node, set the rank,
-            # mark it clean and move on.
-            # Constant ranked nodes never lower in rank and
-            # therefore, until they become exhausted,
-            # they never lose their place to another choice.
-            if (defined(
-                    my $constant_rank_ref =
-                        $working_and_node
-                        ->[Marpa::XS::Internal::And_Node::CONSTANT_RANK_REF]
-                )
-                )
-            {
-
-                # Set the new rank
-                $choice->[Marpa::XS::Internal::Choice::RANK] =
-                    $working_node->[Marpa::XS::Internal::Iteration_Node::RANK]
-                    = ${$constant_rank_ref};
-
-                $working_node->[Marpa::XS::Internal::Iteration_Node::CLEAN] =
-                    1;
-                pop @{$iteration_node_worklist};
-                next FIX_TREE_LOOP;
-            } ## end if ( defined( my $constant_rank_ref = $working_and_node...))
-
-            # Rank is dirty and not constant,
-            # so recalculate it
-            no integer;
-
-            # Sum up the new rank, if it is not constant:
-            my $token_rank_ref = $working_and_node
-                ->[Marpa::XS::Internal::And_Node::TOKEN_RANK_REF];
-            my $new_rank = defined $token_rank_ref ? ${$token_rank_ref} : 0;
-
-            my $predecessor_ix = $working_node
-                ->[Marpa::XS::Internal::Iteration_Node::PREDECESSOR_IX];
-
-            $new_rank +=
-                  $predecessor_ix >= 0
-                ? $iteration_stack->[$predecessor_ix]
-                ->[Marpa::XS::Internal::Iteration_Node::RANK]
-                : 0;
-
-            my $cause_ix = $working_node
-                ->[Marpa::XS::Internal::Iteration_Node::CAUSE_IX];
-
-            $new_rank +=
-                  $cause_ix >= 0
-                ? $iteration_stack->[$cause_ix]
-                ->[Marpa::XS::Internal::Iteration_Node::RANK]
-                : 0;
-
-            # Set the new rank
-            $choice->[Marpa::XS::Internal::Choice::RANK] =
-                $working_node->[Marpa::XS::Internal::Iteration_Node::RANK] =
-                $new_rank;
-
-            # Now to determine if the new rank puts this choice out
-            # of proper order.
-            # First off, unless there are 2 or more choices, the
-            # current choice is clearly the right one.
-            #
-            # Secondly, if the current choice is still greater
-            # than or equal to the next highest, it is the right
-            # one
-            #
-            # Mark the current node clean, pop it off the work list
-            # and look at the next one
-            if ( scalar @{$choices} < 2
-                or $new_rank
-                >= $choices->[1]->[Marpa::XS::Internal::Choice::RANK] )
-            {
-                $working_node->[Marpa::XS::Internal::Iteration_Node::CLEAN] =
-                    1;
-                pop @{$iteration_node_worklist};
-
-                next FIX_TREE_LOOP;
-            } ## end if ( scalar @{$choices} < 2 or $new_rank >= $choices...)
-
-            # Now we know we have to swap choices.  But
-            # with which other choice?  We look for the
-            # first one not greater than (less than or
-            # equal to) the current choice.
-            my $first_le_choice = 1;
-            FIND_LE: while ( ++$first_le_choice <= $#{$choices} ) {
-                last FIND_LE
-                    if $new_rank >= $choices->[$first_le_choice]
-                        ->[Marpa::XS::Internal::Choice::RANK];
-            }
-
-            # Next we determine how big a chunk of stack needs to be saved
-            # when we swap in the new choice
-            my $last_descendant_ix = $working_node_ix;
-            LOOK_FOR_DESCENDANT: while (1) {
-                my $inode    = $iteration_stack->[$last_descendant_ix];
-                my $child_ix = $inode
-                    ->[Marpa::XS::Internal::Iteration_Node::PREDECESSOR_IX];
-                if ( $child_ix >= 0 ) {
-                    $last_descendant_ix = $child_ix;
-                    next LOOK_FOR_DESCENDANT;
-                }
-                $child_ix =
-                    $inode->[Marpa::XS::Internal::Iteration_Node::CAUSE_IX];
-                last LOOK_FOR_DESCENDANT if $child_ix < 0;
-                $last_descendant_ix = $child_ix;
-            } ## end while (1)
-
-            # We need to save the part of iteration stack
-            # below the node being reordered
-            $choice->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE] =
-                [ @{$iteration_stack}
-                    [ $working_node_ix + 1 .. $last_descendant_ix ] ];
-
-            # Get the list of parent nodes
-            # in the portion of the stack not deleted
-            my @parents = ();
-            for (
-                my $ix = $last_descendant_ix + 1;
-                $ix <= $#{$iteration_stack};
-                $ix++
-                )
-            {
-                my $parent =
-                    $iteration_stack->[$ix]
-                    ->[Marpa::XS::Internal::Iteration_Node::PARENT];
-                defined $_ and $_ < $working_node_ix and push @parents, $ix;
-            } ## end for ( my $ix = $last_descendant_ix + 1; $ix <= $#{...})
-
-            # "Dirty" the predecessor indexes in the undeleted parents
-            # No causes will be eliminated.
-            for my $direct_parent (@parents) {
-                $iteration_stack->[$direct_parent]
-                    ->[Marpa::XS::Internal::Iteration_Node::PREDECESSOR_IX] =
-                    undef;
-            }
-
-            # Now "dirty" the ranks of the ancestors
-            # Climb the parent links, marking the ranks
-            # of the nodes "dirty", until we hit one that is
-            # already dirty
-            push @parents, $working_node_ix;
-            PARENT: while ( defined( my $parent_ix = pop @parents ) ) {
-                my $parent_node = $iteration_stack->[$parent_ix];
-
-                # We could also stop ascending at the first constant ranks,
-                # but it's not clear that the saved work later makes up
-                # for the cost of the test here.
-                next PARENT
-                    if not $parent_node
-                        ->[Marpa::XS::Internal::Iteration_Node::CLEAN];
-                $parent_node->[Marpa::XS::Internal::Iteration_Node::CLEAN] =
-                    0;
-                push @parents,
-                    $parent_node
-                    ->[Marpa::XS::Internal::Iteration_Node::PARENT];
-            } ## end while ( defined( my $parent_ix = pop @parents ) )
-
-            # "Dirty" the working node.
-            $working_node
-                ->[Marpa::XS::Internal::Iteration_Node::PREDECESSOR_IX] =
-                undef;
-            $working_node->[Marpa::XS::Internal::Iteration_Node::CAUSE_IX] =
-                undef;
-
-            # Prune the iteration stack
-            $#{$iteration_stack} = $working_node_ix;
-
-            # Our worklist of iteration nodes is now
-            # almost 100% wrong.
-            # Throw it away and start over.
-            # The cycle hash also needs to be cleared.
-            $iteration_node_worklist = undef;
-            $cycle_hash              = undef;
-
-            my $swap_choice = $first_le_choice - 1;
-
-            ( $choices->[0], $choices->[$swap_choice] ) =
-                ( $choices->[$swap_choice], $choices->[0] );
-
-            push @task_list, [Marpa::XS::Internal::Task::FIX_TREE];
-
-            if ( $choices->[0]
-                ->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE] )
-            {
-                push @task_list, [Marpa::XS::Internal::Task::GRAFT_SUBTREE];
-                next TASK;
-            } ## end if ( $choices->[0]->[...])
-
-            if ($grammar_has_cycle) {
-                push @task_list, [Marpa::XS::Internal::Task::CHECK_FOR_CYCLE];
-                next TASK;
-            }
-
-            next TASK;
+	    $working_node->[Marpa::XS::Internal::Iteration_Node::CLEAN] =
+		1;
+	    pop @{$iteration_node_worklist};
+	    next FIX_TREE_LOOP;
 
         } ## end while ( $task_type == Marpa::XS::Internal::Task::FIX_TREE)
 
@@ -2198,79 +1982,6 @@ sub Marpa::XS::Recognizer::value {
             next TASK;
 
         } ## end if ( $task_type == Marpa::XS::Internal::Task::STACK_INODE)
-
-        if ( $task_type == Marpa::XS::Internal::Task::GRAFT_SUBTREE ) {
-
-            my $subtree_parent_node = $iteration_stack->[-1];
-            my $or_node             = $subtree_parent_node
-                ->[Marpa::XS::Internal::Iteration_Node::OR_NODE];
-	    my $or_node_id = 
-                $or_node->[Marpa::XS::Internal::Or_Node::ID];
-
-            if ($trace_tasks) {
-                print {$Marpa::XS::Internal::TRACE_FH}
-                    'Task: GRAFT_SUBTREE ',
-		    Marpa::XS::Recognizer::or_node_tag( $recce, $or_node_id ),
-                    q{; }, ( scalar @task_list ), " tasks pending\n"
-                    or Marpa::exception('print to trace handle failed');
-            } ## end if ($trace_tasks)
-
-            my $subtree_parent_ix = $#{$iteration_stack};
-
-            my $choices = $subtree_parent_node
-                ->[Marpa::XS::Internal::Iteration_Node::CHOICES];
-
-            # set RANK
-            my $choice = $choices->[0];
-            {
-                no integer;
-                $subtree_parent_node
-                    ->[Marpa::XS::Internal::Iteration_Node::RANK] =
-                    $choice->[Marpa::XS::Internal::Choice::RANK];
-
-            }
-
-            my $subtree =
-                $choice->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE];
-
-            # Undef the old "frozen" values,
-            # now that we are putting them back into play.
-            $choice->[Marpa::XS::Internal::Choice::ITERATION_SUBTREE] = undef;
-
-            # Clear the cycle hash
-            $cycle_hash = undef;
-
-            push @{$iteration_stack}, @{$subtree};
-            my $top_of_stack = $#{$iteration_stack};
-
-            # Reset the parent's cause and predecessor
-            IX:
-            for (
-                my $ix = $subtree_parent_ix + 1;
-                $ix <= $top_of_stack;
-                $ix++
-                )
-            {
-                my $iteration_node = $iteration_stack->[$ix];
-                if ( $iteration_node
-                    ->[Marpa::XS::Internal::Iteration_Node::PARENT]
-                    == $subtree_parent_ix )
-                {
-                    my $child_type = $iteration_node
-                        ->[Marpa::XS::Internal::Iteration_Node::CHILD_TYPE];
-                    $iteration_stack->[$subtree_parent_ix]->[
-                        $child_type eq 'P'
-                        ? Marpa::XS::Internal::Iteration_Node::PREDECESSOR_IX
-                        : Marpa::XS::Internal::Iteration_Node::CAUSE_IX
-                        ]
-                        = $ix;
-                } ## end if ( $iteration_node->[...])
-            } ## end for ( my $ix = $subtree_parent_ix + 1; $ix <= ...)
-
-            # We are done.
-            next TASK;
-
-        } ## end if ( $task_type == Marpa::XS::Internal::Task::GRAFT_SUBTREE)
 
         Marpa::XS::internal_error(
             "Internal error: Unknown task type: $task_type");
