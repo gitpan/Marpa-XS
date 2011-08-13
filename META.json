@@ -78,7 +78,7 @@
    "provides" : {
       "Marpa::XS" : {
          "file" : "lib/Marpa/XS.pm",
-         "version" : "0.009_003"
+         "version" : "0.010000"
       },
       "Marpa::XS::Grammar" : {
          "file" : "lib/Marpa/XS/Grammar.pm",
@@ -113,11 +113,11 @@
          "version" : 0
       }
    },
-   "release_status" : "testing",
+   "release_status" : "stable",
    "resources" : {
       "repository" : {
          "url" : "git://github.com/jeffreykegler/Marpa-XS.git"
       }
    },
-   "version" : "0.009_003"
+   "version" : "0.010000"
 }
