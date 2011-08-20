@@ -10368,7 +10368,6 @@ gint marpa_and_node_count(struct marpa_r *r)
 @ @<Check |r| and |and_node_id|; set |and_node|@> = {
   BOC b = B_of_R(r);
   AND and_nodes;
-  @<Return |-2| on failure@>@;
   @<Fail if recognizer has fatal error@>@;
   if (!b) {
       R_ERROR("no bocage");
@@ -10395,6 +10394,7 @@ gint marpa_and_node_parent(struct marpa_r *r, int and_node_id);
 gint marpa_and_node_parent(struct marpa_r *r, int and_node_id)
 {
   AND and_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |and_node_id|; set |and_node|@>@;
   return ID_of_OR (OR_of_AND (and_node));
 }
@@ -10405,6 +10405,7 @@ gint marpa_and_node_predecessor(struct marpa_r *r, int and_node_id);
 gint marpa_and_node_predecessor(struct marpa_r *r, int and_node_id)
 {
   AND and_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |and_node_id|; set |and_node|@>@;
     {
       const OR predecessor_or = Predecessor_OR_of_AND (and_node);
@@ -10420,6 +10421,7 @@ gint marpa_and_node_cause(struct marpa_r *r, int and_node_id);
 gint marpa_and_node_cause(struct marpa_r *r, int and_node_id)
 {
   AND and_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |and_node_id|; set |and_node|@>@;
     {
       const OR cause_or = Cause_OR_of_AND (and_node);
@@ -10435,6 +10437,7 @@ gint marpa_and_node_symbol(struct marpa_r *r, int and_node_id);
 gint marpa_and_node_symbol(struct marpa_r *r, int and_node_id)
 {
   AND and_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |and_node_id|; set |and_node|@>@;
     {
       const OR cause_or = Cause_OR_of_AND (and_node);
@@ -10451,7 +10454,7 @@ logic knows when {\bf not} to try deallocating a not-yet uninitialized value.
 @<Private incomplete structures@> =
 struct s_bocage;
 typedef struct s_bocage* BOC;
-@ @<Private structures@> =
+@ @<Bocage structure@> =
 struct s_bocage {
     @<Widely aligned bocage elements@>@;
 };
@@ -10732,7 +10735,6 @@ MARPA_OFF_DEBUG3("%s B_of_R=%p", G_STRLOC, B_of_R(r));
 @<Check |r| and |or_node_id|; set |or_node|@> = {
   BOC b = B_of_R(r);
   OR* or_nodes;
-  @<Return |-2| on failure@>@;
   @<Fail if recognizer has fatal error@>@;
   if (!b) {
       R_ERROR("no bocage");
@@ -10759,6 +10761,7 @@ gint marpa_or_node(struct marpa_r *r, int or_node_id, int *or_data);
 gint marpa_or_node(struct marpa_r *r, int or_node_id, int *or_data)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   or_data[0] = Origin_Ord_of_OR(or_node);
   or_data[1] = ES_Ord_of_OR(or_node);
@@ -10777,6 +10780,7 @@ gint marpa_or_node_set(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_set(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return ES_Ord_of_OR(or_node);
 }
@@ -10787,6 +10791,7 @@ gint marpa_or_node_origin(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_origin(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return Origin_Ord_of_OR(or_node);
 }
@@ -10797,6 +10802,7 @@ gint marpa_or_node_rule(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_rule(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return ID_of_RULE(RULE_of_OR(or_node));
 }
@@ -10807,6 +10813,7 @@ gint marpa_or_node_position(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_position(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return Position_of_OR(or_node);
 }
@@ -10817,6 +10824,7 @@ gint marpa_or_node_first_and(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_first_and(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return First_ANDID_of_OR(or_node);
 }
@@ -10827,6 +10835,7 @@ gint marpa_or_node_last_and(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_last_and(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return First_ANDID_of_OR(or_node)
       + AND_Count_of_OR(or_node) - 1;
@@ -10838,9 +10847,302 @@ gint marpa_or_node_and_count(struct marpa_r *r, int or_node_id);
 gint marpa_or_node_and_count(struct marpa_r *r, int or_node_id)
 {
   OR or_node;
+  @<Return |-2| on failure@>@;
     @<Check |r| and |or_node_id|; set |or_node|@>@;
   return AND_Count_of_OR(or_node);
 }
+
+@** Bocage Iterator (BOCI) Code.
+@<Private incomplete structures@> =
+struct s_bocage_iter;
+typedef struct s_bocage_iter* BOCI;
+@ @<Private structures@> =
+struct s_bocage_iter {
+    Bit_Vector t_and_node_in_use;
+    BIN *t_bin_stack;
+};
+typedef struct s_bocage_iter BOCI_Object;
+@ @d BOCI_of_B(b) (&(b)->t_bocage_iter)
+@<Widely aligned bocage elements@> =
+BOCI_Object t_bocage_iter;
+
+@ @<Private function prototypes@> =
+static inline void boci_initialize(BOCI boci);
+@ @<Function definitions@> =
+static inline void boci_initialize(BOCI boci)
+{
+    boci->t_and_node_in_use = NULL;
+    boci->t_bin_stack = NULL;
+}
+
+@ @<Private function prototypes@> =
+static inline void boci_destroy(BOCI boci);
+@ @<Function definitions@> =
+static inline void boci_destroy(BOCI boci)
+{
+  if (boci->t_and_node_in_use)
+    {
+      bv_free (boci->t_and_node_in_use);
+    }
+  if (boci->t_bin_stack)
+    {
+      g_free (boci->t_bin_stack);
+    }
+}
+
+@** Bocage Ranking (RANK) Code.
+@<Private incomplete structures@> =
+struct s_bocage_rank;
+typedef struct s_bocage_rank* RANK;
+@
+@d BOCI_of_RANK(rank) (&(rank)->t_boci)
+@<Private structures@> =
+struct s_bocage_rank {
+    struct obstack t_obs;
+    Bit_Vector t_and_node_in_use;
+    ANDID** t_and_node_orderings;
+    BOCI_Object t_boci;
+};
+typedef struct s_bocage_rank RANK_Object;
+
+@
+@d RANK_of_B(b) (&(b)->t_rank)
+@<Widely aligned bocage elements@> =
+RANK_Object t_rank;
+@ @<Initialize bocage elements@> =
+rank_initialize(RANK_of_B(b));
+@ @<Private function prototypes@> =
+static inline void rank_initialize(RANK rank);
+@ @<Function definitions@> =
+static inline void rank_initialize(RANK rank)
+{
+    rank->t_and_node_in_use = NULL;
+    rank->t_and_node_orderings = NULL;
+    @<Initialize ranker obstack@>@;
+    boci_initialize(BOCI_of_RANK(rank));
+}
+
+@ @<Destroy bocage elements, main phase@> =
+rank_destroy(RANK_of_B(b));
+@ @<Private function prototypes@> =
+static inline void rank_freeze(RANK rank);
+static inline void rank_destroy(RANK rank);
+@ @<Function definitions@> =
+static inline void rank_freeze(RANK rank)
+{
+  if (rank->t_and_node_in_use)
+    {
+      bv_free (rank->t_and_node_in_use);
+    }
+}
+static inline void rank_destroy(RANK rank)
+{
+  boci_destroy(BOCI_of_RANK(rank));
+  rank_freeze(rank);
+  @<Destroy ranker obstack@>@;
+}
+
+@*0 The RANK Obstack.
+An obstack with the lifetime of the bocage ranker.
+@d OBS_of_RANK(rank) ((rank)->t_obs)
+@<Widely aligned bocage elements@> =
+@ @<Initialize ranker obstack@> =
+obstack_init(&OBS_of_RANK(rank));
+@ @<Destroy ranker obstack@> =
+obstack_free(&OBS_of_RANK(rank), NULL);
+
+@*0 Set the Order of And-nodes.
+@ This function
+sets the order in which the and-nodes of an
+or-node are used.
+It is an error if an and-node ID is not the 
+immediate child of the specified or-node,
+or if the and-node is specified twice,
+or if an ordering has already been specified for
+the or-node.
+@<Public function prototypes@> =
+gint marpa_and_order_set(struct marpa_r *r,
+    Marpa_Or_Node_ID or_node_id,
+    Marpa_And_Node_ID* and_node_ids,
+    gint length);
+@ For a given bocage,
+this function may not be used to order
+the same or-node more than once ---
+in other words, once you order an or-node,
+it cannot be changed.
+Some applications might find this inconvenient,
+and will have to resort to their own buffering
+to prevent multiple changes.
+But most applications won't care, and
+will benefit from the faster memory allocation
+this restriction allows.
+
+@ Using a bit vector for
+the index of an and-node within an or-node,
+instead of the and-node ID, would seem to allow
+an space efficiency: the size of the bit vector
+could be reduced to the maximum number of descendents
+of any or-node.
+But in fact, improvements from this approach are evasive.
+
+In the worst cases, these counts are the same, or
+almost the same.
+Any attempt to economize on space seems to always
+be counter-productive in terms of speed.
+And since
+allocating a bit vector for the worst case does
+not increase the memory high water mark,
+it would seems to be the most reasonable tradeoff.
+
+This in turn suggests there is no advantage is using
+a within-or-node index to index the bit vector,
+instead of using the and-node id to index the bit vector.
+Using the and-node ID does have the advantage that the bit
+vector does not need to be cleared for each or-node.
+@ The first position in each |and_node_orderings| array is not
+actually an |ANDID|, but a count.
+A purist might insist this needs to be reflected in a structure,
+but to my mind doing this portably makes the code more obscure,
+not less.
+@<Function definitions@> =
+gint marpa_and_order_set(struct marpa_r *r,
+    Marpa_Or_Node_ID or_node_id,
+    Marpa_And_Node_ID* and_node_ids,
+    gint length)
+{
+    OR or_node;
+    RANK rank;
+  @<Return |-2| on failure@>@;
+    @<Check |r| and |or_node_id|; set |or_node|@>@;
+    { BOC b = B_of_R(r);
+      ANDID** and_node_orderings;
+      Bit_Vector and_node_in_use;
+      struct obstack *obs;
+      ANDID first_and_node_id;
+      ANDID and_count_of_or;
+	  if (!b) {
+	      R_ERROR("no bocage");
+	      return failure_indicator;
+	  }
+	rank = RANK_of_B(b);
+	and_node_orderings = rank->t_and_node_orderings;
+	and_node_in_use = rank->t_and_node_in_use;
+	obs = &rank->t_obs;
+	if (and_node_orderings && !and_node_in_use)
+	{
+	  R_ERROR("ranker frozen");
+	  return failure_indicator;
+	}
+	if (!and_node_orderings)
+	  {
+	    gint and_id;
+	    const gint and_count_of_r = AND_Count_of_B (b);
+	    rank->t_and_node_orderings =
+	      and_node_orderings =
+	      obstack_alloc (obs, sizeof (ANDID *) * and_count_of_r);
+	    for (and_id = 0; and_id < and_count_of_r; and_id++)
+	      {
+		and_node_orderings[and_id] = (ANDID *) NULL;
+	      }
+	     rank->t_and_node_in_use =
+	     and_node_in_use = bv_create ((guint)and_count_of_r);
+	  }
+	  first_and_node_id = First_ANDID_of_OR(or_node);
+	  and_count_of_or = AND_Count_of_OR(or_node);
+	    {
+	      gint and_ix;
+	      for (and_ix = 0; and_ix < length; and_ix++)
+		{
+		  ANDID and_node_id = and_node_ids[and_ix];
+		  if (and_node_id < first_and_node_id ||
+			  and_node_id - first_and_node_id >= and_count_of_or) {
+		      R_ERROR ("and node not in or node");
+		      return failure_indicator;
+		    }
+		  if (bv_bit_test (and_node_in_use, (guint)and_node_id))
+		    {
+		      R_ERROR ("dup and node");
+		      return failure_indicator;
+		    }
+		  bv_bit_set (and_node_in_use, (guint)and_node_id);
+		}
+	    }
+	    if (and_node_orderings[or_node_id]) {
+		      R_ERROR ("or node already ordered");
+		      return failure_indicator;
+	    }
+	    {
+	      ANDID *orderings = obstack_alloc (obs, sizeof (ANDID) * (length + 1));
+	      gint i;
+	      and_node_orderings[or_node_id] = orderings;
+	      *orderings++ = length;
+	      for (i = 0; i < length; i++)
+		{
+		  *orderings++ = and_node_ids[i];
+		}
+	    }
+    }
+  return 1;
+}
+
+@*0 Get an And-node by Order within its Or-Node.
+@ @<Private function prototypes@> =
+Marpa_And_Node_ID marpa_and_order_get(struct marpa_r *r, Marpa_Or_Node_ID or_node_id, gint ix);
+@ @<Function definitions@> =
+Marpa_And_Node_ID marpa_and_order_get(struct marpa_r *r, Marpa_Or_Node_ID or_node_id, gint ix)
+{
+    OR or_node;
+  @<Return |-2| on failure@>@;
+    @<Check |r| and |or_node_id|; set |or_node|@>@;
+  if (ix < 0) {
+      R_ERROR("negative and ix");
+      return failure_indicator;
+  }
+  if (ix >= AND_Count_of_OR(or_node)) {
+      return -1;
+  }
+    {
+      ANDID **and_node_orderings;
+      RANK rank;
+      BOC b = B_of_R (r);
+      if (!b)
+	{
+	  R_ERROR ("no bocage");
+	  return failure_indicator;
+	}
+      rank = RANK_of_B (b);
+      and_node_orderings = rank->t_and_node_orderings;
+      if (and_node_orderings)
+	{
+	  ANDID *ordering = and_node_orderings[or_node_id];
+	  if (ordering)
+	    {
+	      gint length = ordering[0];
+	      if (ix >= length)
+		return -1;
+	      return ordering[1 + ix];
+	    }
+	}
+    }
+  return First_ANDID_of_OR(or_node) + ix;
+}
+
+@** Bocage Iterator Node (BIN) Code.
+@<Private incomplete structures@> =
+struct s_bocage_iter_node;
+typedef struct s_bocage_iter_node* BIN;
+@ @<Private structures@> =
+struct s_bocage_iter_node {
+    OR t_or_node;
+    gint choice;
+    BIN parent;
+    gint is_cause_ready:1;
+    gint has_cause:1;
+    gint is_predecessor_ready:1;
+    gint has_predecessor:1;
+    gint is_predecessor_of_parent:1;
+    gint is_cause_of_parent:1;
+};
 
 @** Boolean Vectors.
 Marpa's boolean vectors are adapted from
@@ -11013,6 +11315,21 @@ static inline void bv_clear(Bit_Vector bv)
     guint size = BV_SIZE(bv);
     if (size <= 0) return;
     while (size--) *bv++ = 0u;
+}
+
+@ This function "overclears" ---
+it clears "too many bits".
+It clears a prefix of the bit vector faster
+than an interval clear, at the expense of often
+clearing more bits than were requested.
+In some situations clearing the extra bits is OK.
+@<Private function prototypes@> =
+static inline void bv_over_clear(Bit_Vector bv, guint bit);
+@ @<Function definitions@> =
+static inline void bv_over_clear(Bit_Vector bv, guint bit)
+{
+    guint length = bit/bv_wordbits+1;
+    while (length--) *bv++ = 0u;
 }
 
 @*0 Set a Boolean Vector Bit.
@@ -12442,6 +12759,7 @@ So I add such a comment.
 @<Recognizer structure@>@;
 @<Source object structure@>@;
 @<Earley item structure@>@;
+@<Bocage structure@>@;
 @<Private function prototypes@>@;
 @<Private inline functions@>@;
 @<Function definitions@>@;

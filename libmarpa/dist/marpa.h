@@ -1,5 +1,5 @@
-/*1328:*/
-#line 12455 "./marpa.w"
+/*1359:*/
+#line 12773 "./marpa.w"
 
 /*
  * Copyright 2011 Jeffrey Kegler
@@ -23,8 +23,8 @@
  * It is not intended to be modified directly
  */
 
-/*:1328*//*1329:*/
-#line 12479 "./marpa.w"
+/*:1359*//*1360:*/
+#line 12797 "./marpa.w"
 
 #ifndef __MARPA_H__
 #define __MARPA_H__ 
@@ -136,12 +136,12 @@ typedef gint Marpa_Or_Node_ID;
 #line 10284 "./marpa.w"
 
 typedef gint Marpa_And_Node_ID;
-/*:1077*//*1297:*/
-#line 12199 "./marpa.w"
+/*:1077*//*1328:*/
+#line 12516 "./marpa.w"
 
 typedef const gchar*Marpa_Message_ID;
 
-/*:1297*/
+/*:1328*/
 #line 693 "./marpa.w"
 
 /*211:*/
@@ -152,15 +152,15 @@ typedef void(Marpa_Symbol_Callback)(struct marpa_g*g,Marpa_Symbol_ID id);
 #line 2279 "./marpa.w"
 
 typedef void(Marpa_Rule_Callback)(struct marpa_g*g,Marpa_Rule_ID id);
-/*:318*//*1299:*/
-#line 12206 "./marpa.w"
+/*:318*//*1330:*/
+#line 12523 "./marpa.w"
 
 typedef void(Marpa_G_Message_Callback)(struct marpa_g*g,Marpa_Message_ID id);
-/*:1299*//*1307:*/
-#line 12241 "./marpa.w"
+/*:1330*//*1338:*/
+#line 12558 "./marpa.w"
 
 typedef void(Marpa_R_Message_Callback)(struct marpa_r*r,Marpa_Message_ID id);
-/*:1307*/
+/*:1338*/
 #line 694 "./marpa.w"
 
 /*112:*/
@@ -680,32 +680,39 @@ Marpa_Symbol_ID token_id,gint length);
 
 Marpa_Earleme marpa_earleme_complete(struct marpa_r*r);
 /*:925*//*1104:*/
-#line 10487 "./marpa.w"
+#line 10490 "./marpa.w"
 
 gint marpa_bocage_new(struct marpa_r*r,Marpa_Rule_ID rule_id,Marpa_Earley_Set_ID ordinal);
 /*:1104*//*1119:*/
-#line 10704 "./marpa.w"
+#line 10707 "./marpa.w"
 
 gint marpa_bocage_free(struct marpa_r*r);
-/*:1119*//*1303:*/
-#line 12221 "./marpa.w"
+/*:1119*//*1160:*/
+#line 10963 "./marpa.w"
+
+gint marpa_and_order_set(struct marpa_r*r,
+Marpa_Or_Node_ID or_node_id,
+Marpa_And_Node_ID*and_node_ids,
+gint length);
+/*:1160*//*1334:*/
+#line 12538 "./marpa.w"
 
 void marpa_g_message_callback_set(struct marpa_g*g,Marpa_G_Message_Callback*cb);
 void marpa_g_message_callback_arg_set(struct marpa_g*g,gpointer cb_arg);
 gpointer marpa_g_message_callback_arg(struct marpa_g*g);
-/*:1303*//*1311:*/
-#line 12258 "./marpa.w"
+/*:1334*//*1342:*/
+#line 12575 "./marpa.w"
 
 void marpa_r_message_callback_set(struct marpa_r*r,Marpa_R_Message_Callback*cb);
 void marpa_r_message_callback_arg_set(struct marpa_r*r,gpointer cb_arg);
 gpointer marpa_r_message_callback_arg(struct marpa_r*r);
-/*:1311*/
+/*:1342*/
 #line 696 "./marpa.w"
 
 
 /*:43*/
-#line 12484 "./marpa.w"
+#line 12802 "./marpa.w"
 
 #endif __MARPA_H__
 
-/*:1329*/
+/*:1360*/
