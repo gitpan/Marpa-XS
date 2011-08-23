@@ -52,9 +52,7 @@ my $structure = <<'END_OF_STRUCTURE';
     PARENT { Offset of the parent in the iterations stack }
 
     IS_CAUSE_READY
-    HAS_CAUSE
     IS_PREDECESSOR_READY
-    HAS_PREDECESSOR
 
     IS_PREDECESSOR_OF_PARENT
     IS_CAUSE_OF_PARENT
@@ -85,7 +83,12 @@ use constant SKIP => -1;
 
 use warnings;
 
-# Not in test suite, and at this point may be broken.
+sub Marpa::XS::Recognizer::parse_count {
+    my ($recce) = @_;
+    my $recce_c = $recce->[Marpa::XS::Internal::Recognizer::C];
+    return $recce_c->parse_count();
+}
+
 sub Marpa::XS::Recognizer::show_bocage {
     my ($recce) = @_;
     my $text;
@@ -94,9 +97,10 @@ sub Marpa::XS::Recognizer::show_bocage {
     my $recce_c     = $recce->[Marpa::XS::Internal::Recognizer::C];
     my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
-    OR_NODE: for my $or_node_id ( 0 .. $recce_c->or_node_count()-1 ) {
-	my $position = $recce_c->or_node_position($or_node_id);
+    OR_NODE: for (my $or_node_id = 0; ; $or_node_id++) {
 	my $rule = $recce_c->or_node_rule($or_node_id);
+	last OR_NODE if not defined $rule;
+	my $position = $recce_c->or_node_position($or_node_id);
 	my $or_origin = $recce_c->or_node_origin($or_node_id);
 	my $origin_earleme = $recce_c->earleme($or_origin);
 	my $or_set = $recce_c->or_node_set($or_node_id);
@@ -172,7 +176,7 @@ sub Marpa::XS::Recognizer::and_node_tag {
     my $position = $recce_c->or_node_position($parent_or_node_id);
     my $rule     = $recce_c->or_node_rule($parent_or_node_id);
     my $tag =
-          'R' 
+          'R'
         . $rule . q{:}
         . $position . q{@}
         . $origin_earleme . q{-}
@@ -288,7 +292,7 @@ sub Marpa::XS::Recognizer::show_or_nodes {
 }
 
 # Not tested and not in test suite.
-sub Marpa::XS::brief_iteration_node {
+sub Marpa::XS::old_brief_iteration_node {
     my ($recce, $iteration_node) = @_;
     my $recce_c = $recce->[Marpa::XS::Internal::Recognizer::C];
 
@@ -321,71 +325,60 @@ sub Marpa::XS::show_rank_ref {
     return ${$rank_ref};
 } ## end sub Marpa::XS::show_rank_ref
 
-# Never tested and not in test suite.
-sub Marpa::XS::Recognizer::show_iteration_node {
+sub Marpa::XS::Recognizer::old_show_iteration_node {
     my ( $recce, $iteration_node, $verbose ) = @_;
     my $recce_c = $recce->[Marpa::XS::Internal::Recognizer::C];
 
     my $or_node_id =
         $iteration_node->[Marpa::XS::Internal::Iteration_Node::OR_NODE_ID];
-    my $or_node_tag = Marpa::XS::Recognizer::or_node_tag($recce, $or_node_id);
-    my $text        = "o$or_node_id $or_node_tag; ";
+    my $text = "o$or_node_id";
+    my $parent_ix = $iteration_node->[Marpa::XS::Internal::Iteration_Node::PARENT];
+    my $parent = $parent_ix >= 0 ? $parent_ix : q{-};
     CHILD_TYPE: {
         if ( $iteration_node
             ->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_OF_PARENT] )
         {
-            $text .= 'cause ';
+            $text .= "[c$parent]";
             last CHILD_TYPE;
         } ## end if ( $iteration_node->[...])
         if ( $iteration_node
             ->[Marpa::XS::Internal::Iteration_Node::IS_PREDECESSOR_OF_PARENT]
             )
         {
-            $text .= 'predecessor ';
+            $text .= "[p$parent]";
             last CHILD_TYPE;
         } ## end if ( $iteration_node->[...])
-        $text .= '- ';
+        $text .= '[-]';
     } ## end CHILD_TYPE:
+    my $or_node_tag = Marpa::XS::Recognizer::or_node_tag($recce, $or_node_id);
+    $text        .= " $or_node_tag";
 
-    my $parent_ix = $iteration_node->[Marpa::XS::Internal::Iteration_Node::PARENT];
-    if ( $iteration_node->[Marpa::XS::Internal::Iteration_Node::HAS_PREDECESSOR] ) {
-        $text .= 'p=';
-        $text
-            .= $iteration_node
-            ->[Marpa::XS::Internal::Iteration_Node::IS_PREDECESSOR_READY]
-            ? 'ok'
-            : q{-};
-    } ## end if ( $iteration_node->[...])
-    if ( $iteration_node->[Marpa::XS::Internal::Iteration_Node::HAS_CAUSE] ) {
-        $text .= '; c=';
-        $text
-            .= $iteration_node
-            ->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_READY]
-            ? 'ok'
-            : q{-};
-    } ## end if ( $iteration_node->[...])
-    $text .= q{;p=} . ( $parent_ix >= 0 ? $parent_ix : q{-} )
-        . "\n";
+    $text .= ' p';
+    $text .= $iteration_node->[Marpa::XS::Internal::Iteration_Node::IS_PREDECESSOR_READY] ? '=ok' : '-';
+    $text .= ' c';
+    $text .= $iteration_node->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_READY] ? '=ok' : '-';
+    $text .= "\n";
 
     DESCRIBE_CHOICES: {
         my $this_choice =
             $iteration_node->[Marpa::XS::Internal::Iteration_Node::CHOICE];
-	$text .= " Current Choice is " . (defined $this_choice ? "a$this_choice" : 'uninitialized');
-	my $choice_ix = 0;
-	CHOICE: while (1) {
+	CHOICE: for (my $choice_ix = 0; ;$choice_ix++) {
 	    my $and_node_id = $recce_c->and_node_order_get($or_node_id, $choice_ix);
 	    last CHOICE if not defined $and_node_id;
-            $text .= " o$or_node_id" . '[' . $choice_ix . '] ';
+            $text .= " o$or_node_id" . '[' . $choice_ix . ']';
+	    if (defined $this_choice and $this_choice == $choice_ix) {
+		$text .= q{*};
+	    }
             my $and_node_tag =
 		 Marpa::XS::Recognizer::and_node_tag($recce, $and_node_id);
             $text .= " ::= a$and_node_id $and_node_tag";
-            $text .= "\n";
+	    $text .= "\n";
         } ## end for my $choice_ix ( 0 .. $#{$choices} )
     } ## end DESCRIBE_CHOICES:
     return $text;
 } ## end sub Marpa::XS::Recognizer::show_iteration_node
 
-sub Marpa::XS::Recognizer::show_iteration_stack {
+sub Marpa::XS::Recognizer::old_show_iteration_stack {
     my ( $recce, $verbose ) = @_;
     my $iteration_stack =
         $recce->[Marpa::XS::Internal::Recognizer::ITERATION_STACK];
@@ -393,7 +386,7 @@ sub Marpa::XS::Recognizer::show_iteration_stack {
     for my $ix ( 0 .. $#{$iteration_stack} ) {
         my $iteration_node = $iteration_stack->[$ix];
         $text .= "$ix: "
-            . $recce->show_iteration_node( $iteration_node, $verbose );
+            . $recce->old_show_iteration_node( $iteration_node, $verbose );
     }
     return $text;
 } ## end sub Marpa::XS::Recognizer::show_iteration_stack
@@ -957,7 +950,7 @@ sub do_rank_all {
 
     OR_NODE: for my $or_node_id (0 .. $#or_node_choices) {
 	my $choices = $or_node_choices[$or_node_id] // [];
-	# Sort is in reverse order
+	## no critic (BuiltinFunctions::ProhibitReverseSortBlock)
         my @and_node_ids = map { $_->[-1] } sort { $b->[0] <=> $a->[0] } @{$choices};
 	$recce_c->and_node_order_set($or_node_id, \@and_node_ids);
     } ## end for my $or_node_id ( 0 .. $recce_c->or_node_count() -...)
@@ -1301,32 +1294,6 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
     return pop @evaluation_stack;
 } ## end sub Marpa::XS::Internal::Recognizer::evaluate
 
-# null parse is special case
-sub Marpa::XS::Internal::Recognizer::do_null_parse {
-    my ( $recce ) = @_;
-    my $grammar     = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
-    my $grammar_c     = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $symbols     = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $rules     = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-
-    # The nulling start rule is the only nulling rule that is used
-    my $start_rule_id;
-    RULE: for my $rule (@{$rules}) {
-	$start_rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-	next RULE if not $grammar_c->rule_is_used($start_rule_id);
-	last RULE if $grammar_c->rule_length($start_rule_id) <= 0;
-    }
-
-    my $start_symbol_id = $grammar_c->rule_lhs($start_rule_id);
-
-    # Cannot increment the null parse
-    return if $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]++;
-
-    my $null_values = $recce->[Marpa::XS::Internal::Recognizer::NULL_VALUES];
-    return \$null_values->[$start_symbol_id];
-
-} ## end sub Marpa::XS::Internal::Recognizer::do_null_parse
-
 # Returns false if no parse
 sub Marpa::XS::Recognizer::value {
     my ( $recce, @arg_hashes ) = @_;
@@ -1352,7 +1319,7 @@ sub Marpa::XS::Recognizer::value {
         );
     } ## end if ( $recce->[Marpa::XS::Internal::Recognizer::SINGLE_PARSE_MODE...])
 
-    my $parse_count = $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT];
+    my $parse_count = $recce_c->parse_count() // 0;
     my $max_parses  = $recce->[Marpa::XS::Internal::Recognizer::MAX_PARSES];
     if ( $max_parses and $parse_count > $max_parses ) {
         Marpa::exception("Maximum parse count ($max_parses) exceeded");
@@ -1433,7 +1400,7 @@ sub Marpa::XS::Recognizer::value {
 
     my $iteration_stack;
     my $iteration_node_worklist;
-    my @and_node_in_use = ();
+    my $and_node_in_use;
     my $evaluator_rules;
     my $initial_pass = 0;
 
@@ -1459,9 +1426,6 @@ sub Marpa::XS::Recognizer::value {
         if ( not defined $top_or_node_id ) {
             Marpa::exception(qq{libmarpa's marpa_value() call failed\n});
         }
-        if ( $top_or_node_id == 0 ) {
-            return Marpa::XS::Internal::Recognizer::do_null_parse($recce);
-        }
 
 	my $start_iteration_node = [];
 	# -999 because -1 will NOT work -- because of some hackery
@@ -1481,7 +1445,7 @@ sub Marpa::XS::Recognizer::value {
         # may be empty.  If it is, return no parse.
         my $and_node_id = $recce_c->and_node_order_get($top_or_node_id, $choice);
         return if not defined $and_node_id;
-        $and_node_in_use[$and_node_id] = 1;
+        $and_node_in_use->[$and_node_id] = 1;
 
 	$recce->[Marpa::XS::Internal::Recognizer::ITERATION_STACK] =
 	    $iteration_stack = [$start_iteration_node];
@@ -1492,15 +1456,10 @@ sub Marpa::XS::Recognizer::value {
         # Not the first parse of a parse series
 	$evaluator_rules =
 	    $recce->[Marpa::XS::Internal::Recognizer::EVALUATOR_RULES];
+	$and_node_in_use =
+	    $recce->[Marpa::XS::Internal::Recognizer::AND_NODE_IN_USE];
 	$iteration_stack =
 	    $recce->[Marpa::XS::Internal::Recognizer::ITERATION_STACK];
-	ITERATION_NODE: for my $iteration_node (@{$iteration_stack}) {
-	    my $or_node_id = $iteration_node->[Marpa::XS::Internal::Iteration_Node::OR_NODE_ID];
-	    my $choice = $iteration_node->[Marpa::XS::Internal::Iteration_Node::CHOICE];
-	    my $and_node_id = $recce_c->and_node_order_get($or_node_id, $choice);
-	    next ITERATION_NODE if not defined $and_node_id;
-	    $and_node_in_use[$and_node_id] = 1;
-	}
 
     }
 
@@ -1530,7 +1489,7 @@ sub Marpa::XS::Recognizer::value {
 
                 # Mark the current choice not in use
 		my $and_node_id = $recce_c->and_node_order_get($or_node_id, $choice);
-                $and_node_in_use[$and_node_id] = undef;
+                $and_node_in_use->[$and_node_id] = undef;
 
                 $choice++;
 
@@ -1538,7 +1497,7 @@ sub Marpa::XS::Recognizer::value {
                 CHOICE: while ( 1 ) {
                     $and_node_id = $recce_c->and_node_order_get($or_node_id, $choice);
 		    last CHOICE if not defined $and_node_id;
-                    last CHOICE if not $and_node_in_use[$and_node_id];
+                    last CHOICE if not $and_node_in_use->[$and_node_id];
                     $choice++;
                 } ## end while ( scalar @{$choices} )
 
@@ -1582,7 +1541,7 @@ sub Marpa::XS::Recognizer::value {
                     ->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_READY] =
                     undef;
                 push @{$iteration_stack}, $iteration_node;
-                $and_node_in_use[$and_node_id] = 1;
+                $and_node_in_use->[$and_node_id] = 1;
                 last ITERATION_NODE;
 
             } ## end while ( $iteration_node = pop @{$iteration_stack} )
@@ -1613,7 +1572,7 @@ sub Marpa::XS::Recognizer::value {
 
             my $new_iteration_node = [];
             my $or_node_id;
-            if (not 
+            if (not
                 $working_node->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_READY]
                 )
             {
@@ -1625,7 +1584,6 @@ sub Marpa::XS::Recognizer::value {
                 }
                 else {
 		    $working_node->[Marpa::XS::Internal::Iteration_Node::IS_CAUSE_READY] = 1;
-                    $working_node ->[Marpa::XS::Internal::Iteration_Node::HAS_CAUSE] = undef;
                 }
             } ## end if ( not defined $working_node->[...])
             if (not defined $or_node_id and not
@@ -1640,7 +1598,6 @@ sub Marpa::XS::Recognizer::value {
                 }
                 else {
 		    $working_node->[Marpa::XS::Internal::Iteration_Node::IS_PREDECESSOR_READY] = 1;
-                    $working_node ->[Marpa::XS::Internal::Iteration_Node::HAS_PREDECESSOR] = undef;
                 }
             } ## end if ( not defined $working_node->[...])
 
@@ -1673,8 +1630,8 @@ sub Marpa::XS::Recognizer::value {
 		}
 
                 # End the loop if we do not cycle on this and-node.
-                if ( not $and_node_in_use[$and_node_id] ) {
-                    $and_node_in_use[$and_node_id] = 1;
+                if ( not $and_node_in_use->[$and_node_id] ) {
+                    $and_node_in_use->[$and_node_id] = 1;
                     last CHOICE;
                 }
 
@@ -1732,7 +1689,7 @@ sub Marpa::XS::Recognizer::value {
 	or Marpa::exception('print to trace handle failed');
     }
 
-    $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]++;
+    $recce_c->tree_new();
     return Marpa::XS::Internal::Recognizer::evaluate( $recce, $iteration_stack );
 
 } ## end sub Marpa::XS::Recognizer::value

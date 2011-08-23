@@ -69,9 +69,9 @@ my $structure = <<'END_OF_STRUCTURE';
     evaluation is reset }
 
     SINGLE_PARSE_MODE
-    PARSE_COUNT :{ number of parses in an ambiguous parse :}
 
     ITERATION_STACK
+    AND_NODE_IN_USE
 
     EVALUATOR_RULES
 
@@ -273,16 +273,13 @@ use constant RECOGNIZER_MODES => [qw(default stream)];
 sub Marpa::XS::Recognizer::reset_evaluation {
     my ($recce) = @_;
     my $recce_c = $recce->[Marpa::XS::Internal::Recognizer::C];
-    if ( $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT] ) {
-        my $result = $recce_c->eval_clear();
-        if ( not defined $result ) {
-            Marpa::exception(
-                qq{libmarpa's marpa_value_reset() call failed\n});
-        }
-    } ## end if ( $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT...])
-    $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT]       = 0;
+    my $result = $recce_c->eval_clear();
+    if ( not defined $result ) {
+	Marpa::exception("eval_clear() failed\n");
+    }
     $recce->[Marpa::XS::Internal::Recognizer::SINGLE_PARSE_MODE] = undef;
     $recce->[Marpa::XS::Internal::Recognizer::ITERATION_STACK]   = [];
+    $recce->[Marpa::XS::Internal::Recognizer::AND_NODE_IN_USE]   = [];
     $recce->[Marpa::XS::Internal::Recognizer::EVALUATOR_RULES]   = [];
     return;
 } ## end sub Marpa::XS::Recognizer::reset_evaluation
@@ -448,7 +445,7 @@ sub Marpa::XS::Recognizer::set {
         if ( defined( my $value = $args->{'end'} ) ) {
 
             # Not allowed once parsing is started
-            if ( $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT] > 0 )
+            if ( $recce_c->parse_count() )
             {
                 Marpa::exception(
                     q{Cannot reset end once parsing has started});
@@ -461,7 +458,7 @@ sub Marpa::XS::Recognizer::set {
         if ( defined( my $value = $args->{'closures'} ) ) {
 
             # Not allowed once parsing is started
-            if ( $recce->[Marpa::XS::Internal::Recognizer::PARSE_COUNT] > 0 )
+            if ( $recce_c->parse_count() )
             {
                 Marpa::exception(
                     q{Cannot reset end once parsing has started});
