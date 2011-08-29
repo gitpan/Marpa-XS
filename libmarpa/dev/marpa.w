@@ -9357,6 +9357,7 @@ Position is |DUMMY_OR_NODE| for dummy or-nodes,
 Position is the dot position.
 @d DUMMY_OR_NODE -1
 @d TOKEN_OR_NODE -2
+@d OR_is_Token(or) (Type_of_OR(or) == TOKEN_OR_NODE)
 @d Position_of_OR(or) ((or)->t_final.t_position)
 @d Type_of_OR(or) ((or)->t_final.t_position)
 @d RULE_of_OR(or) ((or)->t_final.t_rule)
@@ -9399,15 +9400,18 @@ static const gint dummy_or_node_type = DUMMY_OR_NODE;
 static const OR dummy_or_node = (OR)&dummy_or_node_type;
 
 @ @d ORs_of_B(b) ((b)->t_or_nodes)
+@d OR_of_B_by_ID(b, id) (ORs_of_B(b)[(id)])
 @d OR_Count_of_B(b) ((b)->t_or_node_count)
 @d ANDs_of_B(b) ((b)->t_and_nodes)
 @d AND_Count_of_B(b) ((b)->t_and_node_count)
+@d Top_ORID_of_B(b) ((b)->t_top_or_node_id)
 @<Widely aligned bocage elements@> =
 OR* t_or_nodes;
 AND t_and_nodes;
 @ @<Int aligned bocage elements@> =
 gint t_or_node_count;
 gint t_and_node_count;
+ORID t_top_or_node_id;
 
 @ @<Initialize bocage elements@> =
 ORs_of_B(b) = NULL;
@@ -9765,7 +9769,7 @@ int.
 @d WHEID_of_RULEID(ruleid) (ruleid)
 @d WHEID_of_RULE(rule) WHEID_of_RULEID(ID_of_RULE(rule))
 @d WHEID_of_OR(or) (
-    wheid = (Type_of_OR(or) == TOKEN_OR_NODE) ?
+    wheid = OR_is_Token(or) ?
         WHEID_of_SYM((SYM)or) :
         WHEID_of_RULE(RULE_of_OR(or))
     )
@@ -10338,7 +10342,7 @@ gint marpa_and_node_cause(struct marpa_r *r, int and_node_id)
     {
       const OR cause_or = Cause_OR_of_AND (and_node);
       const ORID cause_or_id =
-	Type_of_OR (cause_or) == TOKEN_OR_NODE ? -1 : ID_of_OR (cause_or);
+	OR_is_Token(cause_or) ? -1 : ID_of_OR (cause_or);
       return cause_or_id;
     }
 }
@@ -10354,7 +10358,7 @@ gint marpa_and_node_symbol(struct marpa_r *r, int and_node_id)
     {
       const OR cause_or = Cause_OR_of_AND (and_node);
       const SYMID symbol_id =
-	Type_of_OR (cause_or) == TOKEN_OR_NODE ? ID_of_SYM ((SYM) cause_or) : -1;
+	OR_is_Token(cause_or) ? ID_of_SYM ((SYM) cause_or) : -1;
       return symbol_id;
     }
 }
@@ -10425,6 +10429,7 @@ MARPA_DEBUG3("%s new bocage B_of_R=%p", G_STRLOC, B_of_R(r));
     @<Set |top_or_node_id|@>@;
     @<Deallocate bocage setup working data@>@;
     obstack_free(&bocage_setup_obs, NULL);
+    Top_ORID_of_B(b) = top_or_node_id;
     return top_or_node_id;
 }
 
@@ -10516,6 +10521,7 @@ MARPA_OFF_DEBUG2("ordinal=%d", ordinal);
         AND and_nodes = ANDs_of_B (b) = g_new (AND_Object, 1);
 	OR or_node = or_nodes[0] = (OR)obstack_alloc (&OBS_of_B(b), sizeof(OR_Object));
 	ORID null_or_node_id = 0;
+	Top_ORID_of_B(b) = null_or_node_id;
 
 	OR_Count_of_B(b) = 1;
 	AND_Count_of_B(b) = 1;
@@ -10698,23 +10704,6 @@ MARPA_DEBUG3("%s B_of_R=%p", G_STRLOC, B_of_R(r));
   or_node = or_nodes[or_node_id];
 }
 
-@ @<Private function prototypes@> =
-gint marpa_or_node(struct marpa_r *r, int or_node_id, int *or_data);
-@ @<Function definitions@> =
-gint marpa_or_node(struct marpa_r *r, int or_node_id, int *or_data)
-{
-  OR or_node;
-  @<Return |-2| on failure@>@;
-    @<Check |r| and |or_node_id|; set |or_node|@>@;
-  or_data[0] = Origin_Ord_of_OR(or_node);
-  or_data[1] = ES_Ord_of_OR(or_node);
-  or_data[2] = ID_of_RULE(RULE_of_OR(or_node));
-  or_data[3] = Position_of_OR(or_node);
-  or_data[4] = First_ANDID_of_OR(or_node);
-  or_data[5] = AND_Count_of_OR(or_node);
-  return 1;
-}
-
 @ Return the ordinal of the current (final) Earley set of
 the or-node.
 @<Private function prototypes@> =
@@ -10795,28 +10784,71 @@ gint marpa_or_node_and_count(struct marpa_r *r, int or_node_id)
   return AND_Count_of_OR(or_node);
 }
 
-@** Bocage Iterator (BOCI) Code.
+@** Parse Tree (TREE) Code.
+Within Marpa,
+when it makes sense in context,
+"tree" means a parse tree.
+Trees are, of course, a very common data structure,
+and are used for all sorts of things.
+But the most important trees in Marpa's universe
+are its parse trees.
+\par
+Marpa's parse trees are produced by iterating
+the Marpa bocage.
+Therefore, Marpa parse trees are also bocage iterators.
 @<Private incomplete structures@> =
-struct s_bocage_iter;
-typedef struct s_bocage_iter* BOCI;
-@ @<Private structures@> =
-@<BIN structure@>@;
-struct s_bocage_iter {
-    FSTACK_DECLARE(t_bin_stack, BIN_Object)@;
-    FSTACK_DECLARE(t_bin_worklist, gint)@;
+struct s_tree;
+typedef struct s_tree* TREE;
+@ An exhausted bocage iterator (or parse tree)
+does not need a worklist
+or a stack, so they are destroyed.
+if the bocage iterator has a parse count,
+but no stack,
+it is exhausted.
+@d TREE_is_Initialized(tree) ((tree)->t_parse_count >= 0)
+@d TREE_is_Exhausted(tree) (TREE_is_Initialized(tree)
+    && !FSTACK_IS_INITIALIZED((tree)->t_fork_stack))
+@<Private structures@> =
+@<FORK structure@>@;
+struct s_tree {
+    FSTACK_DECLARE(t_fork_stack, FORK_Object)@;
+    FSTACK_DECLARE(t_fork_worklist, gint)@;
+    Bit_Vector t_and_node_in_use;
     gint t_parse_count;
 };
-typedef struct s_bocage_iter BOCI_Object;
+typedef struct s_tree TREE_Object;
 
 @ @<Private function prototypes@> =
-static inline void boci_safe(BOCI boci);
+static inline void tree_exhaust(TREE tree);
 @ @<Function definitions@> =
-static inline void boci_safe(BOCI boci)
+static inline void tree_exhaust(TREE tree)
 {
-    FSTACK_SAFE(boci->t_bin_stack);
-    FSTACK_SAFE(boci->t_bin_worklist);
-    boci->t_parse_count = 0;
-MARPA_DEBUG4("%s boci=%p parse_count=%d", G_STRLOC, boci, boci->t_parse_count);
+  if (FSTACK_IS_INITIALIZED(tree->t_fork_stack))
+    {
+      FSTACK_DESTROY(tree->t_fork_stack);
+      FSTACK_SAFE(tree->t_fork_stack);
+    }
+  if (FSTACK_IS_INITIALIZED(tree->t_fork_worklist))
+    {
+      FSTACK_DESTROY(tree->t_fork_worklist);
+      FSTACK_SAFE(tree->t_fork_worklist);
+    }
+    if (tree->t_and_node_in_use) {
+	  bv_free (tree->t_and_node_in_use);
+	tree->t_and_node_in_use = NULL;
+    }
+}
+
+@ @<Private function prototypes@> =
+static inline void tree_safe(TREE tree);
+@ @<Function definitions@> =
+static inline void tree_safe(TREE tree)
+{
+    FSTACK_SAFE(tree->t_fork_stack);
+    FSTACK_SAFE(tree->t_fork_worklist);
+    tree->t_and_node_in_use = NULL;
+    tree->t_parse_count = -1;
+MARPA_DEBUG4("%s tree=%p parse_count=%d", G_STRLOC, tree, tree->t_parse_count);
 }
 
 @ @<Private function prototypes@> =
@@ -10825,17 +10857,228 @@ int marpa_tree_new(struct marpa_r* r);
 int marpa_tree_new(struct marpa_r* r)
 {
     BOC b;
-    BOCI boci;
+    TREE tree;
+    gint first_tree_of_series = 0;
     @<Return |-2| on failure@>@;
     @<Fail if recognizer has fatal error@>@;
     @<Set |b| to bocage; fail if none@>@;
-    boci = BOCI_of_RANK(RANK_of_B(b));
-    boci->t_parse_count++;
-    if (boci->t_parse_count >= 1)
-    {
-        return 1;
+    tree = TREE_of_RANK(RANK_of_B(b));
+    if (TREE_is_Exhausted(tree)) {
+       return -1;
     }
+    if (!TREE_is_Initialized(tree))
+      {
+	first_tree_of_series = 1;
+	@<Initialize the tree iterator;
+	return -1 if fails
+	@>@;
+      }
+      while (1) {
+	 const AND ands_of_b = ANDs_of_B(b);
+         if (!first_tree_of_series) {
+	     @<Start a new iteration of the tree@>@;
+	 }
+	 first_tree_of_series = 0;
+	 @<Finish tree if possible@>@;
+     }
+     TREE_IS_FINISHED: ;
+    tree->t_parse_count++;
     return 1;
+    TREE_IS_EXHAUSTED: ;
+   tree_exhaust(tree);
+   return -1;
+}
+
+@*0 Claiming and Releasing And-nodes.
+To avoid cycles, the same and node is not allowed to occur twice
+in the parse tree.
+A bit vector, accessed by these functions, enforces this.
+@<Private function prototypes@> =
+static inline void tree_and_node_claim(TREE tree, ANDID and_node_id);
+static inline void tree_and_node_release(TREE tree, ANDID and_node_id);
+static inline gint tree_and_node_try(TREE tree, ANDID and_node_id);
+@ Claim the and-node by setting its bit.
+@<Function definitions@> =
+static inline void tree_and_node_claim(TREE tree, ANDID and_node_id)
+{
+    bv_bit_set(tree->t_and_node_in_use, (guint)and_node_id);
+}
+@ Release the and-node by unsetting its bit.
+@<Function definitions@> =
+static inline void tree_and_node_release(TREE tree, ANDID and_node_id)
+{
+    bv_bit_clear(tree->t_and_node_in_use, (guint)and_node_id);
+}
+@ Try to claim the and-node.
+If it was already claimed, return 0, otherwise claim it (that is,
+set the bit) and return 1.
+@<Function definitions@> =
+static inline gint tree_and_node_try(TREE tree, ANDID and_node_id)
+{
+    return !bv_bit_test_and_set(tree->t_and_node_in_use, (guint)and_node_id);
+}
+
+@ @<Initialize the tree iterator;
+return -1 if fails@> =
+{
+    ORID top_or_id = Top_ORID_of_B(b);
+    OR top_or_node = OR_of_B_by_ID(b, top_or_id);
+  FORK fork;
+  gint choice;
+  const gint and_count = AND_Count_of_B (b);
+  tree->t_parse_count = 0;
+    tree->t_and_node_in_use = bv_create ((guint) and_count);
+  FSTACK_INIT (tree->t_fork_stack, FORK_Object, and_count);
+  FSTACK_INIT (tree->t_fork_worklist, gint, and_count);
+    choice = or_node_next_choice(b, tree, top_or_node, 0);
+	/* Due to skipping, even the top or-node can have no
+	   valid choices, in which case there is no parse */
+	if (choice < 0) goto TREE_IS_EXHAUSTED;
+  fork = FSTACK_PUSH (tree->t_fork_stack);
+    OR_of_FORK(fork) = top_or_node;
+    Choice_of_FORK(fork) = choice;
+    Parent_of_FORK(fork) = -1;
+    FORK_Cause_is_Ready(fork) = 0;
+    FORK_is_Cause(fork) = 0;
+    FORK_Predecessor_is_Ready(fork) = 0;
+    FORK_is_Predecessor(fork) = 0;
+  *(FSTACK_PUSH (tree->t_fork_worklist)) = 0;
+}
+
+@ Look for a fork to iterate.
+If there is one, set it to the next choice.
+Otherwise, the tree is exhausted.
+@<Start a new iteration of the tree@> = {
+    while (1) {
+	FORK iteration_candidate = FSTACK_TOP(tree->t_fork_stack, FORK_Object);
+	gint choice;
+	if (!iteration_candidate) break;
+	choice = Choice_of_FORK(iteration_candidate);
+	MARPA_ASSERT(choice >= 0);
+	{
+	    OR or_node = OR_of_FORK(iteration_candidate);
+	    ANDID and_node_id = and_order_get(b, or_node, choice);
+	    tree_and_node_release(tree, and_node_id);
+	    choice = or_node_next_choice(b, tree, or_node, choice+1);
+	}
+	if (choice >= 0) {
+	    /* We have found a fork we can iterate.
+	        Set the new choice,
+		dirty the child bits in the current working fork,
+		and break out of the loop.
+	    */
+	    Choice_of_FORK(iteration_candidate) = choice;
+	    FORK_Cause_is_Ready(iteration_candidate) = 0;
+	    FORK_Predecessor_is_Ready(iteration_candidate) = 0;
+	    break;
+	}
+	{
+	    /* Dirty the corresponding bit in the parent */
+	    const gint parent_fork_ix = Parent_of_FORK(iteration_candidate);
+	    if (parent_fork_ix >= 0) {
+		FORK parent_fork = FSTACK_INDEX(tree->t_fork_stack, FORK_Object, parent_fork_ix);
+		if (FORK_is_Cause(iteration_candidate)) {
+		    FORK_Cause_is_Ready(parent_fork) = 0;
+		}
+		if (FORK_is_Predecessor(iteration_candidate)) {
+		    FORK_Predecessor_is_Ready(parent_fork) = 0;
+		}
+	    }
+
+	    /* Continue with the next item on the stack */
+	    FSTACK_POP(tree->t_fork_stack);
+	}
+    }
+    {
+	gint stack_length = FSTACK_LENGTH(tree->t_fork_stack);
+	gint i;
+	if (stack_length <= 0) goto TREE_IS_EXHAUSTED;
+	FSTACK_CLEAR(tree->t_fork_worklist);
+	for (i = 0; i < stack_length; i++) {
+	    *(FSTACK_PUSH(tree->t_fork_worklist)) = i;
+	}
+    }
+}
+
+@ @<Finish tree if possible@> = {
+    while (1) {
+	FORKID* p_work_fork_id;
+	FORK work_fork;
+	ANDID work_and_node_id;
+	AND work_and_node;
+	OR work_or_node;
+	OR child_or_node = NULL;
+	gint choice;
+	gint child_is_cause = 0;
+	gint child_is_predecessor = 0;
+	p_work_fork_id = FSTACK_TOP(tree->t_fork_worklist, FORKID);
+	if (!p_work_fork_id) {
+	    goto TREE_IS_FINISHED;
+	}
+	work_fork = FSTACK_INDEX(tree->t_fork_stack, FORK_Object, *p_work_fork_id);
+	work_or_node = OR_of_FORK(work_fork);
+	work_and_node_id = and_order_get(b, work_or_node, Choice_of_FORK(work_fork));
+	work_and_node = ands_of_b + work_and_node_id;
+	if (!FORK_Cause_is_Ready(work_fork)) {
+	    child_or_node = Cause_OR_of_AND(work_and_node);
+	    if (child_or_node && OR_is_Token(child_or_node)) child_or_node = NULL;
+	    if (child_or_node) {
+		child_is_cause = 1;
+	    } else {
+		FORK_Cause_is_Ready(work_fork) = 1;
+	    }
+	}
+	if (!child_or_node && !FORK_Predecessor_is_Ready(work_fork)) {
+	    child_or_node = Predecessor_OR_of_AND(work_and_node);
+	    if (child_or_node) {
+		child_is_predecessor = 1;
+	    } else {
+		FORK_Predecessor_is_Ready(work_fork) = 1;
+	    }
+	}
+	if (!child_or_node) {
+	    FSTACK_POP(tree->t_fork_worklist);
+	    goto NEXT_FORK_ON_WORKLIST;
+	}
+	choice = or_node_next_choice(b, tree, child_or_node, 0);
+	if (choice < 0) goto NEXT_TREE;
+	@<Add new fork to tree@>;
+	NEXT_FORK_ON_WORKLIST: ;
+    }
+    NEXT_TREE: ;
+}
+
+@ @<Private function prototypes@> =
+static inline gint or_node_next_choice(BOC b, TREE tree, OR or_node, gint start_choice);
+@ @<Function definitions@> =
+static inline gint or_node_next_choice(BOC b, TREE tree, OR or_node, gint start_choice)
+{
+    gint choice = start_choice;
+    while (1) {
+	ANDID and_node_id = and_order_get(b, or_node, choice);
+	if (and_node_id < 0) return -1;
+	if (tree_and_node_try(tree, and_node_id)) return choice;
+	choice++;
+    }
+    return -1;
+}
+
+@ @<Add new fork to tree@> =
+{
+   FORKID new_fork_id = FSTACK_LENGTH(tree->t_fork_stack);
+   FORK new_fork = FSTACK_PUSH(tree->t_fork_stack);
+    *(FSTACK_PUSH(tree->t_fork_worklist)) = new_fork_id;
+    Parent_of_FORK(new_fork) = *p_work_fork_id;
+    Choice_of_FORK(new_fork) = choice;
+    OR_of_FORK(new_fork) = child_or_node;
+    FORK_Cause_is_Ready(new_fork) = 0;
+    if ( ( FORK_is_Cause(new_fork) = child_is_cause ) ) {
+	FORK_Cause_is_Ready(work_fork) = 1;
+    }
+    FORK_Predecessor_is_Ready(new_fork) = 0;
+    if ( ( FORK_is_Predecessor(new_fork) = child_is_predecessor ) ) {
+	FORK_Predecessor_is_Ready(work_fork) = 1;
+    }
 }
 
 @ @<Set |b| to bocage; fail if none@> =
@@ -10848,22 +11091,13 @@ int marpa_tree_new(struct marpa_r* r)
 }
 
 @ @<Private function prototypes@> =
-static inline void boci_destroy(BOCI boci);
+static inline void tree_destroy(TREE tree);
 @ @<Function definitions@> =
-static inline void boci_destroy(BOCI boci)
+static inline void tree_destroy(TREE tree)
 {
-  if (FSTACK_IS_INITIALIZED(boci->t_bin_stack))
-    {
-      FSTACK_DESTROY(boci->t_bin_stack);
-      FSTACK_SAFE(boci->t_bin_stack);
-    }
-  if (FSTACK_IS_INITIALIZED(boci->t_bin_worklist))
-    {
-      FSTACK_DESTROY(boci->t_bin_worklist);
-      FSTACK_SAFE(boci->t_bin_worklist);
-    }
-    boci->t_parse_count = 0;
-MARPA_DEBUG4("%s boci=%p parse_count=%d", G_STRLOC, boci, boci->t_parse_count);
+    tree_exhaust(tree);
+    tree->t_parse_count = -1;
+MARPA_DEBUG4("%s tree=%p parse_count=%d", G_STRLOC, tree, tree->t_parse_count);
 }
 
 @ Soft failure (-1) if no bocage, so that this function
@@ -10874,17 +11108,46 @@ gint marpa_parse_count(struct marpa_r* r);
 gint marpa_parse_count(struct marpa_r* r)
 {
     BOC b;
-    BOCI boci;
+    TREE tree;
     @<Return |-2| on failure@>@;
     @<Fail if recognizer has fatal error@>@;
     b = B_of_R(r);
     if (!b) {
 	return -1;
     }
-    boci = BOCI_of_RANK(RANK_of_B(b));
+    tree = TREE_of_RANK(RANK_of_B(b));
 MARPA_DEBUG3("%s b=%p", G_STRLOC, b);
-MARPA_DEBUG4("%s boci=%p parse_count=%d", G_STRLOC, boci, boci->t_parse_count);
-    return boci->t_parse_count;
+MARPA_DEBUG4("%s tree=%p parse_count=%d", G_STRLOC, tree, tree->t_parse_count);
+    return tree->t_parse_count;
+}
+
+@ Return the size of the parse tree.
+This is the number of |FORK| entries in its stack.
+If there is a serioius error,
+or if the tree is uninitialized, return -2.
+If the tree is exhausted, return -1.
+@<Private function prototypes@> =
+gint marpa_tree_size(struct marpa_r *r);
+@ @<Function definitions@> =
+gint marpa_tree_size(struct marpa_r *r)
+{
+  @<Return |-2| on failure@>@;
+  BOC b = B_of_R(r);
+  TREE tree;
+  @<Fail if recognizer has fatal error@>@;
+  if (!b) {
+      R_ERROR("no bocage");
+      return failure_indicator;
+  }
+  tree = TREE_of_RANK(RANK_of_B(b));
+  if (!TREE_is_Initialized(tree)) {
+      R_ERROR("tree not initialized");
+      return failure_indicator;
+  }
+  if (TREE_is_Exhausted(tree)) {
+      return -1;
+  }
+  return FSTACK_LENGTH(tree->t_fork_stack);
 }
 
 @** Bocage Ranking (RANK) Code.
@@ -10896,14 +11159,14 @@ typedef struct s_bocage_rank* RANK;
 for the obstack.  They have the same lifetime, so
 that it is safe to destroy the obstack if
 |t_and_node_orderings| is not null.
-@d BOCI_of_RANK(rank) (&(rank)->t_boci)
+@d TREE_of_RANK(rank) (&(rank)->t_tree)
 @d OBS_of_RANK(rank) ((rank)->t_obs)
 @<Private structures@> =
 struct s_bocage_rank {
     struct obstack t_obs;
     Bit_Vector t_and_node_in_use;
     ANDID** t_and_node_orderings;
-    BOCI_Object t_boci;
+    TREE_Object t_tree;
 };
 typedef struct s_bocage_rank RANK_Object;
 
@@ -10921,7 +11184,7 @@ static inline void rank_safe(RANK rank)
 {
     rank->t_and_node_in_use = NULL;
     rank->t_and_node_orderings = NULL;
-    boci_safe(BOCI_of_RANK(rank));
+    tree_safe(TREE_of_RANK(rank));
 }
 
 @ @<Destroy bocage elements, main phase@> =
@@ -10940,7 +11203,7 @@ static inline void rank_freeze(RANK rank)
 }
 static inline void rank_destroy(RANK rank)
 {
-  boci_destroy(BOCI_of_RANK(rank));
+  tree_destroy(TREE_of_RANK(rank));
   rank_freeze(rank);
   if (rank->t_and_node_orderings) {
       rank->t_and_node_orderings = NULL;
@@ -10952,7 +11215,7 @@ static inline void rank_destroy(RANK rank)
 An obstack with the lifetime of the bocage ranker.
 
 @*0 Set the Order of And-nodes.
-@ This function
+This function
 sets the order in which the and-nodes of an
 or-node are used.
 It is an error if an and-node ID is not the 
@@ -10967,9 +11230,10 @@ gint marpa_and_order_set(struct marpa_r *r,
     gint length);
 @ For a given bocage,
 this function may not be used to order
-the same or-node more than once ---
-in other words, once you order an or-node,
-it cannot be changed.
+the same or-node more than once.
+In other words, after you have once specified an order
+for the and-nodes within an or-node,
+you cannot change it.
 Some applications might find this inconvenient,
 and will have to resort to their own buffering
 to prevent multiple changes.
@@ -11088,8 +11352,35 @@ gint marpa_and_order_set(struct marpa_r *r,
 
 @*0 Get an And-node by Order within its Or-Node.
 @ @<Private function prototypes@> =
+static inline ANDID and_order_get(BOC b, OR or_node, gint ix);
+@ @<Public function prototypes@> =
 Marpa_And_Node_ID marpa_and_order_get(struct marpa_r *r, Marpa_Or_Node_ID or_node_id, gint ix);
 @ @<Function definitions@> =
+static inline ANDID and_order_get(BOC b, OR or_node, gint ix)
+{
+  RANK rank;
+  ANDID **and_node_orderings;
+  if (ix >= AND_Count_of_OR (or_node))
+    {
+      return -1;
+    }
+  rank = RANK_of_B (b);
+  and_node_orderings = rank->t_and_node_orderings;
+  if (and_node_orderings)
+    {
+      ORID or_node_id = ID_of_OR(or_node);
+      ANDID *ordering = and_node_orderings[or_node_id];
+      if (ordering)
+	{
+	  gint length = ordering[0];
+	  if (ix >= length)
+	    return -1;
+	  return ordering[1 + ix];
+	}
+    }
+  return First_ANDID_of_OR(or_node) + ix;
+}
+
 Marpa_And_Node_ID marpa_and_order_get(struct marpa_r *r, Marpa_Or_Node_ID or_node_id, gint ix)
 {
     OR or_node;
@@ -11099,87 +11390,179 @@ Marpa_And_Node_ID marpa_and_order_get(struct marpa_r *r, Marpa_Or_Node_ID or_nod
       R_ERROR("negative and ix");
       return failure_indicator;
   }
-  if (ix >= AND_Count_of_OR(or_node)) {
-      return -1;
-  }
     {
-      ANDID **and_node_orderings;
-      RANK rank;
       BOC b = B_of_R (r);
       if (!b)
 	{
 	  R_ERROR ("no bocage");
 	  return failure_indicator;
 	}
-      rank = RANK_of_B (b);
-      and_node_orderings = rank->t_and_node_orderings;
-      if (and_node_orderings)
-	{
-	  ANDID *ordering = and_node_orderings[or_node_id];
-	  if (ordering)
-	    {
-	      gint length = ordering[0];
-	      if (ix >= length)
-		return -1;
-	      return ordering[1 + ix];
-	    }
+	return and_order_get(b, or_node, ix);
 	}
-    }
-  return First_ANDID_of_OR(or_node) + ix;
 }
 
-@** Bocage Iterator Node (BIN) Code.
+@** Fork (FORK) Code.
+In Marpa, a fork is any node of a parse tree.
+In discussed Marpa's parse trees,
+a leaf node is a special kind of |FORK|.
+This terminology, while not unprecedented,
+is unusual -- the usual term is "node".
+The problem is that within Marpa,
+the word "node" is already heavily overloaded.
+So what most texts call "tree nodes" are here
+called "forks".
+@<Public typedefs@> =
+typedef gint Marpa_Fork_ID;
+@ @<Private typedefs@> =
+typedef Marpa_Fork_ID FORKID;
+@ @s FORK int
 @<Private incomplete structures@> =
-struct s_bocage_iter_node;
-typedef struct s_bocage_iter_node* BIN;
-@ Hackery alert:
-The BIN is actually two data structures folded into
-one, and the index used to look it up means two different
-things, depending on the field.
-For the |is_and_node_in_use| field, the index of the |BIN|
-is an and-node ID.
-For all other fields, the index is a position in the bocage
-iteration stack (|BOCI|).
-\par
-Because the semantics of the index is completely different,
-is most cases
-it would make sense to have two different data structures.
-(Some reasonable people might insist that,
-the arguments in this section to the contrary notwithstanding,
-this is one of those cases.)
-For example, the |is_and_node_in_use| bits might be put
-into their own bit vector.
-\par
-How do I justify this hackishness?
-Both structures have the same size -- the and-node count.
-The |BIN| has used many unused bits so the space for the
-|is_and_in_use| field comes free when the two structures
-are combined.
-And, very importantly,
-while the two structures has different semantics for their indexes,
-their lifetimes are exactly the same.
-When you initialize one you always want to initialize the other,
-and when you destroy one you always want to destroy the other.
-\par
-This hackery is not without its potential to confuse.
-In particular, note that |BIN|
-entries viewed as elements
-in the bocage iteration stack (|BOCI|)
-typically have an and-node associated with them.
-This is almost {\bf never} the same as the and-node
-to which the |is_and_node_in_use| bit corresponds.
-@<BIN structure@> =
-struct s_bocage_iter_node {
+struct s_fork;
+typedef struct s_fork* FORK;
+@ @d OR_of_FORK(fork) ((fork)->t_or_node)
+@d Choice_of_FORK(fork) ((fork)->t_choice)
+@d Parent_of_FORK(fork) ((fork)->t_parent)
+@d FORK_Cause_is_Ready(fork) ((fork)->t_is_cause_ready)
+@d FORK_is_Cause(fork) ((fork)->t_is_cause_of_parent)
+@d FORK_Predecessor_is_Ready(fork) ((fork)->t_is_predecessor_ready)
+@d FORK_is_Predecessor(fork) ((fork)->t_is_predecessor_of_parent)
+@s FORK_Object int
+@<FORK structure@> =
+struct s_fork {
     OR t_or_node;
-    gint choice;
-    BIN parent;
-    gint is_cause_ready:1;
-    gint is_predecessor_ready:1;
-    gint is_cause_of_parent:1;
-    gint is_predecessor_of_parent:1;
-    gint is_and_node_in_use:1;
+    gint t_choice;
+    FORKID t_parent;
+    unsigned int t_is_cause_ready:1;
+    unsigned int t_is_predecessor_ready:1;
+    unsigned int t_is_cause_of_parent:1;
+    unsigned int t_is_predecessor_of_parent:1;
 };
-typedef struct s_bocage_iter_node BIN_Object;
+typedef struct s_fork FORK_Object;
+
+@*0 Trace Functions.
+
+@ This is common logic in the |FORK| trace functions.
+@<Check |r| and |fork_id|;
+set |fork|@> = {
+  FORK base_fork;
+  BOC b = B_of_R(r);
+  TREE tree;
+  @<Fail if recognizer has fatal error@>@;
+  if (!b) {
+      R_ERROR("no bocage");
+      return failure_indicator;
+  }
+  tree = TREE_of_RANK(RANK_of_B(b));
+  if (!TREE_is_Initialized(tree)) {
+      R_ERROR("tree not initialized");
+      return failure_indicator;
+  }
+  if (TREE_is_Exhausted(tree)) {
+      R_ERROR("bocage iteration exhausted");
+      return failure_indicator;
+  }
+  base_fork = FSTACK_BASE(tree->t_fork_stack, FORK_Object);
+  if (fork_id < 0) {
+      R_ERROR("bad fork id");
+      return failure_indicator;
+  }
+  if (fork_id >= FSTACK_LENGTH(tree->t_fork_stack)) {
+      return -1;
+  }
+  fork = base_fork + fork_id;
+}
+
+@ Return the ID of the or-node for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_or_node(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_or_node(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+  return ID_of_OR(OR_of_FORK(fork));
+}
+
+@ Return the current choice for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_choice(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_choice(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return Choice_of_FORK(fork);
+}
+
+@ Return the parent fork's ID for |fork_id|.
+As with the other fork trace functions,
+-1 is returned if |fork_id| is not the ID of
+a fork on the stack,
+but -1 can also be a valid value.
+If that's an issue, the |fork_id| needs
+to be checked with one of the trace functions
+where -1 is never a valid value ---
+for example, |marpa_fork_or_node|.
+@<Private function prototypes@> =
+gint marpa_fork_parent(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_parent(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return Parent_of_FORK(fork);
+}
+
+@ Return the cause-is-ready bit for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_cause_is_ready(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_cause_is_ready(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return FORK_Cause_is_Ready(fork);
+}
+
+@ Return the predecessor-is-ready bit for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_predecessor_is_ready(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_predecessor_is_ready(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return FORK_Predecessor_is_Ready(fork);
+}
+
+@ Return the is-cause bit for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_is_cause(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_is_cause(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return FORK_is_Cause(fork);
+}
+
+@ Return the is-predecessor bit for |fork_id|.
+@<Private function prototypes@> =
+gint marpa_fork_is_predecessor(struct marpa_r *r, int fork_id);
+@ @<Function definitions@> =
+gint marpa_fork_is_predecessor(struct marpa_r *r, int fork_id)
+{
+  FORK fork;
+  @<Return |-2| on failure@>@;
+   @<Check |r| and |fork_id|; set |fork|@>@;
+    return FORK_is_Predecessor(fork);
+}
 
 @** Boolean Vectors.
 Marpa's boolean vectors are adapted from
@@ -11844,8 +12227,15 @@ when compared to hand-written code.
 Often a reasonable maximum size is known when they are
 set up, in which case they can be made very fast.
 @d FSTACK_DECLARE(stack, type) struct { gint t_count; type* t_base; } stack;
-@d FSTACK_INIT(stack, type, n) (((stack).t_count = 0), ((stack).t_base = g_new(type, n)))
+@d FSTACK_CLEAR(stack) ((stack).t_count = 0)
+@d FSTACK_INIT(stack, type, n) (FSTACK_CLEAR(stack), ((stack).t_base = g_new(type, n)))
 @d FSTACK_SAFE(stack) ((stack).t_base = NULL)
+@d FSTACK_BASE(stack, type) ((type *)(stack).t_base)
+@d FSTACK_INDEX(this, type, ix) (FSTACK_BASE((this), type)+(ix))
+@d FSTACK_TOP(this, type) (FSTACK_LENGTH(this) <= 0
+   ? NULL
+   : FSTACK_INDEX((this), type, FSTACK_LENGTH(this)-1))
+@d FSTACK_LENGTH(stack) ((stack).t_count)
 @d FSTACK_PUSH(stack) ((stack).t_base+stack.t_count++)
 @d FSTACK_POP(stack) ((stack).t_count <= 0 ? NULL : (stack).t_base+(--(stack).t_count))
 @d FSTACK_IS_INITIALIZED(stack) ((stack).t_base)
@@ -12723,9 +13113,8 @@ PRIVATE_NOT_INLINE const gchar* or_tag(OR or);
 PRIVATE_NOT_INLINE const gchar *
 or_tag_safe (gchar * buffer, OR or)
 {
-  const gint type = Type_of_OR(or);
-  if (type == DUMMY_OR_NODE) return "DUMMY";
-  if (type == TOKEN_OR_NODE) return "TOKEN";
+  if (OR_is_Token(or)) return "TOKEN";
+  if (Type_of_OR(or) == DUMMY_OR_NODE) return "DUMMY";
   sprintf (buffer, "R%d:%d@@%d-%d",
 	   ID_of_RULE(RULE_of_OR (or)), Position_of_OR (or),
 	   Origin_Ord_of_OR (or),
