@@ -48,7 +48,7 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.011_003
+    version: 0.012000
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
@@ -86,4 +86,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.011_003
+version: 0.012000
