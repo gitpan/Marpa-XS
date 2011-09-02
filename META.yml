@@ -48,7 +48,7 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.013_000
+    version: 0.013_001
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
@@ -63,9 +63,6 @@ provides:
     version: 0
   Marpa::XS::Internal::Recognizer:
     file: lib/Marpa/XS/Value.pm
-    version: 0
-  Marpa::XS::Internal::Slot:
-    file: lib/Marpa/XS/Slot.pm
     version: 0
   Marpa::XS::Internal::Value:
     file: lib/Marpa/XS/Value.pm
@@ -86,4 +83,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.013_000
+version: 0.013_001

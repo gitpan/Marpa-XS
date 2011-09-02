@@ -834,6 +834,27 @@ void rule_add(
 @d RULEID_of_G_is_Valid(g, rule_id)
     ((rule_id) >= 0 && (guint)(rule_id) < (g)->t_rules->len)
 
+@*0 Default Value.
+@d Default_Value_of_G(g) ((g)->t_default_value)
+@<Widely aligned grammar elements@> = gpointer t_default_value;
+@ @<Initialize grammar elements@> =
+Default_Value_of_G(g) = NULL;
+@ @<Public function prototypes@> =
+gpointer marpa_default_value(struct marpa_g* g);
+@ @<Function definitions@> =
+gpointer marpa_default_value(struct marpa_g* g)
+{ return Default_Value_of_G(g); }
+@ @<Public function prototypes@> =
+gboolean marpa_default_value_set(struct marpa_g*g, gpointer default_value);
+@ @<Function definitions@> =
+gboolean marpa_default_value_set(struct marpa_g*g, gpointer default_value)
+{
+   @<Return |FALSE| on failure@>@;
+    @<Fail if grammar is precomputed@>@;
+    Default_Value_of_G(g) = default_value;
+    return TRUE;
+}
+
 @*0 Start Symbol.
 @<Int aligned grammar elements@> = Marpa_Symbol_ID t_start_symid;
 @ @<Initialize grammar elements@> =
@@ -1130,14 +1151,11 @@ symbol structure may be used where or-nodes are
 expected.
 @<Private structures@> =
 struct s_symbol {
-    gint t_type;
     @<Widely aligned symbol elements@>@;
     @<Int aligned symbol elements@>@;
     @<Bit aligned symbol elements@>@;
 };
 typedef struct s_symbol SYM_Object;
-@ @<Initialize symbol elements@> =
-(symbol)->t_type = TOKEN_OR_NODE;
 
 @ @<Private function prototypes@> =
 static inline
@@ -5395,9 +5413,11 @@ For this reason, the grammar is not |const|.
 @<Function definitions@> =
 struct marpa_r* marpa_r_new( const struct marpa_g* const g )
 { RECCE r;
+    gint symbol_count_of_g;
     @<Return |NULL| on failure@>@/
     r = g_slice_new(struct marpa_r);
     r->t_grammar = g;
+    symbol_count_of_g = SYM_Count_of_G(g);
     @<Initialize recognizer obstack@>@;
     @<Initialize recognizer elements@>@;
     if (!G_is_Precomputed(g)) {
@@ -7040,7 +7060,7 @@ struct s_source {
      gpointer t_predecessor;
      union {
 	 gpointer t_completion;
-	 SYMID t_token_id;
+	 TOK t_token;
      } t_cause;
 };
 
@@ -7078,7 +7098,11 @@ union u_source_container {
 @d Cause_of_SRC(source) Cause_of_Source(*(source))
 @d Cause_of_EIM(item) Cause_of_Source(Source_of_EIM(item))
 @d Cause_of_SRCL(link) Cause_of_Source(Source_of_SRCL(link))
-@d SYMID_of_Source(srcd) ((srcd).t_cause.t_token_id)
+@d TOK_of_Source(srcd) ((srcd).t_cause.t_token)
+@d TOK_of_SRC(source) TOK_of_Source(*(source))
+@d TOK_of_EIM(eim) TOK_of_Source(Source_of_EIM(eim))
+@d TOK_of_SRCL(link) TOK_of_Source(Source_of_SRCL(link))
+@d SYMID_of_Source(srcd) SYMID_of_TOK(TOK_of_Source(srcd))
 @d SYMID_of_SRC(source) SYMID_of_Source(*(source))
 @d SYMID_of_EIM(eim) SYMID_of_Source(Source_of_EIM(eim))
 @d SYMID_of_SRCL(link) SYMID_of_Source(Source_of_SRCL(link))
@@ -7096,12 +7120,17 @@ union u_source_container {
 @d First_Leo_SRCL_of_EIM(item) ((item)->t_container.t_ambiguous.t_leo)
 @d LV_First_Leo_SRCL_of_EIM(item) First_Leo_SRCL_of_EIM(item)
 
+@ @<Private function prototypes@> = static inline void
+token_link_add (struct marpa_r *r,
+		EIM item,
+		EIM predecessor,
+		TOK token);
 @ @<Function definitions@> = static inline
 void
 token_link_add (struct marpa_r *r,
 		EIM item,
 		EIM predecessor,
-		SYMID token_id)
+		TOK token)
 {
   SRCL new_link;
   guint previous_source_type = Source_Type_of_EIM (item);
@@ -7109,7 +7138,7 @@ token_link_add (struct marpa_r *r,
     {
       Source_Type_of_EIM (item) = SOURCE_IS_TOKEN;
       item->t_container.t_unique.t_predecessor = predecessor;
-      SYMID_of_Source(item->t_container.t_unique) = token_id;
+      TOK_of_Source(item->t_container.t_unique) = token;
       return;
     }
   if (previous_source_type != SOURCE_IS_AMBIGUOUS)
@@ -7119,14 +7148,9 @@ token_link_add (struct marpa_r *r,
   new_link = obstack_alloc (&r->t_obs, sizeof (*new_link));
   new_link->t_next = First_Token_Link_of_EIM (item);
   new_link->t_source.t_predecessor = predecessor;
-  SYMID_of_Source(new_link->t_source) = token_id;
+  TOK_of_Source(new_link->t_source) = token;
   LV_First_Token_Link_of_EIM (item) = new_link;
 }
-@ @<Private function prototypes@> = static inline void
-token_link_add (struct marpa_r *r,
-		EIM item,
-		EIM predecessor,
-		SYMID token_id);
 
 @ @<Private function prototypes@> = static inline void
 completion_link_add (struct marpa_r *r,
@@ -7612,6 +7636,44 @@ AHFAID marpa_source_predecessor_state(struct marpa_r *r)
     return failure_indicator;
 }
 
+@*1 Return the Token.
+Returns the token.
+The symbol id is the return value,
+and the value is written to |*value_p|,
+if it is non-null.
+If the recognizer is not trace-safe,
+there is no trace source link,
+if the trace source link is not a token source,
+or there is some other failure,
+|-2| is returned.
+\par
+There is no function to return just the token value
+for two reasons.
+First, since token value can be anything
+an additional return value is needed to indicate errors,
+which means the symbol ID comes at virtually zero cost.
+Second, whenever the token value is
+wanted, the symbol ID is almost always wanted as well.
+@<Public function prototypes@> =
+Marpa_Symbol_ID marpa_source_token(struct marpa_r *r, gpointer *value_p);
+@ @<Function definitions@> =
+Marpa_Symbol_ID marpa_source_token(struct marpa_r *r, gpointer *value_p)
+{
+   @<Return |-2| on failure@>@;
+   guint source_type;
+   SRC source;
+    @<Fail recognizer if not trace-safe@>@;
+   source_type = r->t_trace_source_type;
+    @<Set source, failing if necessary@>@;
+    if (source_type == SOURCE_IS_TOKEN) {
+	const TOK token = TOK_of_SRC(source);
+        if (value_p) *value_p = Value_of_TOK(token);
+	return SYMID_of_TOK(token);
+    }
+    R_ERROR(invalid_source_type_message(source_type));
+    return failure_indicator;
+}
+
 @*1 Return the Leo Transition Symbol.
 The Leo transition symbol is defined only for sources
 with a Leo predecessor.
@@ -7712,6 +7774,128 @@ Marpa_Earley_Set_ID marpa_source_middle(struct marpa_r* r)
         return failure_indicator;
     }
 
+@** Token Code (TOK).
+@ Tokens are duples of symbol ID and token value.
+They do {\bf not} store location information,
+so the same token
+can occur many times in a parse.
+On the other hand, duplicate tokens are also allowed.
+How much, if any, trouble to take to avoid duplication
+is up to the application --
+duplicates have their cost, but so does the
+tracking necessary to avoid them.
+@ My strong preference is that token values
+{\bf always} be integers, but
+token values are |gpointer|'s to allow applications
+full generality.
+Using |glib|, integers can portably be stored in a
+|gpointer|, but the reverse is not true.
+@ In my prefered semantic scheme, the integers are
+used by the higher levels to index the actual data.
+In this way no direct pointer to any data "owned"
+by the higher level is ever under libmarpa's control.
+Problems with mismatches between libmarpa and the
+higher levels are almost impossible to avoid in
+development
+and once an application gets in maintenance mode
+things become, if possible, worse.
+@ "But," you say, "pointers are faster,
+and mismatches occur whether
+you index the data with an integer or directly.
+So if you are in trouble either way, why not go
+for speed?"
+\par
+The above objection is true, but overlooks a very
+important issue.  A bad pointer can cause very
+serious problems --
+a core dump, or even worse, undetected data corruption.
+There is no good way to detect a bad pointer before it
+does it's damage.
+\par
+If an integer index, on the other hand, is out of bounds,
+the higher levels can catch this and react.
+Worst case, the higher level may have to throw a controlled
+fatal error.
+This is a much better than a core dump
+and far better than undetected data corruption.
+@<Private incomplete structures@> =
+struct s_token;
+typedef struct s_token* TOK;
+@ The |t_type| field is to allow |TOK|
+objects to act as or-nodes.
+@d Type_of_TOK(tok) ((tok)->t_type)
+@d SYMID_of_TOK(tok) ((tok)->t_symbol_id)
+@d Value_of_TOK(tok) ((tok)->t_value)
+@<Private structures@> =
+struct s_token {
+    gint t_type;
+    SYMID t_symbol_id;
+    gpointer t_value;
+};
+typedef struct s_token TOK_Object;
+
+@ An obstack dedicated to the tokens and an array
+with default tokens for each symbol.
+Currently,
+the default tokens are used to provide
+null values, since all non-tokens are given
+values when read.
+There is a special obstack for the tokens, to
+to separate the token stream from the rest of the recognizer
+data.
+Once the bocage is built, the token data is all that
+it needs, and someday I may want to take advantage of
+this fact by freeing up the rest of recognizer memory.
+@d TOK_Obs_of_R(r) (&(r)->t_token_obs)
+@d TOKs_by_SYMID_of_R(r) ((r)->t_tokens_by_symid)
+@d TOK_Obs TOK_Obs_of_R(r)
+@d TOK_by_ID_of_R(r, symbol_id) (TOKs_by_SYMID_of_R(r)[symbol_id])
+@<Widely aligned recognizer elements@> =
+struct obstack t_token_obs;
+TOK *t_tokens_by_symid;
+@ @<Initialize recognizer elements@> =
+{
+  gpointer default_value = Default_Value_of_G(g);
+  gint i;
+  TOK *tokens_by_symid;
+  obstack_init (TOK_Obs);
+  tokens_by_symid =
+    obstack_alloc (TOK_Obs, sizeof (TOK) * symbol_count_of_g);
+  for (i = 0; i < symbol_count_of_g; i++)
+    {
+      tokens_by_symid[i] = token_new (r, i, default_value);
+    }
+  TOKs_by_SYMID_of_R(r) = tokens_by_symid;
+}
+@ @<Destroy recognizer elements@> =
+{
+    TOK* tokens_by_symid = TOKs_by_SYMID_of_R(r);
+    if (tokens_by_symid) {
+	obstack_free(TOK_Obs, NULL);
+	TOKs_by_SYMID_of_R(r) = NULL;
+    }
+}
+
+@ @<Private function prototypes@> =
+static inline
+TOK token_new(struct marpa_r *r, SYMID symbol_id, gpointer value);
+@ @<Function definitions@> =
+static inline
+TOK token_new(struct marpa_r *r, SYMID symbol_id, gpointer value)
+{
+  TOK token;
+    token = obstack_alloc (TOK_Obs, sizeof(*token));
+    Type_of_TOK(token) = TOKEN_OR_NODE;
+    SYMID_of_TOK(token) = symbol_id;
+    Value_of_TOK(token) = value;
+  return token;
+}
+
+@ Recover |token| from the token obstack.
+The intended use is to recover the one token
+most recently added in case of an error.
+@<Recover |token|@> = obstack_free (TOK_Obs, token);
+
 @** Alternative Tokens (ALT) Code.
 Because Marpa allows more than one token at every
 earleme, Marpa's tokens are also called ``alternatives".
@@ -7720,13 +7904,14 @@ struct s_alternative;
 typedef struct s_alternative* ALT;
 typedef const struct s_alternative* ALT_Const;
 @
-@d Token_ID_of_ALT(alt) ((alt)->t_token_id)
+@d TOK_of_ALT(alt) ((alt)->t_token)
+@d SYMID_of_ALT(alt) SYMID_of_TOK(TOK_of_ALT(alt))
 @d Start_ES_of_ALT(alt) ((alt)->t_start_earley_set)
 @d Start_Earleme_of_ALT(alt) Earleme_of_ES(Start_ES_of_ALT(alt))
 @d End_Earleme_of_ALT(alt) ((alt)->t_end_earleme)
 @<Private structures@> =
 struct s_alternative {
-    SYMID t_token_id;
+    TOK t_token;
     ES t_start_earley_set;
     EARLEME t_end_earleme;
 };
@@ -7734,7 +7919,9 @@ typedef struct s_alternative ALT_Object;
 
 @ @<Widely aligned recognizer elements@> =
 DSTACK_DECLARE(t_alternatives);
-@ The value of |INITIAL_ALTERNATIVES_CAPACITY| is 1 for testing while this
+@
+{\bf To Do}: @^To Do@>
+The value of |INITIAL_ALTERNATIVES_CAPACITY| is 1 for testing while this
 code is being developed.
 Once the code is stable it should be increased.
 @d INITIAL_ALTERNATIVES_CAPACITY 1
@@ -7781,19 +7968,6 @@ alternative_insertion_point (RECCE r, ALT new_alternative)
     }
 }
 
-@ This is a convenience function for setting up an alternative.
-@<Private function prototypes@> =
-static inline void alternative_set(
-ALT alternative, ES start, EARLEME end, SYMID token_id);
-@ @<Function definitions@> =
-static inline void alternative_set(
-ALT alternative, ES start, EARLEME end, SYMID token_id)
-{
-    alternative->t_token_id = token_id;
-    alternative->t_start_earley_set = start;
-    alternative->t_end_earleme = end;
-}
-
 @ This is the comparison function for sorting alternatives.
 The alternatives array also acts as a stack, with the alternatives
 ending at the lowest numbered earleme on top of the stack.
@@ -7811,7 +7985,7 @@ costlier evaluation can sometimes be avoided.
 static inline gint alternative_cmp(const ALT_Const a, const ALT_Const b) {
      gint subkey = End_Earleme_of_ALT(b) - End_Earleme_of_ALT(a);
      if (subkey) return subkey;
-     subkey = Token_ID_of_ALT(a) - Token_ID_of_ALT(b);
+     subkey = SYMID_of_ALT(a) - SYMID_of_ALT(b);
      if (subkey) return subkey;
      return Start_Earleme_of_ALT(a) - Start_Earleme_of_ALT(b);
 }
@@ -7946,10 +8120,10 @@ also see this as a normal data path.
 The general failures reported with |-2| will typically be
 treated by the application as fatal errors.
 @<Public function prototypes@> = gboolean marpa_alternative(struct marpa_r *r,
-Marpa_Symbol_ID token_id, gint length);
+Marpa_Symbol_ID token_id, gpointer value, gint length);
 @ @<Function definitions@> =
 gboolean marpa_alternative(struct marpa_r *r,
-Marpa_Symbol_ID token_id, gint length) {
+Marpa_Symbol_ID token_id, gpointer value, gint length) {
     @<Return |-2| on failure@>@;
     GRAMMAR_Const g = G_of_R(r);
     const gint duplicate_token_indicator = -3;
@@ -8024,13 +8198,18 @@ The Earley sets and items will not have been
 altered by the attempt.
 @<Insert alternative into stack, failing if token is duplicate@> =
 {
+  TOK token = token_new (r, token_id, value);
   ALT_Object alternative;
-    if (Furthest_Earleme_of_R (r) < target_earleme)
-      LV_Furthest_Earleme_of_R (r) = target_earleme;
-  alternative_set (&alternative,
-		   current_earley_set, target_earleme, token_id);
+  if (Furthest_Earleme_of_R (r) < target_earleme)
+    LV_Furthest_Earleme_of_R (r) = target_earleme;
+  alternative.t_token = token;
+  alternative.t_start_earley_set = current_earley_set;
+  alternative.t_end_earleme = target_earleme;
   if (alternative_insert (r, &alternative) < 0)
+  {
+    @<Recover |token|@>@;
     return duplicate_token_indicator;
+    }
 }
 
 @** Complete an Earley Set.
@@ -8163,7 +8342,8 @@ this means that the parse is exhausted.
 @ @<Scan an Earley item from alternative@> =
 {
   ES start_earley_set = Start_ES_of_ALT (alternative);
-  SYMID token_id = Token_ID_of_ALT (alternative);
+  TOK token = TOK_of_ALT (alternative);
+  SYMID token_id = SYMID_of_TOK(token);
   PIM pim = First_PIM_of_ES_by_SYMID (start_earley_set, token_id);
   for ( ; pim ; pim = Next_PIM_of_PIM (pim)) {
       AHFA scanned_AHFA, prediction_AHFA;
@@ -8176,7 +8356,7 @@ this means that the parse is exhausted.
 						current_earley_set,
 						Origin_of_EIM (predecessor),
 						scanned_AHFA);
-      token_link_add (r, scanned_earley_item, predecessor, token_id);
+      token_link_add (r, scanned_earley_item, predecessor, token);
       prediction_AHFA = Empty_Transition_of_AHFA (scanned_AHFA);
       if (!prediction_AHFA) continue;
       scanned_earley_item = earley_item_assign (r,
@@ -9388,10 +9568,15 @@ struct s_final_or_node
     gint t_first_and_node_id;
     gint t_and_node_count;
 };
-@ @<Private structures@> =
+@
+@d TOK_of_OR(or) (&(or)->t_token)
+@d SYMID_of_OR(or) SYMID_of_TOK(TOK_of_OR(or))
+@d Value_of_OR(or) Value_of_TOK(TOK_of_OR(or))
+@<Private structures@> =
 union u_or_node {
     struct s_draft_or_node t_draft;
     struct s_final_or_node t_final;
+    struct s_token t_token;
 };
 typedef union u_or_node OR_Object;
 
@@ -9585,7 +9770,7 @@ MARPA_OFF_DEBUG3("adding nulling token or-node EIM = %s aex=%d",
 		DAND draft_and_node;
 		const gint rhs_ix = symbol_instance - SYMI_of_RULE(rule);
 		const OR predecessor = rhs_ix ? last_or_node : NULL;
-		const OR cause = (OR)SYM_by_ID( RHS_ID_of_RULE (rule, rhs_ix ) );
+		const OR cause = (OR)TOK_by_ID_of_R( r, RHS_ID_of_RULE (rule, rhs_ix ) );
 		@<Set |last_or_node| to a new or-node@>@;
 		or_node = PSL_Datum (or_psl, symbol_instance) = last_or_node ;
 		Origin_Ord_of_OR (or_node) = work_origin_ordinal;
@@ -9734,8 +9919,7 @@ or-nodes follow a completion.
 	  DAND draft_and_node;
 	  const gint rhs_ix = symbol_instance - SYMI_of_RULE(path_rule);
 	    const OR predecessor = rhs_ix ? last_or_node : NULL;
-	  const OR cause =
-	   (OR)SYM_by_ID( RHS_ID_of_RULE (path_rule, rhs_ix)) ;
+	  const OR cause = (OR)TOK_by_ID_of_R( r, RHS_ID_of_RULE (path_rule, rhs_ix)) ;
 	  MARPA_ASSERT (symbol_instance < Length_of_RULE (path_rule)) @;
 	  MARPA_ASSERT (symbol_instance >= 0) @;
 	  @<Set |last_or_node| to a new or-node@>@;
@@ -9765,12 +9949,11 @@ Note that this puts a limit on the number of symbols
 and rules in a grammar --- their total must fit in an
 int.
 @d WHEID_of_SYMID(symid) (rule_count_of_g+(symid))
-@d WHEID_of_SYM(sym) WHEID_of_SYMID(ID_of_SYM(sym))
 @d WHEID_of_RULEID(ruleid) (ruleid)
 @d WHEID_of_RULE(rule) WHEID_of_RULEID(ID_of_RULE(rule))
 @d WHEID_of_OR(or) (
     wheid = OR_is_Token(or) ?
-        WHEID_of_SYM((SYM)or) :
+        WHEID_of_SYMID(SYMID_of_OR(or)) :
         WHEID_of_RULE(RULE_of_OR(or))
     )
 
@@ -10021,28 +10204,28 @@ predecessor.  Set |or-node| to 0 if there is none.
 {
   SRCL source_link = NULL;
   EIM predecessor_earley_item = NULL;
-  SYMID token_id = -1;
+  TOK token = NULL;
   switch (work_source_type)
     {
     case SOURCE_IS_TOKEN:
       predecessor_earley_item = Predecessor_of_EIM (work_earley_item);
-      token_id = SYMID_of_EIM(work_earley_item);
+      token = TOK_of_EIM(work_earley_item);
       break;
     case SOURCE_IS_AMBIGUOUS:
       source_link = First_Token_Link_of_EIM (work_earley_item);
       if (source_link)
 	{
 	  predecessor_earley_item = Predecessor_of_SRCL (source_link);
-	  token_id = SYMID_of_SRCL(source_link);
+	  token = TOK_of_SRCL(source_link);
 	  source_link = Next_SRCL_of_SRCL (source_link);
 	}
     }
-    while (token_id >= 0) 
+    while (token) 
       {
 	@<Add draft and-node for token source@>@;
 	if (!source_link) break;
 	predecessor_earley_item = Predecessor_of_SRCL (source_link);
-        token_id = SYMID_of_SRCL(source_link);
+        token = TOK_of_SRCL(source_link);
 	source_link = Next_SRCL_of_SRCL (source_link);
       }
 }
@@ -10050,10 +10233,9 @@ predecessor.  Set |or-node| to 0 if there is none.
 @ @<Add draft and-node for token source@> =
 {
   OR dand_predecessor;
-  const SYM symbol = SYM_by_ID(token_id);
   @<Set |dand_predecessor|@>@;
   draft_and_node_add (&bocage_setup_obs, work_proper_or_node,
-	  dand_predecessor, (OR)symbol);
+	  dand_predecessor, (OR)token);
 }
 
 @ @<Set |dand_predecessor|@> =
@@ -10175,7 +10357,7 @@ Otherwise, it's the first such draft and-node.
 	  /* The or-node used as a boolean in the PSL */
 	  if (!*psl_owner) psl_claim (psl_owner, and_psar);
 	  and_psl = *psl_owner;
-	  psl_or_node = (OR)PSL_Datum(and_psl, wheid);
+	  psl_or_node = PSL_Datum(and_psl, wheid);
 	  if (psl_or_node && ID_of_OR(psl_or_node) == work_or_node_id)
 	  {
 	      /* Mark this draft and-node as a duplicate */
@@ -10358,12 +10540,50 @@ gint marpa_and_node_symbol(struct marpa_r *r, int and_node_id)
     {
       const OR cause_or = Cause_OR_of_AND (and_node);
       const SYMID symbol_id =
-	OR_is_Token(cause_or) ? ID_of_SYM ((SYM) cause_or) : -1;
+	OR_is_Token(cause_or) ? SYMID_of_OR(cause_or) : -1;
       return symbol_id;
     }
 }
 
-@** The Parse Bocage.
+@ Returns the data for the token of the and-node.
+The symbol id is the return value,
+and the token value is placed
+in the location pointed
+to by |value_p|, if that is non-null.
+If |and_node_id| is not the ID of an and-node
+whose cause is a token,
+returns -1,
+without changing |*value_p|.
+On hard failure, returns -2 without changing
+|*value_p|.
+\par
+There is no function to simply return the token value --
+because of the need to indicate errors, it is just as
+easy to return the symbol ID as well.
+If the
+@<Private function prototypes@> =
+gint marpa_and_node_token(struct marpa_r *r, int and_node_id, gpointer* value_p);
+@ @<Function definitions@> =
+gint marpa_and_node_token(struct marpa_r *r, int and_node_id, gpointer* value_p)
+{
+  AND and_node;
+  @<Return |-2| on failure@>@;
+    @<Check |r| and |and_node_id|; set |and_node|@>@;
+    {
+      const OR cause_or = Cause_OR_of_AND (and_node);
+      if (OR_is_Token (cause_or))
+	{
+	  const TOK token = TOK_of_OR (cause_or);
+	  if (value_p)
+	    *value_p = Value_of_TOK (token);
+MARPA_DEBUG3("and_node_token returning %p, value_p=%p", SYMID_of_TOK(token), *value_p);
+	  return SYMID_of_TOK (token);
+	}
+    }
+    return -1;
+}
+
+@** Parse Bocage Code (BOC).
 @ Pre-initialization is making the elements safe for the deallocation logic
 to be called.  Often it is setting the value to zero, so that the deallocation
 logic knows when {\bf not} to try deallocating a not-yet uninitialized value.
@@ -10537,7 +10757,7 @@ MARPA_OFF_DEBUG2("ordinal=%d", ordinal);
 	OR_of_AND(and_nodes) = or_node;
 	Predecessor_OR_of_AND(and_nodes) = NULL;
 	Cause_OR_of_AND (and_nodes) =
-	  (OR) SYM_by_ID (RHS_ID_of_RULE (completed_start_rule, rule_length - 1));
+	  (OR)TOK_by_ID_of_R (r, RHS_ID_of_RULE (completed_start_rule, rule_length - 1));
 
 	return null_or_node_id;
     }
@@ -12830,12 +13050,6 @@ if (sizeof(gint) != g_array_get_element_size(result)) {
      r_context_int_add(r, "expected size", sizeof(gint));
      R_ERROR_CXT("garray size mismatch");
      return failure_indicator;
-}
-@ @<Fail with internal recognizer error@> = 
-{
-    r_context_clear(r);
-    R_FATAL("internal error");
-    return failure_indicator;
 }
 
 @ The central error routine for the recognizer.

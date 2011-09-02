@@ -20,7 +20,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION $STRING_VERSION @ISA $DEBUG);
-$VERSION = '0.013_000';
+$VERSION = '0.013_001';
 $STRING_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 $DEBUG = 0;
@@ -94,7 +94,6 @@ if (not $ENV{'MARPA_AUTHOR_TEST'}) {
     $Marpa::XS::DEBUG = 1;
 }
 require Marpa::XS::Internal;
-require Marpa::XS::Slot;
 require Marpa::XS::Grammar;
 require Marpa::XS::Recognizer;
 require Marpa::XS::Value;
