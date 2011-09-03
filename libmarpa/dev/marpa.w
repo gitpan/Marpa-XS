@@ -1666,6 +1666,8 @@ guint min, gint flags );
     }
     RULE_is_Used(original_rule) = 0;
     original_rule_id = original_rule->t_id;
+    original_rule->t_is_discard = !(flags & MARPA_KEEP_SEPARATION)
+      && separator_id >= 0;
     rule_callback(g, original_rule_id);
 
 @ @<Check that the separator is valid or -1@> =
@@ -1712,7 +1714,6 @@ rule->t_original = original_rule_id;
 rule->t_is_semantic_equivalent = TRUE;
 /* Real symbol count remains at default of 0 */
 rule->t_is_virtual_rhs = TRUE;
-rule->t_is_discard = !(flags & MARPA_KEEP_SEPARATION) && separator_id >= 0;
 rule_callback(g, rule->t_id);
 }
 @ This ``alternate" top rule is needed if a final separator is allowed.
@@ -1726,7 +1727,6 @@ rule_callback(g, rule->t_id);
     rule->t_is_semantic_equivalent = TRUE;
     rule->t_is_virtual_rhs = TRUE;
     rule->t_real_symbol_count = 1;
-    rule->t_is_discard = !(flags & MARPA_KEEP_SEPARATION);
     rule_callback(g, rule->t_id);
 }
 @ The traditional way to write a sequence in BNF is with one
@@ -2362,9 +2362,6 @@ When a rule is rewritten,
 some (but not all!) of the resulting rules have the
 same semantics as the original rule.
 It is this ``original rule" that |semantic_equivalent()| returns.
-@
-{\bf To Do}: @^To Do@>
-Do I need to track this inside libmarpa?
 
 @ If this rule is the semantic equivalent of another rule,
 this external accessor returns the ``original rule".
@@ -2375,9 +2372,10 @@ Marpa_Rule_ID marpa_rule_semantic_equivalent(struct marpa_g* g, Marpa_Rule_ID id
 Marpa_Rule_ID
 marpa_rule_semantic_equivalent (struct marpa_g *g, Marpa_Rule_ID id)
 {
-  RULE rewrite_rule = RULE_by_ID (g, id);
-  return rewrite_rule->t_is_semantic_equivalent ? rewrite_rule->
-    t_original : -1;
+  RULE rule = RULE_by_ID (g, id);
+  if (rule->t_is_virtual_lhs) return -1;
+  if (rule->t_is_semantic_equivalent) return rule->t_original;
+  return id;
 }
 
 @** Symbol Instance (SYMI) Code.

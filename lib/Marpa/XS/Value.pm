@@ -22,6 +22,20 @@ use integer;
 
 use English qw( -no_match_vars );
 
+BEGIN {
+my $structure = <<'END_OF_STRUCTURE';
+
+    :package=Marpa::XS::Internal::Eval
+
+    EVAL_TOS
+    VEVAL_STACK
+    FORK_IX
+    TRACE_VAL
+
+END_OF_STRUCTURE
+    Marpa::offset($structure);
+} ## end BEGIN
+
 # This perlcritic check is broken as of 9 Aug 2010
 ## no critic (TestingAndDebugging::ProhibitNoWarnings)
 no warnings qw(qw);
@@ -450,7 +464,6 @@ sub Marpa::XS::Internal::Recognizer::set_actions {
     RULE: for my $rule ( @{$rules} ) {
 
         my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-        next RULE if not $grammar_c->rule_is_used($rule_id);
 
         if ( my $action = $rule->[Marpa::XS::Internal::Rule::ACTION] ) {
             my $closure =
@@ -590,8 +603,6 @@ sub do_rank_all {
 		    ->[Marpa::XS::Internal::Symbol::NAME] } = $ranking_closure;
 	} ## end if ( $grammar_c->rule_length($rule_id) == 0 )
 
-        next RULE if not $grammar_c->rule_is_used($rule_id);
-
         $ranking_closures_by_rule[$rule_id] = $ranking_closure;
 
     } ## end for my $rule ( @{$rules} )
@@ -601,7 +612,9 @@ sub do_rank_all {
 
 	my $parent_or_node_id = $recce_c->and_node_parent($and_node_id);
         my $rule_id  = $recce_c->or_node_rule($parent_or_node_id);
-        my $rule_closure = $ranking_closures_by_rule[$rule_id];
+	my $semantic_rule_id = $grammar_c->semantic_equivalent($rule_id);
+	my $rule_closure = 
+	defined $semantic_rule_id ?  $ranking_closures_by_rule[$semantic_rule_id] : undef;
         my $token_id = $recce_c->and_node_symbol($and_node_id);
         my $token_closure;
         if ($token_id) {
@@ -907,190 +920,167 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
 
     $action_object //= {};
 
-    my $evaluation_stack =
-        $recce->[Marpa::XS::Internal::Recognizer::EVAL_STACK] = [];
-    my $virtual_evaluation_stack =
-        $recce->[Marpa::XS::Internal::Recognizer::VEVAL_STACK] = [];
+    my $eval = [];
+    my @evaluation_stack = ();
+    my $virtual_evaluation_stack = $eval->[Marpa::XS::Internal::Eval::VEVAL_STACK] = [];
+    $eval->[Marpa::XS::Internal::Eval::EVAL_TOS] = -1;
+    $eval->[Marpa::XS::Internal::Eval::FORK_IX] = -1;
+    $eval->[Marpa::XS::Internal::Eval::TRACE_VAL] = $trace_values ? 1 : 0;
 
-    TREE_NODE:
-    for (
-        my $fork_ix = $recce_c->tree_size() - 1;
-        $fork_ix >= 0;
-        $fork_ix--
-        )
+    EVENT:
+    while ( my ( $token_id, $value_ix, $rule_id, $arg_0, $arg_n ) =
+        Marpa::XS::Internal::Recognizer::event( $recce, $eval ) )
     {
-
-        my $or_node_id = $recce_c->fork_or_node($fork_ix);
-        my $rule_id    = $recce_c->or_node_rule($or_node_id);
-        my $choice     = $recce_c->fork_choice($fork_ix);
-
-        my $and_node_id =
-            $recce_c->and_node_order_get( $or_node_id, $choice );
-
         if ( $trace_values >= 3 ) {
-            for my $i ( reverse 0 .. $#{$evaluation_stack} ) {
+            for my $i ( reverse 0 .. $arg_n ) {
                 printf {$Marpa::XS::Internal::TRACE_FH} 'Stack position %3d:',
                     $i
                     or Marpa::exception('print to trace handle failed');
                 print {$Marpa::XS::Internal::TRACE_FH} q{ },
-                    Data::Dumper->new( [ $evaluation_stack->[$i] ] )->Terse(1)
+                    Data::Dumper->new( [ $evaluation_stack[$i] ] )->Terse(1)
                     ->Dump
                     or Marpa::exception('print to trace handle failed');
-            } ## end for my $i ( reverse 0 .. $#{$evaluation_stack} )
+            } ## end for my $i ( reverse 0 .. $arg_n )
         } ## end if ( $trace_values >= 3 )
 
-        my $value_ref;
-        SET_VALUE_REF: {
-            my ($token_id, $value_ix) = $recce_c->and_node_token($and_node_id);
-            last SET_VALUE_REF if not defined $token_id;
-            if ( $value_ix < 0 ) {
-                $value_ref = \$null_values->[$token_id];
-                last SET_VALUE_REF;
-            }
-            $value_ref = \( $token_values->[$value_ix] );
-        } ## end SET_VALUE_REF:
+	ADD_TOKEN: {
+	    last ADD_TOKEN if not defined $token_id;
+	    my $value_ref =
+		$value_ix < 0
+		? \$null_values->[$token_id]
+		: \( $token_values->[$value_ix] );
 
-        if ( defined $value_ref ) {
+	    $evaluation_stack[$arg_n] = $value_ref;
 
-            push @{$evaluation_stack}, $value_ref;
+	    last ADD_TOKEN if not $trace_values;
 
-            if ($trace_values) {
-                my $token_name;
-                my $token_id = $recce_c->and_node_symbol($and_node_id);
-                if ( defined $token_id ) {
-                    $token_name =
-                        $symbols->[$token_id]
-                        ->[Marpa::XS::Internal::Symbol::NAME];
-                }
+	    my $fork_ix    = $eval->[Marpa::XS::Internal::Eval::FORK_IX];
+	    my $or_node_id = $recce_c->fork_or_node($fork_ix);
+	    my $choice     = $recce_c->fork_choice($fork_ix);
+	    my $and_node_id =
+		$recce_c->and_node_order_get( $or_node_id, $choice );
+	    my $token_id = $recce_c->and_node_symbol($and_node_id);
+	    my $token_name;
+	    if ( defined $token_id ) {
+		$token_name =
+		    $symbols->[$token_id]->[Marpa::XS::Internal::Symbol::NAME];
+	    }
 
-                print {$Marpa::XS::Internal::TRACE_FH}
-                    'Pushed value from ',
-                    Marpa::XS::Recognizer::and_node_tag(
-                    $recce, $and_node_id
-                    ),
-                    ': ',
-                    ( $token_name ? qq{$token_name = } : q{} ),
-                    Data::Dumper->new( [$value_ref] )->Terse(1)->Dump
-                    or Marpa::exception('print to trace handle failed');
-            } ## end if ($trace_values)
+	    print {$Marpa::XS::Internal::TRACE_FH}
+		'Pushed value from ',
+		Marpa::XS::Recognizer::and_node_tag( $recce, $and_node_id ),
+		': ',
+		( $token_name ? qq{$token_name = } : q{} ),
+		Data::Dumper->new( [$value_ref] )->Terse(1)->Dump
+		or Marpa::exception('print to trace handle failed');
 
-        }    # defined $value_ref
+	} ## end ADD_TOKEN:
 
-	next TREE_NODE if  $recce_c->or_node_position($or_node_id)
-                != $grammar_c->rule_length($rule_id) ;
+	TRACE_OP: {
 
-        my $virtual_rhs = $grammar_c->rule_is_virtual_rhs($rule_id);
-        my $virtual_lhs = $grammar_c->rule_is_virtual_lhs($rule_id);
+            last TRACE_OP if not $trace_values;
 
-        my $current_data = [];
-        OP: {
+	    my $fork_ix = $eval->[Marpa::XS::Internal::Eval::FORK_IX];
+	    my $or_node_id = $recce_c->fork_or_node($fork_ix);
+	    my $choice     = $recce_c->fork_choice($fork_ix);
+	    my $and_node_id =
+		$recce_c->and_node_order_get( $or_node_id, $choice );
+	    my $trace_rule_id    = $recce_c->or_node_rule($or_node_id);
+	    my $virtual_rhs = $grammar_c->rule_is_virtual_rhs($trace_rule_id);
+	    my $virtual_lhs = $grammar_c->rule_is_virtual_lhs($trace_rule_id);
+
+	    next EVENT if  $recce_c->or_node_position($or_node_id)
+                != $grammar_c->rule_length($trace_rule_id) ;
 
             if ( not $virtual_rhs and not $virtual_lhs ) {
 
-                my $argc = $grammar_c->rule_length($rule_id);
+                my $argc = $grammar_c->rule_length($trace_rule_id);
 
-                $current_data =
-                    [ map { ${$_} } ( splice @{$evaluation_stack}, -$argc ) ];
+                say {$Marpa::XS::Internal::TRACE_FH} 'Popping ', $argc,
+                    ' values to evaluate ',
+                    Marpa::XS::Recognizer::and_node_tag(
+                    $recce, $and_node_id
+                    ),
+                    ', rule: ', $grammar->brief_rule($trace_rule_id)
+                    or Marpa::exception('Could not print to trace file');
 
-                if ($trace_values) {
-                    say {$Marpa::XS::Internal::TRACE_FH}
-                        'Popping ', $argc, ' values to evaluate ',
-                        Marpa::XS::Recognizer::and_node_tag(
-                        $recce, $and_node_id
-                        ),
-                        ', rule: ', $grammar->brief_rule($rule_id)
-                        or Marpa::exception('Could not print to trace file');
-                } ## end if ($trace_values)
+                last TRACE_OP;
 
-		last OP;
-
-            } ## end if ( $op == Marpa::XS::Internal::Op::ARGC )
+            } ## end if ( not $virtual_rhs and not $virtual_lhs )
 
             if ( $virtual_rhs and not $virtual_lhs ) {
-                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
 
-                $real_symbol_count += pop @{$virtual_evaluation_stack};
-                $current_data =
-                    [ map { ${$_} }
-                        ( splice @{$evaluation_stack}, -$real_symbol_count )
-                    ];
+                say {$Marpa::XS::Internal::TRACE_FH}
+                    'Head of Virtual Rule: ',
+                    Marpa::XS::Recognizer::and_node_tag(
+                    $recce, $and_node_id
+                    ),
+                    ', rule: ', $grammar->brief_rule($trace_rule_id),
+                    "\n",
+                    "Incrementing virtual rule by ",
+                    $grammar_c->real_symbol_count($trace_rule_id),
+                    " symbols\n",
+                    'Currently ',
+                    ( scalar @{$virtual_evaluation_stack} ),
+                    ' rules; ', ( $virtual_evaluation_stack->[-1] // 0 ),
+                    ' symbols;',
+                    or Marpa::exception('Could not print to trace file');
 
-                if ($trace_values) {
-                    say {$Marpa::XS::Internal::TRACE_FH}
-                        'Head of Virtual Rule: ',
-                        Marpa::XS::Recognizer::and_node_tag(
-                        $recce, $and_node_id
-                        ),
-                        ', rule: ', $grammar->brief_rule($rule_id),
-                        "\n",
-                        "Incrementing virtual rule by ",
-			$grammar_c->real_symbol_count($rule_id),
-			" symbols\n",
-                        'Currently ',
-                        ( scalar @{$virtual_evaluation_stack} ),
-                        ' rules; ', $virtual_evaluation_stack->[-1],
-                        ' symbols;',
-                        or Marpa::exception('Could not print to trace file');
-                } ## end if ($trace_values)
+                last TRACE_OP;
 
-		last OP;
-
-            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_HEAD )
+            } ## end if ( $virtual_rhs and not $virtual_lhs )
 
             if ( $virtual_lhs and $virtual_rhs ) {
-                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
-                $virtual_evaluation_stack->[-1] += $real_symbol_count;
 
-                if ($trace_values) {
-                    say {$Marpa::XS::Internal::TRACE_FH}
-                        'Virtual Rule: ',
-                        Marpa::XS::Recognizer::and_node_tag(
-                        $recce, $and_node_id
-                        ),
-                        ', rule: ', $grammar->brief_rule($rule_id),
-                        "\nAdding $real_symbol_count, now ",
-                        ( scalar @{$virtual_evaluation_stack} ),
-                        ' rules; ', $virtual_evaluation_stack->[-1],
-                        ' symbols'
-                        or Marpa::exception('Could not print to trace file');
-                } ## end if ($trace_values)
+                say {$Marpa::XS::Internal::TRACE_FH}
+                    'Virtual Rule: ',
+                    Marpa::XS::Recognizer::and_node_tag(
+                    $recce, $and_node_id
+                    ),
+                    ', rule: ', $grammar->brief_rule($trace_rule_id),
+                    "\nAdding ",
+                    $grammar_c->real_symbol_count($trace_rule_id),
+                    ", now ",
+                    ( scalar @{$virtual_evaluation_stack} ),
+                    ' rules; ', $virtual_evaluation_stack->[-1], ' symbols'
+                    or Marpa::exception('Could not print to trace file');
 
-                next TREE_NODE;
+                next EVENT;
 
-            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_KERNEL )
+            } ## end if ( $virtual_lhs and $virtual_rhs )
 
             if ( not $virtual_rhs and $virtual_lhs ) {
-                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
 
-                push @{$virtual_evaluation_stack}, $real_symbol_count;
+                say {$Marpa::XS::Internal::TRACE_FH}
+                    'New Virtual Rule: ',
+                    Marpa::XS::Recognizer::and_node_tag(
+                    $recce, $and_node_id
+                    ),
+                    ', rule: ', $grammar->brief_rule($trace_rule_id),
+                    "\nSymbol count is ",
+		    $grammar_c->real_symbol_count($trace_rule_id),
+                    ", now ",
+                    ( scalar @{$virtual_evaluation_stack} ), ' rules',
+                    or Marpa::exception('Could not print to trace file');
 
-                if ($trace_values) {
-                    say {$Marpa::XS::Internal::TRACE_FH}
-                        'New Virtual Rule: ',
-                        Marpa::XS::Recognizer::and_node_tag(
-                        $recce, $and_node_id
-                        ),
-                        ', rule: ', $grammar->brief_rule($rule_id),
-                        "\nSymbol count is $real_symbol_count, now ",
-                        (scalar @{$virtual_evaluation_stack}), ' rules',
-                        or Marpa::exception('Could not print to trace file');
-                } ## end if ($trace_values)
+                next EVENT;
 
-                next TREE_NODE;
+            } ## end if ( not $virtual_rhs and $virtual_lhs )
 
-            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_TAIL )
+        } ## end TRACE_OP:
 
-        } ## end for ( my $op_ix = 0; $op_ix < scalar @{$ops}; $op_ix++)
+	next EVENT if not defined $rule_id;
 
         my $closure = $rule_closures->[$rule_id];
         if ( defined $closure ) {
             my $result;
 
-	    if ( $grammar_c->rule_is_discard_separation($rule_id) ) {
-		@{$current_data} =
-		    @{$current_data}[ map { 2 * $_ }
-		    ( 0 .. ( scalar @{$current_data} + 1 ) / 2 - 1 ) ];
-	    }
+            my @args = map { ${$_} } @evaluation_stack[ $arg_0 .. $arg_n ];
+            if ( $grammar_c->rule_is_discard_separation($rule_id) ) {
+                @args =
+                    @args[ map { 2 * $_ }
+                    ( 0 .. ( scalar @args + 1 ) / 2 - 1 ) ];
+            }
 
             my @warnings;
             my $eval_ok;
@@ -1100,7 +1090,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                 };
 
                 $eval_ok = eval {
-                    $result = $closure->( $action_object, @{$current_data} );
+                    $result = $closure->( $action_object, @args );
                     1;
                 };
 
@@ -1120,7 +1110,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                 );
             } ## end if ( not $eval_ok or @warnings )
 
-            push @{$evaluation_stack}, \$result;
+            $evaluation_stack[$arg_0] = \$result;
 
             if ($trace_values) {
                 print {$Marpa::XS::Internal::TRACE_FH}
@@ -1129,13 +1119,13 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                     or Marpa::exception('print to trace handle failed');
             } ## end if ($trace_values)
 
-            next TREE_NODE;
+            next EVENT;
 
         } ## end if ( defined $closure )
 
         {
             my $constant_result = $rule_constants->[$rule_id];
-            push @{$evaluation_stack}, $constant_result;
+            $evaluation_stack[$arg_0] = $constant_result;
             if ($trace_values) {
                 print {$Marpa::XS::Internal::TRACE_FH}
                     'Constant result: ',
@@ -1144,18 +1134,102 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
                     or Marpa::exception('Could not print to trace file');
             } ## end if ($trace_values)
         } ## end when (Marpa::XS::Internal::Op::CONSTANT_RESULT)
-
-    }    # TREE_NODE
-
-    my $top_value = pop @{$evaluation_stack};
-
-    $recce->[Marpa::XS::Internal::Recognizer::EVAL_STACK]  = undef;
-    $recce->[Marpa::XS::Internal::Recognizer::EVAL_TOS]    = 0;
-    $recce->[Marpa::XS::Internal::Recognizer::VEVAL_STACK] = undef;
+    } ## end while ( my @event = Marpa::XS::Internal::Recognizer::event...)
+    
+    my $top_value = $evaluation_stack[0];
 
     return $top_value;
 
 } ## end sub Marpa::XS::Internal::Recognizer::evaluate
+
+sub Marpa::XS::Internal::Recognizer::event {
+    my ($recce, $eval)     = @_;
+    my $recce_c     = $recce->[Marpa::XS::Internal::Recognizer::C];
+    my $grammar = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c   = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $trace_val = $eval->[Marpa::XS::Internal::Eval::TRACE_VAL];
+    my $virtual_evaluation_stack = $eval->[Marpa::XS::Internal::Eval::VEVAL_STACK];
+
+    if ( $eval->[Marpa::XS::Internal::Eval::FORK_IX] < 0) {
+        $eval->[Marpa::XS::Internal::Eval::FORK_IX] = $recce_c->tree_size();
+    }
+
+    my $arg_0;
+    my $arg_n;
+    my $token_id;
+    my $value_ix;
+    my $semantic_rule_id;
+    my $continue = 1;
+
+    TREE_NODE:
+    while ($continue) {
+
+	$continue = !$trace_val;
+
+	my $fork_ix = --$eval->[Marpa::XS::Internal::Eval::FORK_IX];
+
+	return if $fork_ix < 0;
+
+	$arg_0 = $arg_n = $eval->[Marpa::XS::Internal::Eval::EVAL_TOS];
+
+        my $or_node_id = $recce_c->fork_or_node($fork_ix);
+        my $rule_id    = $recce_c->or_node_rule($or_node_id);
+        my $choice     = $recce_c->fork_choice($fork_ix);
+
+        my $and_node_id =
+            $recce_c->and_node_order_get( $or_node_id, $choice );
+
+	($token_id, $value_ix) = $recce_c->and_node_token($and_node_id);
+	if (defined $token_id) {
+	    $arg_0 = $arg_n = ++$eval->[Marpa::XS::Internal::Eval::EVAL_TOS];
+	    $continue = 0;
+	}
+
+	next TREE_NODE if  $recce_c->or_node_position($or_node_id)
+                != $grammar_c->rule_length($rule_id) ;
+
+        my $virtual_rhs = $grammar_c->rule_is_virtual_rhs($rule_id);
+        my $virtual_lhs = $grammar_c->rule_is_virtual_lhs($rule_id);
+
+        OP: {
+
+            if ( not $virtual_rhs and not $virtual_lhs ) {
+                my $argc = $grammar_c->rule_length($rule_id);
+		$arg_0 = $arg_n - $argc + 1;
+		$eval->[Marpa::XS::Internal::Eval::EVAL_TOS] = $arg_0;
+		last OP;
+            } ## end if ( $op == Marpa::XS::Internal::Op::ARGC )
+
+            if ( $virtual_rhs and not $virtual_lhs ) {
+                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
+                $real_symbol_count += pop @{$virtual_evaluation_stack};
+		$arg_0 = $arg_n - $real_symbol_count + 1;
+		$eval->[Marpa::XS::Internal::Eval::EVAL_TOS] = $arg_0;
+		last OP;
+            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_HEAD )
+
+            if ( $virtual_lhs and $virtual_rhs ) {
+                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
+                $virtual_evaluation_stack->[-1] += $real_symbol_count;
+                next TREE_NODE;
+            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_KERNEL )
+
+            if ( not $virtual_rhs and $virtual_lhs ) {
+                my $real_symbol_count = $grammar_c->real_symbol_count($rule_id);
+                push @{$virtual_evaluation_stack}, $real_symbol_count;
+                next TREE_NODE;
+            } ## end if ( $op == Marpa::XS::Internal::Op::VIRTUAL_TAIL )
+
+        } ## end for ( my $op_ix = 0; $op_ix < scalar @{$ops}; $op_ix++)
+
+        $semantic_rule_id = $grammar_c->semantic_equivalent($rule_id);
+	if (defined $semantic_rule_id) { $continue = 0; }
+
+    }    # TREE_NODE
+
+    return ($token_id, $value_ix, $semantic_rule_id, $arg_0, $arg_n);
+
+}
 
 # Returns false if no parse
 sub Marpa::XS::Recognizer::value {
