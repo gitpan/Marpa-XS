@@ -632,12 +632,6 @@ Evaluation should allow the user to specify an
 alternative start symbol, and not prefer the
 recognizer's.
 
-@ \li Make sure that
-|t_is_leo_expanding|
-and |t_is_leo_expansion|
-are eliminated
-when no longer needed.
-
 @ \li Make tracing no longer the default in the recognizer.
 
 \li Add a ``tracing" flag to the recognizer.  Also add a
@@ -1271,14 +1265,6 @@ gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id)
 { return SYM_by_ID(id)->t_is_accessible; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_accessible(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_accessible_set(
-struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ SYM_by_ID(id)->t_is_accessible = value; }
-@ @<Public function prototypes@> =
-/* static inline */
-void marpa_symbol_is_accessible_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Counted Boolean
 @<Bit aligned symbol elements@> = guint t_is_counted:1;
@@ -1315,13 +1301,6 @@ gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id)
 { return SYM_by_ID(id)->t_is_nullable; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_nullable(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_nullable_set(
-struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ SYM_by_ID(id)->t_is_nullable = value; }
-@ @<Public function prototypes@> =
-void marpa_symbol_is_nullable_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Nulling Boolean
 @d SYM_is_Nulling(sym) ((sym)->t_is_nulling)
@@ -1343,13 +1322,6 @@ gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID symid)
 return SYM_is_Nulling(SYM_by_ID(symid)); }
 @ @<Public function prototypes@> =
 gint marpa_symbol_is_nulling(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_nulling_set(
-struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ SYM_is_Nulling(SYM_by_ID(id)) = value; }
-@ @<Public function prototypes@> = 
-void marpa_symbol_is_nulling_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Terminal Boolean
 @<Bit aligned symbol elements@> = guint t_is_terminal:1;
@@ -1370,14 +1342,12 @@ gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id)
 { return SYMID_is_Terminal(id); }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_terminal(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
+@ @<Function definitions@> =
 void marpa_symbol_is_terminal_set(
 struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
 { SYMID_is_Terminal(id) = value; }
 @ @<Public function prototypes@> =
 void marpa_symbol_is_terminal_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
-
 
 @ Symbol Is Productive Boolean
 @<Bit aligned symbol elements@> = guint t_is_productive:1;
@@ -1396,13 +1366,6 @@ gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id)
 { return SYM_by_ID(id)->t_is_productive; }
 @ @<Public function prototypes@> =
 gboolean marpa_symbol_is_productive(struct marpa_g* g, Marpa_Symbol_ID id);
-@ The external mutator is temporary, for development.
-@<Function definitions@> =
-void marpa_symbol_is_productive_set(
-struct marpa_g*g, Marpa_Symbol_ID id, gboolean value)
-{ SYM_by_ID(id)->t_is_productive = value ? 1 : 0; }
-@ @<Public function prototypes@> =
-void marpa_symbol_is_productive_set( struct marpa_g*g, Marpa_Symbol_ID id, gboolean value);
 
 @ Symbol Is Start Boolean
 @<Bit aligned symbol elements@> = guint t_is_start:1;
@@ -4862,22 +4825,28 @@ for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++) {
     if (postdot >= 0) break;
 }
 p_new_state->t_empty_transition = NULL;
-if (postdot >= 0) { // If any item is not a completion ...
-    Bit_Vector predicted_rule_vector
-	= bv_shadow(matrix_row(prediction_matrix, (guint)postdot));
-    for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++) {
-    // ``or" the other non-complete items into the prediction rule vector
-	postdot = Postdot_SYMID_of_AIM(item_list_for_new_state[item_ix]);
-	if (postdot < 0) continue;
-	bv_or_assign(predicted_rule_vector, 
-	    matrix_row(prediction_matrix, (guint)postdot));
+if (postdot >= 0)
+{				/* If any item is not a completion ... */
+  Bit_Vector predicted_rule_vector
+    = bv_shadow (matrix_row (prediction_matrix, (guint) postdot));
+  for (item_ix = 0; item_ix < no_of_items_in_new_state; item_ix++)
+    {
+      /* ``or" the other non-complete items into the prediction rule vector */
+      postdot = Postdot_SYMID_of_AIM (item_list_for_new_state[item_ix]);
+      if (postdot < 0)
+	continue;
+      bv_or_assign (predicted_rule_vector,
+		    matrix_row (prediction_matrix, (guint) postdot));
     }
-    p_new_state->t_empty_transition = create_predicted_AHFA_state(g,
-	predicted_rule_vector,
-	 rule_by_sort_key,
-	 &states,
-	 duplicates); // Add the predicted rule
-} }
+  /* Add the predicted rule */
+  p_new_state->t_empty_transition = create_predicted_AHFA_state (g,
+			 predicted_rule_vector,
+			 rule_by_sort_key,
+			 &states,
+			 duplicates);
+  bv_free (predicted_rule_vector);
+}
+}
 
 @*0 Predicted AHFA States.
 The method for building predicted AHFA states is optimized using
@@ -5420,7 +5389,7 @@ struct marpa_r {
 };
 
 @ @<Public function prototypes@> =
-struct marpa_r* marpa_r_new( const struct marpa_g* const g );
+struct marpa_r* marpa_r_new( struct marpa_g* g );
 @ The grammar must not be deallocated for the life of the
 recognizer.
 In the event of an error creating the recognizer,
@@ -5428,19 +5397,19 @@ In the event of an error creating the recognizer,
 of the {\bf grammar} is set.
 For this reason, the grammar is not |const|.
 @<Function definitions@> =
-struct marpa_r* marpa_r_new( const struct marpa_g* const g )
+struct marpa_r* marpa_r_new( struct marpa_g* g )
 { RECCE r;
     gint symbol_count_of_g;
     @<Return |NULL| on failure@>@/
+    if (!G_is_Precomputed(g)) {
+        g->t_error = "precomputed";
+	return failure_indicator;
+    }
     r = g_slice_new(struct marpa_r);
     r->t_grammar = g;
     symbol_count_of_g = SYM_Count_of_G(g);
     @<Initialize recognizer obstack@>@;
     @<Initialize recognizer elements@>@;
-    if (!G_is_Precomputed(g)) {
-	R_ERROR("grammar not precomputed");
-	return failure_indicator;
-    }
    return r; }
 
 @ @<Function definitions@> =
@@ -5494,6 +5463,12 @@ entering one means leaving another.
 exhausted it may gone into the evaluation phase, then
 return to the input phase,
 All that time it will remain ``exhausted".
+@ {\bf To Do}: @^To Do@>
+Once I refactor the objects, these phases will need to be
+revisited.
+|evaluation_phase| should probably be eliminated at that point,
+assuming that the bocage object can be made independent of
+the recognizer.
 @<Public typedefs@> =
 enum marpa_phase {
     no_such_phase = 0, // 0 is never a valid phase
@@ -5777,6 +5752,8 @@ While Earley set 0 is being processed the internal flag will always
 be unset, while the external flag may be set or unset, as the user
 decided.
 After Earley set 0 is complete, both booleans will have the same value.
+@ {\bf To Do}: @^To Do@>
+Once the null parse is special-cased, one boolean may suffice.
 @<Bit aligned recognizer elements@> =
 guint t_use_leo_flag:1;
 guint t_is_using_leo:1;
@@ -5803,6 +5780,7 @@ struct marpa_r*r, gboolean value)
 {
    @<Return |FALSE| on failure@>@/
     @<Fail if recognizer has fatal error@>@;
+    @<Fail if recognizer not initial@>@;
     r->t_use_leo_flag = value;
     return TRUE;
 }
@@ -5834,19 +5812,6 @@ gint marpa_is_exhausted(struct marpa_r* r)
     @<Fail if recognizer has fatal error@>@;
     return r->t_is_exhausted ? 1 : 0;
 }
-
-@*1 Is Leo Expansion in Progress?.
-This boolean indicates whether we are in the process of expanding
-Leo items into Earley items.
-It's use by the logic which warns
-when the Earley item warning threshold is exceeded.
-Leo expansion is expected to add a lot of Earley items to a single
-Earley set, so the Earley item ``warning threshold exceeded"
-message is disable during Leo expansion.
-@<Bit aligned recognizer elements@> =
-guint t_is_leo_expanding:1;
-@ @<Initialize recognizer elements@> =
-r->t_is_leo_expanding = 0;
 
 @*0 The Recognizer's Context.
 As in the grammar,
@@ -6262,25 +6227,6 @@ static inline EIM earley_item_create(const RECCE r,
 
 @ @<Private function prototypes@> =
 static inline
-EIM old_earley_item_assign (const RECCE r, const ES set, const ES origin, const AHFA state);
-@ Now used only in expanding Leo items, and modified under that assumption.
-@<Function definitions@> =
-static inline EIM old_earley_item_assign (
-    const RECCE r, const ES set, const ES origin, const AHFA state)
-{
-    EIM item;
-    EIK_Object key;
-    key.t_origin = origin;
-    key.t_state = state;
-    key.t_set = set;
-    item = g_tree_lookup(r->t_earley_item_tree, &key);
-    if (item) return item;
-    item = earley_item_create(r, key);
-      return item;
-}
-
-@ @<Private function prototypes@> =
-static inline
 EIM earley_item_assign (const RECCE r, const ES set, const ES origin, const AHFA state);
 @ @<Function definitions@> =
 static inline EIM
@@ -6323,10 +6269,8 @@ if (count >= r->t_earley_item_warning_threshold)
 	  R_FATAL("eim count exceeds fatal threshold");
 	  return failure_indicator;
 	}
-      if (!r->t_is_leo_expanding) {
 	  r_context_clear (r);
 	  r_message (r, "earley item count exceeds threshold");
-	}
 }
 
 @*0 Destructor.
@@ -6426,59 +6370,6 @@ and clears the trace Earley item.
 Earley item is found, and on failure.
 The trace source link is always
 cleared, regardless of success or failure.
-@
-{\bf To Do}: @^To Do@>
-Deprecated.  To be deleted.
-@<Public function prototypes@> =
-Marpa_AHFA_State_ID
-marpa_old_earley_item_trace (struct marpa_r *r,
-    Marpa_Earley_Set_ID origin_set_id,
-    Marpa_AHFA_State_ID state_id);
-@ @<Function definitions@> =
-Marpa_AHFA_State_ID
-marpa_old_earley_item_trace (struct marpa_r *r,
-    Marpa_Earley_Set_ID origin_set_id,
-    Marpa_AHFA_State_ID state_id)
-{
-  const gint no_match = -1;
-  @<Return |-2| on failure@>@;
-  ES current_set = r->t_trace_earley_set;
-  ES origin_set;
-  EIM item;
-  EIK_Object item_key;
-  GRAMMAR_Const g = G_of_R(r);
-  @<Fail if recognizer initial@>@;
-  trace_source_link_clear(r);
-  if (!current_set) {
-      @<Clear trace Earley item data@>@;
-      R_ERROR("no trace es");
-      return failure_indicator;
-  }
-    if (origin_set_id < 0) {
-        R_ERROR("invalid es ordinal");
-	return failure_indicator;
-    }
-    r_update_earley_sets(r);
-    if (origin_set_id >= DSTACK_LENGTH(r->t_earley_set_stack)) {
-        R_ERROR("origin es does not exist");
-        return failure_indicator;
-    }
-  origin_set = ES_of_R_by_Ord (r, origin_set_id);
-  if (!origin_set) {
-      @<Clear trace Earley item data@>@;
-      R_ERROR("origin es not found");
-      return failure_indicator;
-    }
-  item_key.t_state = AHFA_of_G_by_ID (g, state_id);
-  item_key.t_origin = origin_set;
-  item_key.t_set = current_set;
-  item = r->t_trace_earley_item = g_tree_lookup(r->t_earley_item_tree, &item_key);
-  if (!item) {
-      @<Clear trace Earley item data@>@/
-      return no_match;
-    }
-  return AHFAID_of_EIM(item);
-}
 
 @ This function sets
 the trace Earley set to the one indicated
@@ -8293,6 +8184,8 @@ marpa_earleme_complete(struct marpa_r* r)
   ES current_earley_set;
   EARLEME current_earleme;
   gint count_of_expected_terminals;
+    @<Fail if recognizer not in input phase@>@;
+    @<Fail if recognizer exhausted@>@;
   psar_dealloc(Dot_PSAR_of_R(r));
     bv_clear (r->t_bv_symid_is_expected);
     @<Initialize |current_earleme|@>@;
@@ -10617,6 +10510,7 @@ typedef struct s_bocage* BOC;
 struct s_bocage {
     @<Widely aligned bocage elements@>@;
     @<Int aligned bocage elements@>@;
+    @<Bit aligned bocage elements@>@;
 };
 typedef struct s_bocage BOC_Object;
 @ @d B_of_R(r) ((r)->t_bocage)
@@ -10630,10 +10524,16 @@ An obstack with the lifetime of the bocage.
 @d OBS_of_B(b) ((b)->t_obs)
 @<Widely aligned bocage elements@> =
 struct obstack t_obs;
+@ @<Bit aligned bocage elements@> =
+unsigned int is_obstack_initialized:1;
 @ @<Initialize bocage elements@> =
+b->is_obstack_initialized = 1;
 obstack_init(&OBS_of_B(b));
 @ @<Destroy bocage elements, final phase@> =
-obstack_free(&OBS_of_B(b), NULL);
+if (b->is_obstack_initialized) {
+    obstack_free(&OBS_of_B(b), NULL);
+    b->is_obstack_initialized = 0;
+}
 
 @*0 Bocage Construction.
 @ This function returns 0 for a null parse,
@@ -10663,6 +10563,7 @@ MARPA_DEBUG3("%s new bocage B_of_R=%p", G_STRLOC, B_of_R(r));
     @<Initialize bocage elements@>@;
     @<Deal with null parse as a special case@>@;
     @<Find |start_eim|, |start_aim| and |start_aex|@>@;
+    if (!start_eim) goto SOFT_ERROR;
     Phase_of_R(r) = evaluation_phase;
     obstack_init(&bocage_setup_obs);
     @<Allocate bocage setup working data@>@;
@@ -10670,10 +10571,12 @@ MARPA_DEBUG3("%s new bocage B_of_R=%p", G_STRLOC, B_of_R(r));
     @<Create the or-nodes for all earley sets@>@;
     @<Create the final and-nodes for all earley sets@>@;
     @<Set |top_or_node_id|@>@;
-    @<Deallocate bocage setup working data@>@;
     obstack_free(&bocage_setup_obs, NULL);
     Top_ORID_of_B(b) = top_or_node_id;
     return top_or_node_id;
+    SOFT_ERROR: ;
+    @<Destroy bocage elements, all phases@>;
+    return no_parse;
 }
 
 @ @<Declare bocage locals@> =
@@ -10883,11 +10786,6 @@ to make sense.
 
 @ Destroy the bocage elements when I destroy the recognizer.
 @<Destroy recognizer elements@> = bocage_destroy(r);
-
-@ @<Deallocate bocage setup working data@>= {
-;
-}
-
 
 @ This function is safe to call even
 if the bocage already has been freed,
@@ -11100,7 +10998,10 @@ static inline void tree_safe(TREE tree)
     val_safe(VAL_of_TREE(tree));
 }
 
-@ @<Private function prototypes@> =
+@ Returns the size of the tree.
+If the bocage iterator is exhausted, returns -1.
+On error, returns -2.
+@<Public function prototypes@> =
 int marpa_tree_new(struct marpa_r* r);
 @ @<Function definitions@> =
 int marpa_tree_new(struct marpa_r* r)
@@ -11133,7 +11034,7 @@ int marpa_tree_new(struct marpa_r* r)
      }
      TREE_IS_FINISHED: ;
     tree->t_parse_count++;
-    return 1;
+      return FSTACK_LENGTH(tree->t_fork_stack);
     TREE_IS_EXHAUSTED: ;
    tree_exhaust(tree);
    return -1;
@@ -11888,7 +11789,7 @@ static inline void val_safe(VAL val)
     FORK_of_VAL(val) = -1;
 }
 
-@ @<Private function prototypes@> =
+@ @<Public function prototypes@> =
 int marpa_val_new(struct marpa_r* r);
 @ A dynamic stack is used here instead of a fixed
 stack for two reasons.
