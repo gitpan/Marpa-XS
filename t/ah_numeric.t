@@ -32,6 +32,16 @@ BEGIN {
 
 ## no critic (Subroutines::RequireArgUnpacking)
 
+# Marpa::XS::Display
+# name: Marpa::token_location example
+
+sub rank_null_a {
+    return \( ( $MyTest::MAXIMAL ? -1 : 1 )
+        * 10**( 3 - Marpa::token_location() ) );
+}
+
+# Marpa::XS::Display::End
+
 sub default_action {
     shift;
     my $v_count = scalar @_;
@@ -42,39 +52,36 @@ sub default_action {
 
 ## use critic
 
-sub gen_grammar {
-    my ($null_ranking) = @_;
-    my $grammar = Marpa::Grammar->new(
-        {   start => 'S',
-            rules => [
-                {   lhs          => 'S',
-                    rhs          => [qw/A A A A/],
-                    null_ranking => $null_ranking
-                },
-                [ 'A', [qw/a/] ],
-                ['A'],
-            ],
-            default_null_value => q{},
-            default_action     => 'main::default_action',
-        }
-    );
-    $grammar->set( { terminals => ['a'], } );
-    $grammar->precompute();
-    return $grammar;
-} ## end sub gen_grammar
+my $grammar = Marpa::Grammar->new(
+    {   start => 'S',
+        rules => [
+            [ 'S', [qw/A A A A/] ],
+            [ 'A', [qw/a/] ],
+            [ 'A', [qw/E/] ],
+            { lhs => 'A', rhs => [], ranking_action => 'main::rank_null_a' },
+            ['E'],
+        ],
+        default_null_value => q{},
+        default_action     => 'main::default_action',
+    }
+);
+
+$grammar->set( { terminals => ['a'], } );
+
+$grammar->precompute();
+
+my $recce = Marpa::Recognizer->new(
+    { grammar => $grammar, ranking_method => 'constant' } );
+
+my $input_length = 4;
+$recce->tokens( [ ( [ 'a', 'a', 1 ] ) x $input_length ] );
 
 my @maximal = ( q{}, qw[(a;;;) (a;a;;) (a;a;a;) (a;a;a;a)] );
 my @minimal = ( q{}, qw[(;;;a) (;;a;a) (;a;a;a) (a;a;a;a)] );
 
-for my $maximal ( 0, 1 ) {
-    my $grammar = gen_grammar( $maximal ? 'low' : 'high' );
-    my $recce = Marpa::Recognizer->new(
-        { grammar => $grammar, ranking_method => 'high_rule_only' } );
-
-    my $input_length = 4;
-    $recce->tokens( [ ( [ 'a', 'a', 1 ] ) x $input_length ] );
-
-    for my $i ( 0 .. $input_length ) {
+for my $i ( 0 .. $input_length ) {
+    for my $maximal ( 0, 1 ) {
+        local $MyTest::MAXIMAL = $maximal;
         my $expected = $maximal ? \@maximal : \@minimal;
         my $name     = $maximal ? 'maximal' : 'minimal';
         $recce->reset_evaluation();
@@ -83,8 +90,8 @@ for my $maximal ( 0, 1 ) {
         Test::More::is( ${$result}, $expected->[$i],
             "$name parse permutation $i" );
 
-    } ## end for my $i ( 0 .. $input_length )
-} ## end for my $maximal ( 0, 1 )
+    } ## end for my $maximal ( 0, 1 )
+} ## end for my $i ( 0 .. $input_length )
 
 1;    # In case used as "do" file
 

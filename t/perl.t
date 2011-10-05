@@ -237,9 +237,6 @@ sub do_assign {
 
 sub do_THING {
     my ( undef, $value ) = @_;
-    if ( Scalar::Util::looks_like_number($value) ) {
-       $value = eval $value;
-    }
     return [ 'R', \$value ];
 }
 

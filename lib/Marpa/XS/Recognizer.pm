@@ -62,7 +62,6 @@ my $structure = <<'END_OF_STRUCTURE';
     SINGLE_PARSE_MODE
     RULE_CLOSURES
     RULE_CONSTANTS
-    TOP_OR_NODE_ID
 
     { This is the end of the list of fields which
     must be reinitialized when evaluation is reset }
@@ -178,6 +177,20 @@ sub Marpa::XS::Recognizer::new {
 
     $recce->set(@arg_hashes);
 
+    if (    $grammar_c->has_loop()
+        and $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] ne
+        'none'
+        and not $grammar->[Marpa::XS::Internal::Grammar::CYCLE_RANKING_ACTION]
+        )
+    {
+        Marpa::exception(
+            "The grammar cycles (is infinitely ambiguous)\n",
+            "    but it has no 'cycle_ranking_action'.\n",
+            "    Either rewrite the grammar to eliminate cycles\n",
+            "    or define a 'cycle ranking action'\n"
+        );
+    }
+
     my $trace_terminals =
         $recce->[Marpa::XS::Internal::Recognizer::TRACE_TERMINALS] // 0;
     my $trace_tasks = $recce->[Marpa::XS::Internal::Recognizer::TRACE_TASKS]
@@ -239,7 +252,6 @@ sub Marpa::XS::Recognizer::reset_evaluation {
 	Marpa::exception("eval_clear() failed\n");
     }
     $recce->[Marpa::XS::Internal::Recognizer::SINGLE_PARSE_MODE] = undef;
-    $recce->[Marpa::XS::Internal::Recognizer::TOP_OR_NODE_ID]   = undef;
     $recce->[Marpa::XS::Internal::Recognizer::RULE_CLOSURES]   = [];
     $recce->[Marpa::XS::Internal::Recognizer::RULE_CONSTANTS]   = [];
 
@@ -295,12 +307,9 @@ sub Marpa::XS::Recognizer::set {
         } ## end if ( defined( my $value = $args->{'mode'} ) )
 
         if ( defined( my $value = $args->{'ranking_method'} ) ) {
-	    my @ranking_methods = qw(high_rule_only rule none);
             Marpa::exception(
-                qq{ranking_method value is $value (should be one of },
-		(join ", ", map { q{'} . $_ . q{'} } @ranking_methods),
-		')'
-	    ) if not $value ~~ \@ranking_methods;
+                q{ranking_method must be 'constant' or 'none'})
+                if not $value ~~ [qw(constant none)];
             $recce->[Marpa::XS::Internal::Recognizer::RANKING_METHOD] =
                 $value;
         } ## end if ( defined( my $value = $args->{'ranking_method'} ...))
@@ -766,9 +775,6 @@ sub Marpa::XS::Recognizer::show_progress {
     if ( not defined $start_ordinal ) {
         $start_ordinal = $last_ordinal;
     }
-    if ($start_ordinal < 0) {
-       $start_ordinal += $last_ordinal + 1;
-    }
     else {
         if ( $start_ordinal < 0 or $start_ordinal > $last_ordinal ) {
             return
@@ -968,12 +974,6 @@ sub Marpa::XS::Recognizer::alternative {
     my $token_values = $recce->[Marpa::XS::Internal::Recognizer::TOKEN_VALUES];
     my $symbol_hash = $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH];
     my $symbol_id = $symbol_hash->{$symbol_name};
-
-    # This is not
-    # a bare return, to be consistent with undef return from libmarpa
-    # alternative() call, below
-    return undef if not defined $symbol_id;
-
     my $value_ix = 0;
     if (defined $value) {
         $value_ix = scalar @{$token_values};

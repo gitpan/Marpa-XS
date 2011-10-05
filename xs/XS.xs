@@ -368,6 +368,14 @@ PPCODE:
     }
 
 void
+symbol_is_accessible_set( g, symbol_id, boolean )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+    int boolean;
+PPCODE:
+    marpa_symbol_is_accessible_set( g, symbol_id, (boolean ? TRUE : FALSE));
+
+void
 symbol_is_accessible( g, symbol_id )
     Grammar *g;
     Marpa_Symbol_ID symbol_id;
@@ -388,6 +396,14 @@ PPCODE:
     }
 
 void
+symbol_is_nullable_set( g, symbol_id, boolean )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+    int boolean;
+PPCODE:
+    marpa_symbol_is_nullable_set( g, symbol_id, (boolean ? TRUE : FALSE));
+
+void
 symbol_is_nullable( g, symbol_id )
     Grammar *g;
     Marpa_Symbol_ID symbol_id;
@@ -396,6 +412,14 @@ PPCODE:
     if (boolean) XSRETURN_YES;
     XSRETURN_NO;
     }
+
+void
+symbol_is_nulling_set( g, symbol_id, boolean )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+    int boolean;
+PPCODE:
+    marpa_symbol_is_nulling_set( g, symbol_id, (boolean ? TRUE : FALSE));
 
 void
 symbol_is_nulling( g, symbol_id )
@@ -426,6 +450,14 @@ PPCODE:
     if (result) XSRETURN_YES;
     XSRETURN_NO;
     }
+
+void
+symbol_is_productive_set( g, symbol_id, boolean )
+    Grammar *g;
+    Marpa_Symbol_ID symbol_id;
+    int boolean;
+PPCODE:
+    marpa_symbol_is_productive_set( g, symbol_id, (boolean ? TRUE : FALSE));
 
 void
 symbol_is_productive( g, symbol_id )
@@ -714,14 +746,11 @@ Marpa_Rule_ID
 semantic_equivalent( g, rule_id )
     Grammar *g;
     Marpa_Rule_ID rule_id;
-PPCODE:
-    { gint result = marpa_rule_semantic_equivalent(g, rule_id);
-    if (result == -1) { XSRETURN_UNDEF; }
-    if (result < 0) {
-      croak ("Problem in g->semantic_equivalent(): %s", marpa_g_error (g));
-    }
-    XPUSHs( sv_2mortal( newSViv(result) ) );
-    }
+CODE:
+    RETVAL = marpa_rule_semantic_equivalent(g, rule_id);
+    if (RETVAL < 0) { XSRETURN_UNDEF; }
+OUTPUT:
+    RETVAL
 
 int
 AHFA_item_count( g )
@@ -930,7 +959,7 @@ PPCODE:
     g_wrapper = GINT_TO_POINTER(tmp);
     g = g_wrapper->g;
     r = marpa_r_new(g);
-    if (!r) { croak ("failure in marpa_r_new: %s", marpa_g_error (g)); };
+    if (!r) { XSRETURN_UNDEF; }
     marpa_r_message_callback_set( r, &xs_r_message_callback );
     Newx( r_wrapper, 1, R_Wrapper );
     r_wrapper->r = r;
@@ -1180,6 +1209,19 @@ PPCODE:
 	r, item_ordinal);
     if (result == -1) { XSRETURN_UNDEF; }
     if (result < 0) { croak("problem with r->earley_item_trace: %s", marpa_r_error(r)); }
+    XPUSHs( sv_2mortal( newSViv(result) ) );
+    }
+
+void
+old_earley_item_trace( r_wrapper, origin, ahfa_id )
+    R_Wrapper *r_wrapper;
+    Marpa_Earleme origin;
+    Marpa_AHFA_State_ID ahfa_id;
+PPCODE:
+    { struct marpa_r* r = r_wrapper->r;
+    Marpa_AHFA_State_ID result = marpa_old_earley_item_trace(r, origin, ahfa_id);
+    if (result == -1) { XSRETURN_UNDEF; }
+    if (result < 0) { croak("Trace earley item problem: %s", marpa_r_error(r)); }
     XPUSHs( sv_2mortal( newSViv(result) ) );
     }
 

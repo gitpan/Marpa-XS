@@ -14,15 +14,12 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# This uses an ambiguous grammar to implement a binary
-# counter.  A very expensive way to do it, but a
-# good test of the ranking logic.
-
 use 5.010;
 use strict;
 use warnings;
 
-use Test::More tests => 33;
+use Test::More skip_all => 'Cycle logic is not yet settled';
+# use Test::More tests => 9;
 use English qw( -no_match_vars );
 use lib 'tool/lib';
 use Marpa::Test;
@@ -33,49 +30,61 @@ BEGIN {
 
 ## no critic (Subroutines::RequireArgUnpacking)
 
-# Ranks are less than 1
+# Ranks are less than zero
 # to make sure
+# that the ranks are floating point --
 # that integer rounding
 # is not happening anywhere.
 
+our $CYCLE_RANK = 1;
+
 # If we are counting up, the lowest number
 # has to have the highest numerical rank.
-sub rank_one {
-    return \( ( $MyTest::UP ? -1 : 1 ) / ( 2 << Marpa::location() ) );
+# sub rank_cycle { return \($main::CYCLE_RANK*(Marpa::location()+1)) }
+sub rank_cycle {
+    return \( $main::CYCLE_RANK * ( 9 - Marpa::location() ) );
 }
-sub rank_zero { return \0 }
-sub zero      { return '0' }
-sub one       { return '1' }
 
-sub start_rule_action {
+sub rule_action  { return 'direct' }
+sub cycle_action { return 'cycle' }
+
+sub default_rule_action {
     shift;
-    return join q{}, @_;
+    return join q{;}, @_;
 }
 
 ## use critic
 
 my $grammar = Marpa::Grammar->new(
-    {   start => 'S',
-        strip => 0,
-        rules => [
+    {   start                => 'S',
+        strip                => 0,
+        infinite_action      => 'quiet',
+        cycle_ranking_action => 'main::rank_cycle',
+        rules                => [
             {   lhs    => 'S',
-                rhs    => [qw/digit digit digit digit/],
-                action => 'main::start_rule_action'
+                rhs    => [qw/item item/],
+                action => 'main::default_rule_action'
             },
-            {   lhs            => 'digit',
-                rhs            => ['zero'],
-                ranking_action => 'main::rank_zero',
-                action         => 'main::zero'
+            {   lhs    => 'item',
+                rhs    => ['direct'],
+                action => 'main::rule_action',
+
+                # ranking_action => 'main::rank_rule'
             },
-            {   lhs            => 'digit',
-                rhs            => ['one'],
-                ranking_action => 'main::rank_one',
-                action         => 'main::one'
+            {   lhs    => 'item',
+                rhs    => ['cycle'],
+                action => 'main::cycle_action'
             },
-            {   lhs => 'one',
+            {   lhs => 'cycle',
+                rhs => ['cycle2'],
+            },
+            {   lhs => 'cycle2',
+                rhs => ['cycle'],
+            },
+            {   lhs => 'direct',
                 rhs => ['t'],
             },
-            {   lhs => 'zero',
+            {   lhs => 'cycle2',
                 rhs => ['t'],
             },
         ],
@@ -88,27 +97,26 @@ $grammar->precompute();
 my $recce = Marpa::Recognizer->new(
     { grammar => $grammar, ranking_method => 'constant' } );
 
-my $input_length = 4;
+my $input_length = 2;
 $recce->tokens( [ ( ['t'] ) x $input_length ] );
 
-my @counting_up =
-    qw{ 0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111 };
-my @counting_down = reverse @counting_up;
+my @expected1 = qw(
+    direct;direct
+    direct;cycle
+    cycle;direct
+    cycle;cycle
+);
+my @expected = ( @expected1, ( reverse @expected1 ) );
 
-for my $up ( 1, 0 ) {
-    local $MyTest::UP = $up;
-    my $count = $up ? ( \@counting_up ) : ( \@counting_down );
-    my $direction = $up ? 'up' : 'down';
+my $i = 0;
+for my $cycle_rank ( -1, 1 ) {
+    $main::CYCLE_RANK = $cycle_rank;
     $recce->reset_evaluation();
-    my $i = 0;
     while ( my $result = $recce->value() ) {
-        my $got      = ${$result};
-        my $expected = reverse $count->[$i];
-        say ${$result} or die("Could not print to STDOUT: $ERRNO");
-        Test::More::is( $got, $expected, "counting $direction $i" );
+        Test::More::is( ${$result}, $expected[$i], "cycle_rank=$cycle_rank" );
         $i++;
-    } ## end while ( my $result = $recce->value() )
-} ## end for my $up ( 1, 0 )
+    }
+} ## end for my $cycle_rank ( -1, 1 )
 
 1;    # In case used as "do" file
 
