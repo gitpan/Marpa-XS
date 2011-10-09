@@ -26,9 +26,7 @@ use Config;
 use File::Copy;
 use IPC::Cmd;
 use Module::Build;
-use Fatal qw(open close);
 use English qw( -no_match_vars );
-use Time::Piece;
 
 use Marpa::XS::Config;
 
@@ -57,8 +55,6 @@ sub xs_version_contents {
     qw( Scalar::Util List::Util Carp Data::Dumper ExtUtils::PkgConfig Glib );
     my $text = $preamble;
     $text .= "package $package;\n";
-    $text .= q{use vars qw($TIMESTAMP)} . qq{;\n};
-    $text .= q{$TIMESTAMP='} . localtime()->datetime . qq{';\n};
     for my $package (@use_packages) {
         my $version = $Marpa::XS::VERSION_FOR_CONFIG{$package};
         die "No version defined for $package" if not defined $version;
@@ -74,8 +70,6 @@ sub perl_version_contents {
     my $text = $preamble;
     my $marpa_xs_version = $self->dist_version();
     $text .= "package $package;\n";
-    $text .= q{use vars qw($TIMESTAMP)} . qq{;\n};
-    $text .= q{$TIMESTAMP='} . localtime()->datetime . qq{';\n};
     for my $package (@use_packages) {
         my $version = $package eq 'Marpa::XS' ? $marpa_xs_version
 	     : $Marpa::XS::VERSION_FOR_CONFIG{$package};
@@ -317,15 +311,12 @@ sub ACTION_dist {
 } ## end sub ACTION_dist
 
 sub write_installed_pm {
-    my ( $self, @components ) = @_;
-    my $filename           = 'Installed';
-    my @package_components = @components[ 1 .. $#components ];
-    my $contents =
-        installed_contents( $self, join q{::}, @package_components,
-        $filename );
+    my ($self, @components) = @_;
+    my $filename = 'Installed';
+    my $contents = installed_contents( $self, join q{::}, @components, $filename );
     $filename .= q{.pm};
-    $self->write_file( $contents, @components, $filename );
-} ## end sub write_installed_pm
+    $self->write_file($contents, @components, $filename);
+}
 
 sub ACTION_code {
     my $self = shift;

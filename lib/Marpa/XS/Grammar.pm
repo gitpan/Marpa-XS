@@ -47,8 +47,7 @@ my $structure = <<'END_OF_STRUCTURE';
     :package=Marpa::XS::Internal::Symbol
     ID { Unique ID }
     NAME
-    LHS_RANK
-    TERMINAL_RANK
+    RANKING_ACTION
     NULL_VALUE { null value }
     WARN_IF_NO_NULL_VALUE { should have a null value -- warn
     if not }
@@ -61,12 +60,10 @@ my $structure = <<'END_OF_STRUCTURE';
 
     :package=Marpa::XS::Internal::Rule
 
+    C { A C structure }
     ID
-    NAME
     ACTION { action for this rule as specified by user }
-    RANK
-    CHAF_RANK
-    NULL_RANKING
+    RANKING_ACTION
 
 END_OF_STRUCTURE
     Marpa::offset($structure);
@@ -84,11 +81,9 @@ my $structure = <<'END_OF_STRUCTURE';
     SYMBOLS { array of symbol refs }
     ACTIONS { Default package in which to find actions }
     DEFAULT_ACTION { Action for rules without one }
-    DEFAULT_RANK { Rank for rules and symbols without one }
+    CYCLE_RANKING_ACTION { Action for ranking rules which cycle }
     TRACE_FILE_HANDLE
     WARNINGS { print warnings about grammar? }
-    RULE_NAME_REQUIRED
-    RULE_BY_NAME
 
     =LAST_BASIC_DATA_FIELD
 
@@ -235,13 +230,10 @@ sub Marpa::XS::Grammar::new {
     $grammar->[Marpa::XS::Internal::Grammar::INACCESSIBLE_OK] = {};
     $grammar->[Marpa::XS::Internal::Grammar::UNPRODUCTIVE_OK] = {};
     $grammar->[Marpa::XS::Internal::Grammar::INFINITE_ACTION] = 'fatal';
-    $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_RANK]    = 0;
 
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS]             = [];
     $grammar->[Marpa::XS::Internal::Grammar::SYMBOL_HASH]         = {};
     $grammar->[Marpa::XS::Internal::Grammar::RULES]               = [];
-    $grammar->[Marpa::XS::Internal::Grammar::RULE_BY_NAME]        = {};
-    $grammar->[Marpa::XS::Internal::Grammar::RULE_NAME_REQUIRED]  = 0;
 
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C] =
         Marpa::XS::Internal::G_C->new($grammar);
@@ -263,13 +255,12 @@ use constant GRAMMAR_OPTIONS => [
     qw{
         action_object
         actions
+        cycle_ranking_action
         infinite_action
         default_action
         default_null_value
-        default_rank
         inaccessible_ok
         lhs_terminals
-        rule_name_required
         rules
         start
         strip
@@ -333,15 +324,7 @@ sub Marpa::XS::Grammar::set {
         # options and are expected to take force for the other
         # options, even if specified afterwards
 
-        if ( defined( my $value = $args->{'default_rank'} ) ) {
-            Marpa::exception(
-                'terminals option not allowed after grammar is precomputed'
-            ) if $grammar_c->is_precomputed();
-            $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_RANK] = $value;
-        }
-
         # Second pass options
-
         if ( defined( my $value = $args->{'symbols'} ) ) {
             Marpa::exception(
                 'symbols option not allowed after grammar is precomputed')
@@ -362,13 +345,8 @@ sub Marpa::XS::Grammar::set {
                         'lhs_terminals option not allowed after grammar is precomputed'
                     );
                 }
-                Marpa::XS::uncaught_error($error);
-            } ## end if ( not $ok )
-        } ## end if ( defined( my $value = $args->{'lhs_terminals'} ))
-
-        if ( defined( my $value = $args->{'rule_name_required'} ) ) {
-            $grammar->[Marpa::XS::Internal::Grammar::RULE_NAME_REQUIRED] =
-                !!$value;
+		Marpa::XS::uncaught_error($error);
+            }
         }
 
         if ( defined( my $value = $args->{'terminals'} ) ) {
@@ -411,13 +389,18 @@ sub Marpa::XS::Grammar::set {
             $grammar->[Marpa::XS::Internal::Grammar::ACTION_OBJECT] = $value;
         }
 
+        if ( defined( my $value = $args->{'cycle_ranking_action'} ) ) {
+            $grammar->[Marpa::XS::Internal::Grammar::CYCLE_RANKING_ACTION] =
+                $value;
+        }
+
         if ( defined( my $value = $args->{'default_action'} ) ) {
             $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_ACTION] = $value;
         }
 
         if ( defined( my $value = $args->{'strip'} ) ) {
-            ;    # A no-op in the XS version
-        }
+	  ; # A no-op in the XS version
+	}
 
         if ( defined( my $value = $args->{'infinite_action'} ) ) {
             if ( $value && $grammar_c->is_precomputed() ) {
@@ -502,8 +485,6 @@ sub Marpa::XS::Grammar::set {
 sub Marpa::XS::Grammar::precompute {
     my $grammar = shift;
 
-    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
-    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
     my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
     my $trace_fh =
         $grammar->[Marpa::XS::Internal::Grammar::TRACE_FILE_HANDLE];
@@ -547,22 +528,17 @@ sub Marpa::XS::Grammar::precompute {
 	}
 	if ($error eq 'start symbol not on LHS') {
 	    my $symbol_id = $grammar_c->context('symid');
+	    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
 	    my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
 	    Marpa::exception(qq{Start symbol "$name" not on LHS of any rule});
 	}
 	if ($error eq 'unproductive start symbol') {
 	    my $symbol_id = $grammar_c->context('symid');
+	    my $symbols = $grammar->[Marpa::XS::Internal::Grammar::SYMBOLS];
 	    my $name = $symbols->[$symbol_id]->[Marpa::XS::Internal::Symbol::NAME];
 	    Marpa::exception(qq{Unproductive start symbol: "$name"});
 	}
         Marpa::XS::uncaught_error($error);
-    }
-
-    my $default_rank = $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_RANK];
-
-    # LHS_RANK is left undefined if not explicitly set
-    SYMBOL: for my $symbol ( @{$symbols} ) {
-	$symbol->[Marpa::XS::Internal::Symbol::TERMINAL_RANK] //= $default_rank;
     }
 
     populate_null_values($grammar);
@@ -641,91 +617,9 @@ sub Marpa::XS::Grammar::precompute {
         } ## end for my $symbol ( @{ $grammar->[...]})
     } ## end if ( $grammar->[Marpa::XS::Internal::Grammar::WARNINGS...])
 
-    RULE: for my $rule ( @{$rules} ) {
-	my $rule_rank = $rule->[Marpa::XS::Internal::Rule::RANK];
-	my $rule_id         = $rule->[Marpa::XS::Internal::Rule::ID];
-	my $lhs_id    = $grammar_c->rule_lhs($rule_id);
-	my $lhs = $symbols->[$lhs_id];
-	my $lhs_rank = $lhs->[Marpa::XS::Internal::Symbol::LHS_RANK];
-	SET_RULE_RANK: {
-	    last SET_RULE_RANK if defined $rule_rank;
-	    my $original_rule_id = $grammar_c->rule_original($rule_id);
-	    if ( not defined $original_rule_id ) {
-		$rule_rank = $rule->[Marpa::XS::Internal::Rule::RANK] =
-		    $default_rank;
-		last SET_RULE_RANK;
-	    }
-	    my $original_rule = $rules->[$original_rule_id];
-	    $rule_rank = $rule->[Marpa::XS::Internal::Rule::RANK] =
-		$original_rule->[Marpa::XS::Internal::Rule::RANK];
-	} ## end SET_RULE_RANK:
-	next RULE if not defined $lhs_rank or
-	 $lhs_rank == $rule->[Marpa::XS::Internal::Rule::RANK];
-	Marpa::exception("Rank mismatch in rule: ", 
-	    brief_rule($rule), "\n",
-	    "LHS rank is $lhs_rank; rule rank is ",
-	    $rule->[Marpa::XS::Internal::Rule::RANK]);
-    }
-
-    #
-    # Set ranks for chaf rules
-    #
-
-    RULE: for my $rule (@{$rules}) {
-
-         my $rule_id = $rule->[Marpa::XS::Internal::Rule::ID];
-	 my $virtual_start = $grammar_c->rule_virtual_start($rule_id);
-
-	 # Nothing to do unless this is a CHAF rule
-	 next RULE if $virtual_start < 0;
-	 my $original_rule_id = $grammar_c->rule_original($rule_id);
-	 my $original_rule = $rules->[$original_rule_id];
-
-	 # If nulling and proper symbols rank the same, nothing to do
-         my $null_ranking = $original_rule->[Marpa::XS::Internal::Rule::NULL_RANKING];
-	 next RULE if not $null_ranking;
-
-	 my $original_rule_length = $grammar_c->rule_length($original_rule_id);
-
-	 my $rank = 0;
-	 my $proper_nullable_count = 0;
-	RHS_IX:
-	for ( my $rhs_ix = $virtual_start; $rhs_ix < $original_rule_length; $rhs_ix++ )
-	{
-	    my $original_rhs_id =
-		$grammar_c->rule_rhs( $original_rule_id, $rhs_ix );
-
-	    # Do nothing unless this is a proper nullable
-	    next RHS_IX if $grammar_c->symbol_is_nulling($original_rhs_id);
-	    next RHS_IX if not $grammar_c->symbol_null_alias($original_rhs_id);
-
-	    my $rhs_id = $grammar_c->rule_rhs( $rule_id, $rhs_ix - $virtual_start );
-	    last RHS_IX if not defined $rhs_id;
-	    $rank *= 2;
-	    $rank += ( $grammar_c->symbol_is_nulling($rhs_id) ? 0 : 1 );
-
-	    last RHS_IX if ++$proper_nullable_count >= 2;
-	} ## end for ( my $rhs_ix = $virtual_start; $rhs_ix < $rhs_length...)
-
-	if ($null_ranking eq 'high') {
-	    $rank = (2**$proper_nullable_count - 1) - $rank;
-	}
-	$rule->[Marpa::XS::Internal::Rule::CHAF_RANK] = $rank;
-
-# if ($ENV{'MARPA_AUTHOR_TEST'}) {
-    # say STDERR "Rank ", $rule->[Marpa::XS::Internal::Rule::CHAF_RANK], "; rule: ", $grammar->brief_rule($rule_id);
-# }
-
-    }
-
     return $grammar;
 
 } ## end sub Marpa::XS::Grammar::precompute
-
-sub Marpa::XS::Grammar::rule_by_name {
-    my ($grammar, $name) = @_;
-    return $grammar->[Marpa::XS::Internal::Grammar::RULE_BY_NAME]->{$name};
-}
 
 sub Marpa::XS::Grammar::show_problems {
     my ($grammar) = @_;
@@ -1309,8 +1203,6 @@ sub populate_null_values {
         my $proper_alias = $symbols->[$proper_alias_id];
         $nulling_symbol->[Marpa::XS::Internal::Symbol::NULL_VALUE] =
             $proper_alias->[Marpa::XS::Internal::Symbol::NULL_VALUE];
-        $nulling_symbol->[Marpa::XS::Internal::Symbol::TERMINAL_RANK] =
-            $proper_alias->[Marpa::XS::Internal::Symbol::TERMINAL_RANK];
     }
 }
 
@@ -1356,21 +1248,12 @@ sub assign_user_symbol {
     my $symbol = assign_symbol( $grammar, $name );
     my $symbol_id = $symbol->[Marpa::XS::Internal::Symbol::ID];
 
+    my $ranking_action;
     my $terminal;
-
-    # Do RANK first, so that the other options override it
-    my $rank = $options->{rank};
-    if ( defined $rank ) {
-        Marpa::exception(qq{Symbol "$name": rank must be an integer})
-            if not Scalar::Util::looks_like_number($rank)
-                or not int($rank) != $rank;
-        $symbol->[Marpa::XS::Internal::Symbol::LHS_RANK] =
-            $symbol->[Marpa::XS::Internal::Symbol::TERMINAL_RANK] = $rank;
-    } ## end if ( defined $rank )
 
     PROPERTY: while ( my ( $property, $value ) = each %{$options} ) {
         if (not $property ~~
-            [qw(terminal rank lhs_rank terminal_rank null_value)] )
+            [qw(terminal ranking_action null_value)] )
         {
             Marpa::exception(qq{Unknown symbol property "$property"});
         }
@@ -1380,19 +1263,6 @@ sub assign_user_symbol {
         if ( $property eq 'null_value' ) {
             $symbol->[Marpa::XS::Internal::Symbol::NULL_VALUE] = \$value;
         }
-        if ( $property eq 'terminal_rank' ) {
-            Marpa::exception(
-                qq{Symbol "$name": terminal_rank must be an integer})
-                if not Scalar::Util::looks_like_number($value)
-                    or int($value) != $value;
-            $symbol->[Marpa::XS::Internal::Symbol::TERMINAL_RANK] = $value;
-        } ## end if ( $property eq 'terminal_rank' )
-        if ( $property eq 'lhs_rank' ) {
-            Marpa::exception(qq{Symbol "$name": lhs_rank must be an integer})
-                if not Scalar::Util::looks_like_number($value)
-                    or int($value) != $value;
-            $symbol->[Marpa::XS::Internal::Symbol::LHS_RANK] = $value;
-        } ## end if ( $property eq 'lhs_rank' )
     } ## end while ( my ( $property, $value ) = each %{$options} )
 
     return $symbol;
@@ -1473,26 +1343,21 @@ sub add_user_rule {
         if not defined $grammar
             or not defined $options;
 
-    my $grammar_c    = $grammar->[Marpa::XS::Internal::Grammar::C];
-    my $rules        = $grammar->[Marpa::XS::Internal::Grammar::RULES];
-    my $default_rank = $grammar->[Marpa::XS::Internal::Grammar::DEFAULT_RANK];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
 
     my ( $lhs_name, $rhs_names, $action );
     my ( $min, $separator_name );
-    my $rank;
-    my $null_ranking;
-    my $rule_name;
+    my $ranking_action;
     my $proper_separation = 0;
     my $keep_separation   = 0;
 
     while ( my ( $option, $value ) = each %{$options} ) {
         given ($option) {
-            when ('name')           { $rule_name         = $value }
             when ('rhs')            { $rhs_names         = $value }
             when ('lhs')            { $lhs_name          = $value }
             when ('action')         { $action            = $value }
-            when ('rank')           { $rank              = $value }
-            when ('null_ranking')   { $null_ranking      = $value }
+            when ('ranking_action') { $ranking_action    = $value }
             when ('min')            { $min               = $value }
             when ('separator')      { $separator_name    = $value }
             when ('proper')         { $proper_separation = $value }
@@ -1505,64 +1370,37 @@ sub add_user_rule {
 
     my $lhs = assign_user_symbol( $grammar, $lhs_name );
     $rhs_names //= [];
-
-    my @rule_problems     = ();
-
-    my $rhs_ref_type = ref $rhs_names;
-    if ( not $rhs_ref_type or $rhs_ref_type ne 'ARRAY' ) {
-	my $problem =
-	      "RHS is not ref to ARRAY\n"
-	    . '  Type of rhs is '
-	    . ( $rhs_ref_type ? $rhs_ref_type : 'not a ref' )
-	    . "\n";
-	my $d = Data::Dumper->new( [$rhs_names], ['rhs'] );
-	$problem .= $d->Dump();
-	push @rule_problems, $problem;
-    } ## end if ( not $rhs_ref_type or $rhs_ref_type ne 'ARRAY' )
-    if ( not defined $lhs_name ) {
-	push @rule_problems, "Missing LHS\n";
-    }
-
-    if ( defined $rank
-        and
-        ( not Scalar::Util::looks_like_number($rank) or int($rank) != $rank )
-        )
-    {
-        push @rule_problems, "Rank must be undefined or an integer\n";
-    } ## end if ( defined $rank and ( not Scalar::Util::looks_like_number...))
-    $rank //= $default_rank;
-
-    if (defined $null_ranking and $null_ranking ne 'high' and $null_ranking ne 'low') {
-        push @rule_problems, "Null Ranking must be undefined, 'high' or 'low'\n";
-    }
-
-    # Determine the rule's name
-    my $rules_by_name = $grammar->[Marpa::XS::Internal::Grammar::RULE_BY_NAME];
-    if (defined $rule_name and defined $rules_by_name->{$rule_name}) {
-	    push @rule_problems, qq{rule named "$rule_name" already exists};
-    }
-    if (!defined $rule_name and  $grammar->[Marpa::XS::Internal::Grammar::RULE_NAME_REQUIRED]) {
-        $rule_name = $lhs->[Marpa::XS::Internal::Symbol::NAME];
-	if (defined $rules_by_name->{$rule_name}) {
-	    push @rule_problems, qq{Cannot name rule from LHS; rule named "$rule_name" already exists};
-	}
-    }
-
-    if (scalar @rule_problems) {
+    CHECK_RULE: {
+        my @problems     = ();
+        my $rhs_ref_type = ref $rhs_names;
+        if ( not $rhs_ref_type or $rhs_ref_type ne 'ARRAY' ) {
+	    my $problem =
+                  "RHS is not ref to ARRAY\n"
+                . '  Type of rhs is '
+                . ( $rhs_ref_type ? $rhs_ref_type : 'not a ref' )
+		. "\n";
+	    my $d = Data::Dumper->new( [$rhs_names], ['rhs'] );
+	    $problem .= $d->Dump();
+            push @problems, $problem;
+        } ## end if ( not $rhs_ref_type or $rhs_ref_type ne 'ARRAY' )
+        if ( not defined $lhs_name ) {
+            push @problems, "Missing LHS\n";
+        }
+        last CHECK_RULE if not scalar @problems;
         my %dump_options = %{$options};
         delete $dump_options{grammar};
         my $msg =
-            ( scalar @rule_problems ) . " problem(s) in the following rule:\n";
+            ( scalar @problems ) . " problem(s) in the following rule:\n";
         my $d = Data::Dumper->new( [ \%dump_options ], ['rule'] );
         $msg .= $d->Dump();
-        for my $problem_number ( 0 .. $#rule_problems ) {
+        for my $problem_number ( 0 .. $#problems ) {
             $msg
                 .= 'Problem '
                 . ( $problem_number + 1 ) . q{: }
-                . $rule_problems[$problem_number] . "\n";
-        } ## end for my $problem_number ( 0 .. $#rule_problems )
+                . $problems[$problem_number] . "\n";
+        } ## end for my $problem_number ( 0 .. $#problems )
         Marpa::exception($msg);
-    }
+    } ## end CHECK_RULE:
 
     my $rhs = [ map { assign_user_symbol( $grammar, $_ ); } @{$rhs_names} ];
 
@@ -1578,27 +1416,21 @@ sub add_user_rule {
     my @rhs_ids = map { $_->[Marpa::XS::Internal::Symbol::ID] } @{$rhs};
     my $lhs_id = $lhs->[Marpa::XS::Internal::Symbol::ID];
 
-    if ($is_ordinary_rule) {
+    if ( $is_ordinary_rule ) {
         my $ordinary_rule_id = $grammar_c->rule_new( $lhs_id, \@rhs_ids );
-        if ( not defined $ordinary_rule_id ) {
-            my $rule_description =
-                "$lhs_name -> " . ( join q{ }, @{$rhs_names} );
-            my $error = $grammar_c->error();
-            my $problem_description =
-                $error eq "duplicate rule"
-                ? 'Duplicate rule'
-                : qq{Unknown problem ("$error")};
-            Marpa::exception("$problem_description: $rule_description");
-        } ## end if ( not defined $ordinary_rule_id )
-        my $ordinary_rule = $rules->[$ordinary_rule_id];
+	if (not defined $ordinary_rule_id) {
+	    my $rule_description = "$lhs_name -> " . ( join q{ }, @{$rhs_names} );
+	    my $error = $grammar_c->error();
+	    my $problem_description =
+		$error eq "duplicate rule"
+		? 'Duplicate rule'
+		: qq{Unknown problem ("$error")};
+	    Marpa::exception( "$problem_description: $rule_description" );
+	}
+        my $ordinary_rule    = $rules->[$ordinary_rule_id];
         $ordinary_rule->action_set( $grammar, $action );
-        $ordinary_rule->[Marpa::XS::Internal::Rule::RANK] = $rank // $default_rank;
-        $ordinary_rule->[Marpa::XS::Internal::Rule::NULL_RANKING] =
-            $null_ranking;
-        if ( defined $rule_name ) {
-            $ordinary_rule->[Marpa::XS::Internal::Rule::NAME] = $rule_name;
-            $rules_by_name->{$rule_name} = $ordinary_rule;
-        }
+        $ordinary_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
+            $ranking_action;
         return;
     }    # not defined $min
 
@@ -1648,13 +1480,8 @@ sub add_user_rule {
     # semantic equivalents.
     my $original_rule = $rules->[$original_rule_id];
     $original_rule->action_set( $grammar, $action );
-    $original_rule->[Marpa::XS::Internal::Rule::NULL_RANKING] = $null_ranking;
-    $original_rule->[Marpa::XS::Internal::Rule::RANK]         = $rank;
-
-    if ( defined $rule_name ) {
-	$original_rule->[Marpa::XS::Internal::Rule::NAME] = $rule_name;
-	$rules_by_name->{$rule_name} = $original_rule;
-    }
+    $original_rule->[Marpa::XS::Internal::Rule::RANKING_ACTION] =
+        $ranking_action;
 
     $grammar->[Marpa::XS::Internal::Grammar::NEXT_SYMBOL_NAME] = undef;
 

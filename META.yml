@@ -1,5 +1,5 @@
 ---
-abstract: 'XS Version of Marpa'
+abstract: 'XS Version of Marpa (Experimental)'
 author:
   - 'Jeffrey Kegler'
 build_requires:
@@ -44,7 +44,7 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.015_001
+    version: 0.016000
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
@@ -79,4 +79,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.015_001
+version: 0.016000
