@@ -169,7 +169,11 @@ subbody ::= ';' ;
 
 package ::= PACKAGE WORD WORD ';' ;
 
-use ::= USE startsub WORD WORD listexpr ';' ;
+/* use ::= USE startsub WORD WORD listexpr ';' ; */
+long_use: use ::= USE startsub WORD VERSION listexpr ';' ;
+revlong_use: use ::= USE startsub VERSION WORD listexpr ';' ;
+perl_version_use: use ::= USE startsub VERSION ';' ;
+short_use: use ::= USE startsub WORD listexpr ';' ;
 
 /* Ordinary expressions; logical combinations */
 
@@ -461,25 +465,25 @@ END_OF_GRAMMAR
 ## no critic (ValuesAndExpressions::RequireInterpolationOfMetachars)
 
 my %symbol_name = (
-    q{'~'} => 'TILDE',
-    q{'-'} => 'MINUS',
-    q{','} => 'COMMA',
-    q{';'} => 'SEMI',
-    q{':'} => 'COLON',
-    q{'!'} => 'BANG',
-    q{'?'} => 'QUESTION',
-    q{'('} => 'LPAREN',
-    q{')'} => 'RPAREN',
-    q{'['} => 'LSQUARE',
-    q{']'} => 'RSQUARE',
-    q['{'] => 'LCURLY',
-    q['}'] => 'RCURLY',
-    q{'@'} => 'ATSIGN',
-    q{'$'} => 'DOLLAR',
-    q{'*'} => 'ASTERISK',
-    q{'&'} => 'AMPERSAND',
-    q{'%'} => 'PERCENT',
-    q{'+'} => 'PLUS',
+    q{~} => 'TILDE',
+    q{-} => 'MINUS',
+    q{,} => 'COMMA',
+    q{;} => 'SEMI',
+    q{:} => 'COLON',
+    q{!} => 'BANG',
+    q{?} => 'QUESTION',
+    q{(} => 'LPAREN',
+    q{)} => 'RPAREN',
+    q{[} => 'LSQUARE',
+    q{]} => 'RSQUARE',
+    q[{] => 'LCURLY',
+    q[}] => 'RCURLY',
+    q{@} => 'ATSIGN',
+    q{$} => 'DOLLAR',
+    q{*} => 'ASTERISK',
+    q{&} => 'AMPERSAND',
+    q{%} => 'PERCENT',
+    q{+} => 'PLUS',
 );
 
 my %perl_type_by_cast = (
@@ -595,15 +599,15 @@ my %perl_type_by_op = (
 );
 
 my %perl_type_by_word = (
-    'AUTOLOAD'         => 'PHASER -- TO BE DETERMINED',
-    'BEGIN'            => 'PHASER -- TO BE DETERMINED',
-    'CHECK'            => 'PHASER -- TO BE DETERMINED',
+    'AUTOLOAD'         => 'PHASER',
+    'BEGIN'            => 'PHASER',
+    'CHECK'            => 'PHASER',
     'CORE'             => 'TO_BE_DETERMINED',
-    'DESTROY'          => 'PHASER -- TO BE DETERMINED',
-    'END'              => 'PHASER -- TO BE DETERMINED',
-    'INIT'             => 'PHASER -- TO BE DETERMINED',
+    'DESTROY'          => 'PHASER',
+    'END'              => 'PHASER',
+    'INIT'             => 'PHASER',
     'NULL'             => 'TO_BE_DETERMINED',
-    'UNITCHECK'        => 'PHASER -- TO BE DETERMINED',
+    'UNITCHECK'        => 'PHASER',
     '__DATA__'         => 'TO_BE_DETERMINED',
     '__END__'          => 'TO_BE_DETERMINED',
     '__FILE__'         => 'THING',
@@ -844,13 +848,22 @@ my %perl_type_by_word = (
 
 ## use critic
 
+my %rule_rank = (
+    long_use => 2,
+    perl_version_use => 1,
+    short_use => 0,
+);
+
 sub Marpa::Perl::new {
     my ( $class, $gen_closure ) = @_;
 
+    my $closure_type = ref $gen_closure;
+    if ( $closure_type ne 'HASH' and $closure_type ne 'CODE' ) {
+        die 'Closure argument to new must be HASH or CODE ref';
+    }
     my %symbol = ();
     my @rules;
     my %closure;
-    my $has_ranking_action;
 
     LINE:
     for my $line ( split /\n/xms, $reference_grammar ) {
@@ -861,10 +874,19 @@ sub Marpa::Perl::new {
         next LINE if $line eq q{};
         Carp::croak("Misformed line: $line")
             if $line !~ / [:][:][=] .* [;] \s* \z /xms;
-        my ($action_name) = ( $line =~ /\A (\w+) \s* [:] [^:] /gxms );
+        my ($rule_name) = ( $line =~ /\A (\w+) \s* [:] [^:] /gxms );
         my ( $lhs, $rhs_string ) =
             ( $line =~ / \s* (\w+) \s* [:][:][=] \s* (.*) [;] \s* \z/xms );
-        my @rhs = map { $symbol_name{$_} // $_ } split q{ }, $rhs_string;
+	my @rhs = ();
+	RHS: for my $rhs_desc ( split q{ }, $rhs_string ) {
+	    if ($rhs_desc =~ m/\A ['] ([^']*) ['] \z/xms) {
+	        my $rhs_name = $symbol_name{$1};
+		die "No symbol name for $rhs_desc" if not defined $rhs_name;
+		push @rhs, $rhs_name;
+		next RHS;
+	    }
+	    push @rhs, $rhs_desc;
+	}
 
         for my $symbol ( $lhs, @rhs ) {
             $symbol{$symbol} //= 0;
@@ -875,22 +897,30 @@ sub Marpa::Perl::new {
         $symbol{$lhs}++;
 
         # only create action for non-empty rules
-        my @action_arg = ();
+        my @additional_args = ();
         if ( scalar @rhs ) {
-            $action_name ||= 'MyAction::rule_' . scalar @rules;
-            my ( $action, $ranking_action ) =
-                $gen_closure->( $lhs, \@rhs, $action_name );
-            if ( defined $action ) {
-                $closure{"!$action_name"} = $action;
-                push @action_arg, action => "!$action_name";
-            }
-            if ( defined $ranking_action ) {
-                $closure{"!r!$action_name"} = $ranking_action;
-                push @action_arg, ranking_action => "!r!$action_name";
-                $has_ranking_action++;
-            }
+            if ( $closure_type eq 'CODE' ) {
+                $rule_name ||= q{!} . scalar @rules;
+                my ($action) = $gen_closure->( $lhs, \@rhs, $rule_name );
+                if ( defined $action ) {
+                    $closure{"!$rule_name"} = $action;
+                    push @additional_args, action => "!$rule_name";
+                }
+            } ## end if ( ref $gen_closure eq 'CODE' )
+            if ( $closure_type eq 'HASH' ) {
+                my $action_name = $rule_name // $lhs;
+                my $action = $gen_closure->{$action_name};
+                if ( defined $action ) {
+                    $closure{"!$action_name"} = $action;
+                    push @additional_args, action => "!$action_name";
+                }
+            } ## end if ( ref $gen_closure eq 'HASH' )
         } ## end if ( scalar @rhs )
-        push @rules, { lhs => $lhs, rhs => \@rhs, @action_arg };
+	my $rank = defined $rule_name ? $rule_rank{$rule_name} : undef;
+	if (defined $rank) {
+	    push @additional_args, rank => $rank;
+	}
+        push @rules, { lhs => $lhs, rhs => \@rhs, @additional_args, name => $rule_name };
     } ## end for my $line ( split /\n/xms, $reference_grammar )
 
     my $grammar = Marpa::Grammar->new(
@@ -906,7 +936,6 @@ sub Marpa::Perl::new {
     return bless {
         grammar            => $grammar,
         closure            => \%closure,
-        has_ranking_action => $has_ranking_action
     }, $class;
 
 } ## end sub Marpa::Perl::new
@@ -929,13 +958,15 @@ sub token_not_accepted {
          $perl_token_desc .= " length=" . $length;
     }
     $perl_token_desc .= Data::Dumper::Dumper( $token_value );
+    my $logical_filename = $ppi_token->logical_filename();
+    $logical_filename = '[no file]' if not $logical_filename;
     Carp::croak(
-	"$perl_token_desc",
-	'PPI token is ', (ref $ppi_token), q{: },
-	  $ppi_token->logical_filename(), q{:},
-	  $ppi_token->logical_line_number(), q{:},
-	  $ppi_token->column_number(), q{, },
-	  q{content="},  $ppi_token->content(), q{"}
+        "$perl_token_desc",                'PPI token is ',
+        ( ref $ppi_token ),                qq{: $logical_filename:},
+        $ppi_token->logical_line_number(), q{:},
+        $ppi_token->column_number(),       q{, },
+        q{content="},                      $ppi_token->content(),
+        q{"}
     );
 }
 
@@ -946,7 +977,7 @@ sub unknown_ppi_token {
 	Marpa::Perl::default_show_location($ppi_token), "\n"
 }
 
-sub Marpa::Perl::parse {
+sub Marpa::Perl::read {
 
     my ( $parser, $input, $hash_arg ) = @_;
 
@@ -962,13 +993,12 @@ sub Marpa::Perl::parse {
     } ## end while ( my ( $arg, $value ) = each %{$hash_arg} )
 
     my $grammar = $parser->{grammar};
-    $parser->{has_ranking_action}
-        and push @recce_args, ranking_method => 'constant';
 
     my $recce = Marpa::Recognizer->new(
         {   grammar  => $grammar,
             mode     => 'stream',
             closures => $parser->{closure},
+	    ranking_method => 'high_rule_only',
             @recce_args
         }
     );
@@ -983,8 +1013,6 @@ sub Marpa::Perl::parse {
     my @earleme_to_PPI_token;
     my $perl_type;
 
-    local $Marpa::Perl::Internal::CONTEXT =
-        [ \@PPI_tokens, \@earleme_to_PPI_token ];
     TOKEN:
     for (
         my $PPI_token_ix = 0;
@@ -1003,14 +1031,20 @@ sub Marpa::Perl::parse {
 
         if ( $PPI_type eq 'PPI::Token::Symbol' ) {
             my ( $sigil, $word ) =
-                ( $token->{content} =~ / \A ([\$]) (\w*) \z /xms );
-            if ( not defined $sigil or $sigil ne q{$} ) {
+                ( $token->{content} =~ / \A ([\$@%]) (\w*) \z /xms );
+            if ( not defined $sigil ) {
                 Carp::croak( 'Unknown symbol type: ',
                     Data::Dumper::Dumper($token) );
                 next TOKEN;
             }
-            defined $recce->read( 'DOLLAR', $sigil )
-                or token_not_accepted( $token, 'DOLLAR', $sigil );
+	    my $symbol_name = $symbol_name{$sigil};
+            if ( not defined $symbol_name ) {
+                Carp::croak( 'Unknown symbol type: ',
+                    Data::Dumper::Dumper($token) );
+                next TOKEN;
+            }
+            defined $recce->read( $symbol_name, $sigil )
+                or token_not_accepted( $token, $symbol_name, $sigil );
             defined $recce->read( 'WORD', $word )
                 or token_not_accepted( $token, 'WORD', $word );
             next TOKEN;
@@ -1037,10 +1071,34 @@ sub Marpa::Perl::parse {
         if ( $PPI_type eq 'PPI::Token::Word' ) {
             my $content = $token->{content};
             $perl_type = $perl_type_by_word{$content} // 'WORD';
+	    if ($perl_type eq 'WORD') {
+		my $token_found = 0;
+		TYPE: for my $type ( qw(WORD FUNC METHOD FUNCMETH) ) {
+		    defined $recce->alternative( $type, $content, 1 )
+		        and $token_found++;
+		}
+		$token_found or token_not_accepted( $token, 'WORD', $content, 1 );
+		$recce->earleme_complete();
+		next TOKEN;
+	    }
+	    if ( $perl_type eq 'PHASER' ) {
+		defined $recce->read('SUB')
+		    or token_not_accepted( $token, 'PHASER', 'no value' );
+		defined $recce->read( 'WORD', $content )
+		    or token_not_accepted( $token, 'WORD', $content );
+		next TOKEN;
+	    } ## end if ( $perl_type eq 'PHASER' )
             defined $recce->read( $perl_type, $content )
                 or token_not_accepted( $token, $perl_type, $content );
             next TOKEN;
         } ## end if ( $PPI_type eq 'PPI::Token::Word' )
+
+        if ( $PPI_type eq 'PPI::Token::Label' ) {
+            my $content = $token->{content};
+            defined $recce->read( 'LABEL', $content )
+                or token_not_accepted( $token, 'LABEL', $content );
+	    next TOKEN;
+	}
 
         if ( $PPI_type eq 'PPI::Token::Operator' ) {
             my $content = $token->{content};
@@ -1068,6 +1126,7 @@ sub Marpa::Perl::parse {
                 $recce->earleme_complete();
                 next TOKEN;
             } ## end if ( $perl_type eq 'PLUS' )
+
             if ( $perl_type eq 'MINUS' ) {
 
                 # Apply the "ruby slippers"
@@ -1138,12 +1197,21 @@ sub Marpa::Perl::parse {
             next TOKEN;
         } ## end if ( $PPI_type eq 'PPI::Token::Structure' )
 
-        if ( $PPI_type eq 'PPI::Token::Number' ) {
-            my $content = $token->{content};
-            defined $recce->read( 'THING', $content + 0 )
-                or token_not_accepted( $token, 'THING', $content + 0 );
+        if (   $PPI_type eq 'PPI::Token::Number'
+            or $PPI_type eq 'PPI::Token::Number::Float'
+            or $PPI_type eq 'PPI::Token::Number::Version' )
+        {
+            my $content     = $token->{content};
+            my $token_found = 0;
+            TYPE: for my $type (qw(THING VERSION)) {
+                defined $recce->alternative( $type, $content, 1 )
+                    and $token_found++;
+            }
+            $token_found or token_not_accepted( $token, 'THING', $content );
+            $recce->earleme_complete();
             next TOKEN;
-        } ## end if ( $PPI_type eq 'PPI::Token::Number' )
+        } ## end if ( $PPI_type eq 'PPI::Token::Number' or $PPI_type ...)
+
         if ( $PPI_type eq 'PPI::Token::Quote::Single' ) {
             my $content = $token->{content};
             ## no critic (BuiltinFunctions::ProhibitStringyEval)
@@ -1156,23 +1224,47 @@ sub Marpa::Perl::parse {
             next TOKEN;
         } ## end if ( $PPI_type eq 'PPI::Token::Quote::Single' )
 
+        if ( $PPI_type eq 'PPI::Token::QuoteLike::Words' ) {
+            my $content = $token->{content};
+            my $words = $token->literal();
+            defined $recce->read( 'THING', $words )
+                or token_not_accepted( $token, 'THING', $words );
+            next TOKEN;
+        } ## end if ( $PPI_type eq 'PPI::Token::Quote::Single' )
+
         unknown_ppi_token($token);
 
     } ## end for ( my $PPI_token_ix = 0; $PPI_token_ix <= $#PPI_tokens...)
 
     $recce->end_input();
+    $parser->{recce} = $recce;
+    $parser->{PPI_tokens} = \@PPI_tokens;
+    $parser->{earleme_to_PPI_token} = \@earleme_to_PPI_token;
+    return $parser;
+
+} ## end sub Marpa::Perl::read
+
+sub Marpa::Perl::eval {
+    my ($parser) = @_;
+    my $recce = $parser->{recce};
+    local $Marpa::Perl::Internal::CONTEXT =
+        [ $parser->{PPI_tokens}, $parser->{earleme_to_PPI_token} ];
     if (wantarray) {
+	my $recce = $parser->{recce};
         my @values = ();
         while ( defined( my $value_ref = $recce->value() ) ) {
             push @values, ${$value_ref};
         }
         return @values;
     } ## end if (wantarray)
-    else {
-        my $value_ref = $recce->value();
-        return $value_ref;
-    }
+    my $value_ref = $recce->value();
+    return $value_ref;
+} ## end sub Marpa::Perl::eval
 
+sub Marpa::Perl::parse {
+    my ( $parser, $input, $hash_arg ) = @_;
+    $parser->Marpa::Perl::read( $input, $hash_arg );
+    return $parser->Marpa::Perl::eval();
 } ## end sub Marpa::Perl::parse
 
 # Context-sensitive callback for
@@ -1195,5 +1287,24 @@ sub Marpa::Perl::default_show_location {
         . q{, column }
         . $token->column_number();
 } ## end sub Marpa::Perl::default_show_location
+
+sub Marpa::Perl::foreach_completion {
+    my ($parser, $closure) = @_;
+    my $recce = $parser->{recce};
+    my $recce_c   = $recce->[Marpa::XS::Internal::Recognizer::C];
+    my $grammar   = $recce->[Marpa::XS::Internal::Recognizer::GRAMMAR];
+    my $grammar_c = $grammar->[Marpa::XS::Internal::Grammar::C];
+    my $rules = $grammar->[Marpa::XS::Internal::Grammar::RULES];
+    AND_NODE: for ( my $id = 0;; $id++ ) {
+        my $parent = $recce_c->and_node_parent($id);
+        last AND_NODE if not defined $parent;
+        my $rule_id    = $recce_c->or_node_rule($parent);
+	next AND_NODE if $grammar_c->rule_is_virtual_lhs($rule_id);
+        my $position   = $recce_c->or_node_position($parent);
+        my $rhs_length = $grammar_c->rule_length($rule_id);
+        next AND_NODE if $position != $rhs_length;
+	$closure->($parser, $id);
+    } ## end for ( my $id = 0;; $id++ )
+} ## end sub Marpa::Perl::foreach_completion
 
 1;
