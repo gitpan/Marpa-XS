@@ -1,5 +1,5 @@
 ---
-abstract: 'XS Version of Marpa (Experimental)'
+abstract: 'XS Version of Marpa'
 author:
   - 'Jeffrey Kegler'
 build_requires:
@@ -44,15 +44,12 @@ no_index:
 provides:
   Marpa::XS:
     file: lib/Marpa/XS.pm
-    version: 0.016000
+    version: 0.017_000
   Marpa::XS::Grammar:
     file: lib/Marpa/XS/Grammar.pm
     version: 0
   Marpa::XS::Internal:
     file: lib/Marpa/XS/Internal.pm
-    version: 0
-  Marpa::XS::Internal::Callback:
-    file: lib/Marpa/XS/Callback.pm
     version: 0
   Marpa::XS::Internal::Grammar:
     file: lib/Marpa/XS/Grammar.pm
@@ -79,4 +76,4 @@ requires:
   Task::Weaken: 0
 resources:
   repository: git://github.com/jeffreykegler/Marpa-XS.git
-version: 0.016000
+version: 0.017_000

@@ -15,41 +15,52 @@
 
 =head1 NAME
 
-Marpa::XS::Semantics::Order - How Marpa Ranks Ambiguous Parses
+Marpa::XS::Semantics::Order - How Marpa ranks ambiguous parses
 
 =head1 DESCRIPTION
 
-This document details the order in which
+Marpa allows ambiguous parses.
+While an unambiguous parse can produce at most one parse tree
+and one parse result,
+an ambiguous parse will produce a parse series.
+A parse series is a sequence of parse trees,
+each of which will have its own parse result.
+
+This document describes ways of controlling
+the order in which
 the recognizer's
 L<C<value>|Marpa::XS::Recognizer/"value">
 method
-returns parse results.
-The same mechanism allows the selection of parse results.
-It can also be exploited to do the actual processing
-of parses, using side effects.
+evaluates the parse
+trees of an ambiguous parse.
+It also describes ways to excluding selected parse trees
+from the parse series.
 
-=head2 Duplicate Parses are Eliminated
+=head2 Duplicate parses are eliminated
 
-In a single parse series,
-Marpa will never return the same parse result twice.
-Marpa regards two parses as being the same if they are
+When evaluating the parse results of a parse series,
+Marpa does not evaluate the same parse tree twice.
+Marpa considers two parse trees to be the same if they are
 B<semantic duplicates>.
 
-Two parses are semantic duplicates if
+Two parse trees are semantic duplicates if
+and only if
 a recursive, top-down evaluation of each
 applies
 the same rules
 in the same order
 at the same earleme locations.
-When this is the case,
-a deterministic semantics will
-always produce the same value for both parses --
-hence the term "semantic duplicate".
+This definition implies that,
+given any deterministic semantics,
+two parse trees which are
+semantic duplicates
+will always produce the same parse result --
+hence the term "semantic duplicates".
 When the Marpa documentation refers to duplicate
 parses, it will mean semantic duplicates unless otherwise
 stated.
 
-=head2 Default Parse Order
+=head2 Default parse order
 
 By calling
 the recognizer's
@@ -57,19 +68,208 @@ L<C<value>|Marpa::XS::Recognizer/"value">
 method
 repeatedly,
 Marpa can produce all the parse results
-for a given parse.
+of the current parse series.
 The default is for the parse results to be returned
 in an arbitrary order.
 This corresponds to the "C<none>" value of
 L<the recognizer's C<ranking_method>|Marpa::XS::Recognizer/"ranking_method">
 named argument.
 
-=head2 A General Approach to Sorting Parses
+=head2 Arbitrary parse order
+
+At various points, this documents points out
+behaviors which are "arbitrary" --
+in particular arbitrary parse order.
+When this document calls a behavior "arbitrary"
+it means that an application should treat the
+actual behavior as accidental, and must
+not rely on it being repeated.
+Where a behavior is defined as arbitrary,
+it may change version to version
+of the software,
+from run to run of the applications,
+or from call to call of the methods.
+
+"Arbitrary parse order", in particular,
+means that the particular order in which
+parse trees are evaluated may not be repeated.
+An application can expect,
+even when the order of evaluation
+of the parse trees is arbitrary,
+that all appropriate parse trees
+will be included in the parse series,
+and that none of the parse trees in the parse series
+will be the semantic duplicate of any other.
+
+In the situations in which it occurs, arbitrary parse
+order is usually acceptable.
+An application which requires a particular parse order
+can defend itself from arbitary parse order by collecting
+all the parses and sorting them itself.
+
+=head2 Ranking methods
+
+Marpa Grammar objects have L<a C<ranking_method> named
+argument|Marpa::XS::Recognizer/"ranking_method">,
+whose value can be the name of a ranking method,
+or "C<none>", indicating that the default ranking method is to
+be used.
+
+=head2 The C<rule> ranking method
+
+The rule method ranks alternative parses according to their rules.
+Every rule has a B<rule rank>.
+A rule's rank can be specified using the 
+the C<rank> named
+argument for that rule.
+Rule ranks must be integers.
+If no rule rank is specified, the rule rank is 0.
+Parse trees,
+when being ranked,
+are traversed top-down, left-to-right.
+
+=head2 The C<high_rule_only> ranking method
+
+The C<high_rule_only> ranking method is similar to the
+C<rule> ranking method, except that, at every choice point,
+it discards all of the choices which do not have highest rank.
+Every rule has a B<rule rank>.
+A rule's rank can be specified using the 
+the C<rank> named
+argument for that rule.
+Rule ranks must be integers.
+If no rule rank is specified, the rule rank is 0.
+
+The choice points of the parse trees,
+are traversed top-down, left-to-right.
+Since the C<high_rule_only> ranking method eliminates some
+parse trees, it can reduce or eliminate the ambiguity of a parse,
+but it does not necessarily do either.
+This is because, at each choice point among the parse trees,
+it is possible that several of the choices,
+or all of them, will have the same rank.
+
+=head2 Null ranking
+
+Some rules have a RHS which contains
+B<proper nullables>, symbols
+which may be nulled, but which are not nulling
+symbols.
+(Nulling symbols are those which are B<always> nulled.)
+
+Where a rule contains proper nullables, each application
+of that rule to a section of input creates a pattern of
+symbols which are and are not nulled.
+In many cases, this creates an ambiguity -- several
+patterns could apply to the same input substring.
+In ambiguous parsings of this kind,
+some applications may want the ranking to prefer non-null symbols.
+Others may want to the parse order to rank nulled symbols higher.
+
+Call an B<input substring> a section of a parse's input with
+a fixed beginning and end.
+An input substring can be thought of either as a string or
+as a sequence of tokens, whichever is convenient.
+If a parse is ambiguious,
+a single rule can match an
+input substring in several ways.
+One source of this kind of ambiguity is the pattern
+of nulled and non-nulled symbols.
+For a particular rule,
+call a pattern of nulled and non-nulled symbols
+a B<nulling variant> of that rule.
+
+Nulling variants are ranking by preferring nulled or
+non-nulled symbols in left-to-right order.
+The 
+L<C<null_ranking> named
+argument for rules|Marpa::XS::Grammar/"null_ranking">
+specifies whether nulled or non-nulled symbols are preferred.
+If the C<null_ranking> is "C<low>", nulled symbols are
+ranked low, so that non-nulled symbols are preferred.
+If the C<null_ranking> is "C<high>", nulled symbols are
+ranked high, so that they are preferred.
+
+A rule is null ranked if and only if its C<null_ranking>
+is defined.
+A rule which is not null ranked is called non-null-ranked.
+Note that this definition means that a rule can be considered
+null ranked even if it does not have any nullable symbols.
+
+Null ranking, in the current implementation,
+is targeted at situations where the alternatives
+are different applications of
+a single rule.
+In situations where the choice is between
+two different rules,
+an application which cares about the order
+will typically want to use rule ranks
+to override the null ranking.
+A more detailed description of the rule comparison
+logic can be found later in this document.
+
+By default, 
+C<null_ranking> is undefined, which means the order
+of the null variants is arbitrary.
+This is fine for most applications.
+
+=head2 Details of ranking
+
+When ranking, the logic descends the parse trees top-down
+and left-to-right.
+Places where there is more than one alternative are
+called B<choice points>.
+Alternatives are ranked (in the C<rule> ranking method)
+or selected
+(in the C<high_rule_only> ranking method),
+by comparing them as follows:
+
+=over
+
+=item * If two alternatives are for the same rule,
+and the rule is null ranked, they rank as described
+under L<"Null ranking">.
+
+=item *
+If the two alternatives have the same rule,
+and that rule is non-null-ranked,
+the alternatives have equal rank.
+
+=item * If the two alternatives have different rules,
+and the two rules have different rule ranks,
+the alternative with the higher rule rank
+ranks high.
+
+=item * The remaining case deals with the
+comparison of alternatives which have
+different rules,
+when both rules have the same rule rank.
+
+=over
+
+=item *
+If the rule for one is null ranked,
+while the rule for the other is non-null-ranked,
+the alternative with the non-null-ranked rule ranks high.
+
+=item *
+If both rules are non-null-ranked,
+the two alternatives have equal rank.
+
+=item *
+If both rules are null-ranked, their ranking is arbitrary --
+either one may rank high, or they may both rank equal.
+
+=back
+
+=back
+
+=head2 A general approach to sorting parses
 
 The most general way to sort Marpa parses is for the application
 to take control.
 The application can set up the Marpa semantic actions
-so that the value of every parse result is a
+so that the parse result of every parse tree is a
 C<< <rank, true_value> >> duple.
 The duples can then be sorted by C<rank>.
 Once the resuls are sorted,
@@ -85,32 +285,20 @@ In practice, ambiguity tends to get out of hand very easily.
 Producing and sorting all the parses can take a very
 long time.
 
-=head2 The Constant Ranking Method
+=head2 The C<constant> ranking method is no longer supported
 
-In the past,
-Marpa supported a simplified approach to sorting parses,
-called the Constant Ranking Method.
-The Constant Ranking Method was intended to be
-flexible enough to handle many, perhaps even most,
-practical applications,
-but simple enough that Marpa is able to optimize it.
-
-The first implementation of
-the Constant Ranking Method had a semantics which
-made the rank of a node depend on which of its children
-were actually
-used in each parse result.
-While this is what a user would intuitively expect,
-it required the
-the ranks of subtrees to be recalculated dynamically,
-and partially iterated subtrees to be stored and
-regrafted into the tree being parsed.
-The code to do this was very complicated
-and the efficiency trade-offs
-arguable.
-The Constant Ranking Method
-is currently being simplified.
-Until its features settle, its documentation has been removed.
+The C<constant> ranking method is no longer implemented.
+An initial attempt to find the sweet spot
+between flexibity and efficiency,
+the
+C<constant> ranking method
+turned out to attempt
+too much -- its implementation was
+quite complex.
+The new C<rule> ranking method is more efficient
+and vastly more intuitive,
+but is still powerful enough to pass the test suite
+designed for the C<constant> ranking method.
 
 =head1 COPYRIGHT AND LICENSE
 

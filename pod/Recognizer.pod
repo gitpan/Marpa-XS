@@ -15,7 +15,7 @@
 
 =head1 NAME
 
-Marpa::XS::Recognizer - Marpa Recognizer Objects
+Marpa::XS::Recognizer - Marpa recognizers
 
 =head1 SYNOPSIS
 
@@ -39,9 +39,9 @@ To create a recognizer object, use L<the C<new> method|/new>.
 
 To read input, use L<the C<read> method|/read>.
 
-To evaluate a parse result, based on the input, use L<the C<value> method|/value>.
+To evaluate a parse tree, based on the input, use L<the C<value> method|/value>.
 
-=head2 Token Streams
+=head2 Token streams
 
 By default, Marpa uses the token-stream model of input.
 The token-stream model is standard -- so standard the most documents about
@@ -200,7 +200,8 @@ Marpa throws an exception.
 
 =head2 value
 
-The C<value> mutator evaluates and returns a parse result.
+The C<value> mutator evaluates a parse tree
+and returns a parse result.
 It is described in L<its own section|/"EVALUATION">.
 
 =head1 TRACE ACCESSORS
@@ -241,23 +242,22 @@ Returns a string describing the progress of the parse.
 With no arguments,
 the string contains reports for
 the current location.
-With a non-negative argument I<N>,
+With a single integer argument I<N>,
 the string contains reports for location I<N>.
-
 With two numeric arguments, I<N> and I<M>, the arguments are interpreted
 as a range of locations and the returned string contains
 reports for all locations in the range.
-The first argument, I<N>,
-must be a non-negative integer,
-and is always the number of the location which begins the range.
-If both arguments are non-negative integers,
-the range is from location I<N> to location I<M>.
-If the second argument is a negative integer,
-I<-M>,
-the end of the range is the 
-I<M>th location from the furthest location.
+
+If an argument is negative,
+I<-N>,
+it indicates 
+the I<N>th location counting backward
+from the furthest location of the parse.
 For example, if 42 was the furthest location,
 -1 would be location 42 and -2 would be location 41.
+For example, the method call
+C<< $recce->show_progress(-3, -1) >>
+returns reports for the last three locations of the parse.
 The method call C<< $recce->show_progress(0, -1) >>
 will print progress reports for the entire parse.
 
@@ -284,19 +284,22 @@ a precomputed Marpa grammar object.
 =head2 ranking_method
 
 The value must be a string:
-either "C<none>" or "C<constant>".
+one of "C<none>",
+"C<rule>",
+or "C<high_rule_only>".
 When the value is "C<none>", Marpa returns the parse results
 in arbitrary order.
-When the value is "C<constant>", Marpa allows the user
-to
-specify ranking actions which assign values to rules and tokens.
+When the value is "C<rule>"
+or "C<high_rule_only>",
+Marpa allows the user
+to specify ranks for symbols and rules.
 These values will
 control the order in which parse results are returned by
 the C<value> method.
 
 The default is for parse results to be returned in arbitrary order.
-For details, see L<the section on parse order in the semantics
-document|Marpa::XS::Semantics/"PARSE ORDER">.
+For details, see L<the document
+on parse order|Marpa::XS::Semantics::Order>.
 
 =head2 too_many_earley_items
 
@@ -405,7 +408,7 @@ Perl C<undef>.
 At that point,
 the application can retry the C<read> with a different token.
 
-=head2 An Example
+=head2 An example
 
 Marpa's HTML parser, L<Marpa::HTML>, is
 an example of how Ruby Slippers parsing can help

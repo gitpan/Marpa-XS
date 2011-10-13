@@ -15,7 +15,7 @@
 
 =head1 NAME
 
-Marpa::XS::Grammar - Marpa Grammar Objects
+Marpa::XS::Grammar - Marpa grammars
 
 =head1 SYNOPSIS
 
@@ -62,14 +62,14 @@ After precomputation,
 no new rules may added and
 most other changes are forbidden.
 
-=head2 Symbol Names
+=head2 Symbol names
 
 Symbol names that end in right square brackets
 are reserved for Marpa's internal use.
 Any other valid Perl string is an acceptable
 symbol name.
 
-=head2 Terminal Symbols
+=head2 Terminal symbols
 
 If a grammar has no empty rules, all symbols are terminals by default.
 Unlike most parser generators,
@@ -146,7 +146,7 @@ This is a fatal error.
 
 =back
 
-=head2 Sequence Rules
+=head2 Sequence rules
 
 It is very common in a grammar for one symbol to produce a
 repeating sequence.
@@ -205,7 +205,7 @@ If you prefer "C<proper>" separation,
 you can set
 the C<proper> rule property.
 
-=head3 Advantages of Sequence Rules
+=head3 Advantages of sequence rules
 
 You are never forced to use sequence rules,
 but it's usually better if you do.
@@ -468,7 +468,7 @@ specifies a class name to be used
 in resolving action names to Perl closures.
 A C<new> constructor must be defined
 in the C<action_object> package.
-It will be used to create the per-parse variables.
+It will be used to create the per-parse-tree variables.
 Details are in
 L<the document on semantics|Marpa::XS::Semantics>.
 
@@ -711,7 +711,7 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-=head2 Rule Descriptors as Hashes
+=head2 Rule descriptors as hashes
 
 The long form descriptor of a rule is a
 reference to a hash
@@ -794,6 +794,21 @@ and will be allowed to match
 the sequence item
 an unlimited number of times.
 
+=head2 null_ranking
+
+Sometimes the same rule may apply to an input substring
+in different ways.
+Where the different is due to nullable symbols on the rule's
+RHS,
+the C<null_ranking> named argument is a method of fine-tuning
+the order in which those rule applications appear in the
+evaluation.
+Default is the C<null_ranking> to be undefined,
+which means the order will be arbitrary.
+Most applications will find the default acceptable.
+For details,
+see L<the document on parse order|Marpa::XS::Semantics::Order>.
+
 =head2 proper
 
 By default, sequence rules with separators allow trailing
@@ -804,16 +819,6 @@ If the C<proper> rule property is a Perl true,
 In proper separation,
 separation must actually separate sequence items,
 and trailing separators are not allowed.
-
-=head2 ranking_action
-
-The C<ranking_action> rule property 
-affects the order
-in which Marpa returns
-parse results for an ambiguous parse.
-For details
-see
-L<the document on Marpa's semantics|Marpa::XS::Semantics>
 
 =head2 rhs
 
@@ -835,7 +840,7 @@ By default, Marpa allows trailing separators.
 This is the usual style in Perl.
 The separator must not be a nullable symbol.
 
-=head2 Rule Descriptors as Arrays
+=head2 Rule descriptors as arrays
 
 =for Marpa::XS::Display
 name: Engine Synopsis Ambiguous Parse
@@ -865,7 +870,7 @@ has the same effect
 that omitting the same optional property would have
 in the long form.
 
-=head2 Duplicate Rules
+=head2 Duplicate rules
 
 Marpa throws an exception if a duplicate rule is added.
 Two rules are considered duplicates if

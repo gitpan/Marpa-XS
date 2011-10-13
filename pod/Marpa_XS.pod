@@ -97,7 +97,7 @@ in semi-tutorial fashion.
 Marpa's advanced features, and full reference details of all features,
 can be found in L<the other Marpa API documents|/"OTHER DOCUMENTS">.
 
-=head2 The Three Phases
+=head2 The three phases
 
 A parser needs to:
 
@@ -173,7 +173,7 @@ hash value
 is the
 value of the named argument.
 
-=head3 The start Named Argument
+=head3 The start named argument
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
@@ -188,7 +188,7 @@ The C<start> named argument is required.
 Its value is
 a string containing the name of the grammar's start symbol.
 
-=head3 Named Arguments for the Semantics
+=head3 Named arguments for the semantics
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
@@ -219,7 +219,7 @@ C<actions> provides the name
 of a Perl package where Marpa will look for
 its B<actions>.
 
-=head3 The rules Named Argument
+=head3 The rules named argument
 
 =for Marpa::XS::Display
 name: Engine Synopsis Unambiguous Parse
@@ -248,13 +248,13 @@ In each key/value pair of a rule descriptor hash, the key is
 the name of a rule property, and the hash value is the value of
 that rule property.
 
-=head4 The lhs Property
+=head4 The lhs property
 
 The value of the C<lhs> rule property must be a string containing
 the name of the rule's left hand side symbol.
 Every Marpa rule must have a left hand side symbol.
 
-=head4 The rhs Property
+=head4 The rhs property
 
 The value of the C<rhs> property is a reference to
 an array of strings containing
@@ -265,7 +265,7 @@ this is an B<empty rule> --
 a rule with no symbols on the right hand side.
 There are no empty rules in this example.
 
-=head4 The action Property
+=head4 The action property
 
 The value of the C<action> rule property is a string.
 Peeking ahead, each C<action> property string
@@ -373,7 +373,7 @@ C<Marpa::Recognizer::value>
 returns
 C<undef>.
 
-=head2 Resolving the Semantics
+=head2 Resolving the semantics
 
 The first thing C<Marpa::Recognizer::value> needs to do is
 to resolve the semantics.
@@ -505,9 +505,9 @@ normalize-whitespace: 1
 Value actions are Perl closures used as callbacks.
 Value actions are called when nodes in a parse tree are evaluated.
 A value action receives one or more arguments.
-The first argument to a value action is always a per-parse-result
+The first argument to a value action is always a per-parse-tree
 object, which the callbacks can use as a scratchpad.
-In these examples, the per-parse-result object is not used.
+In these examples, the per-parse-tree object is not used.
 
 For a non-empty rule,
 the second and any subsequent arguments to the callback are
@@ -516,15 +516,15 @@ in lexical order,
 of the symbols on the right hand side of
 the rule.
 If the action is for an empty rule,
-the per-parse-result object will be its only argument.
+the per-parse-tree object will be its only argument.
 
 Every value action is expected to return a value.
 With one exception,
 this value is passed up to a parent node
 as an argument.
 The exception is the value for the start rule.
-The return value for the start rule
-becomes the value of the parse result.
+The return value for the start rule becomes
+the parse result.
 
 Rules with no action specified for them take their
 semantics from the C<default_action> named argument.
@@ -545,10 +545,10 @@ and the C<@tokens> array remain
 the same as before.
 
 Eliminating precedence makes the grammar shorter,
-but it also means there can be multiple parse results,
-and that the different parse results can have different values.
+but it also means there can be multiple parse trees,
+and that the different parse trees can have different parse results.
 In this application we decide, for each input,
-to return the value for every one of the parse results.
+to return every one of the parse results.
 
 =for Marpa::XS::Display
 name: Engine Synopsis Ambiguous Parse
@@ -586,7 +586,7 @@ normalize-whitespace: 1
 
 =for Marpa::XS::Display::End
 
-=head2 Short Form Rule Descriptors
+=head2 Short form rule descriptors
 
 =for Marpa::XS::Display
 name: Engine Synopsis Ambiguous Parse
@@ -627,7 +627,7 @@ normalize-whitespace: 1
 When called more than once,
 the C<Marpa::Recognizer::value> method iterates through the parse results.
 For each call,
-it returns a reference to the value of a parse result.
+it returns a reference to the parse result.
 At the end of the iteration, after
 all parse results have been returned,
 C<Marpa::Recognizer::value> returns C<undef>.
@@ -674,7 +674,7 @@ L<Marpa::XS::Advanced::Bibliography>.
 
 Jeffrey Kegler
 
-=head2 Why is it Called "Marpa"?
+=head2 Why is it called "Marpa"?
 
 Marpa is the name of the greatest of the Tibetan "translators".
 In his time (the 11th century AD) Indian Buddhism was
@@ -684,7 +684,7 @@ to producing Tibetan versions of Buddhism's Sanskrit scriptures.
 Marpa became the greatest of them,
 and today is known as Marpa Lotsawa: "Marpa the Translator".
 
-=head2 Blatant Plug
+=head2 Blatant plug
 
 Marpa is a character in my novel, B<The God Proof>.
 B<The God
