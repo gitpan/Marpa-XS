@@ -20,7 +20,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION $STRING_VERSION @ISA $DEBUG);
-$VERSION = '0.017_000';
+$VERSION = '0.017_001';
 $STRING_VERSION = $VERSION;
 $VERSION = eval $VERSION;
 $DEBUG = 0;
@@ -97,7 +97,6 @@ require Marpa::XS::Internal;
 require Marpa::XS::Grammar;
 require Marpa::XS::Recognizer;
 require Marpa::XS::Value;
-require Marpa::XS::Callback;
 
 *Marpa::Grammar::check_terminal = \&Marpa::XS::Grammar::check_terminal;
 *Marpa::Grammar::new = \&Marpa::XS::Grammar::new;
