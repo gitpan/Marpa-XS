@@ -15,10 +15,17 @@
 
 Revision history for Marpa::XS
 
+0.017_002 Fri Oct 14 21:15:42 PDT 2011
 0.017_001 Wed Oct 12 20:39:51 PDT 2011
 0.017_000 Sun Oct  9 19:43:05 PDT 2011
 
     * A new series of developer's releases
+
+    * Next official release will be beta
+
+    * New ranking methods: 'rule' and
+      'high_rule_only'.  'constant' ranking
+      method eliminated.
 
 0.016000 Sat Oct  8 23:27:24 PDT 2011
 

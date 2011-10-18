@@ -271,7 +271,7 @@ Marpa::Test::is( $value, 'a=42 b=42 c=-5 d=6 e=3', 'Leo Example Value' );
 my $show_earley_sets_output_after = $recce->show_earley_sets();
 
 SKIP: {
-    skip "Not relevant to XS", 1 if $Marpa::USING_XS;
+    Test::More::skip 'Not relevant to XS', 1 if $Marpa::USING_XS;
     Marpa::Test::is( $show_earley_sets_output_after,
         <<'END_EARLEY_SETS', 'Leo Example Earley Sets "After"' );
 Last Completed: 9; Furthest: 9
@@ -330,6 +330,7 @@ END_EARLEY_SETS
 } ## end SKIP:
 
 my $expected_trace_output = <<'END_TRACE_OUTPUT';
+Setting trace_values option
 Pushed value from R6:1@0-1S7@0: Variable = \'a'
 Popping 1 values to evaluate R6:1@0-1S7@0, rule: 6: Lvalue -> Variable
 Calculated and pushed value: 'a'
@@ -363,8 +364,8 @@ New Virtual Rule: R7:1@0-9C0@0, rule: 7: Statement['] -> Statement
 Real symbol count is 1
 END_TRACE_OUTPUT
 
-Marpa::Test::is( $trace_output,
-    $expected_trace_output, 'Leo Example Trace Output' );
+Marpa::Test::is( $trace_output, $expected_trace_output,
+    'Leo Example Trace Output' );
 
 1;    # In case used as "do" file
 
