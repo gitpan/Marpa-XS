@@ -42,11 +42,11 @@ BEGIN {
         Test::More::plan tests => 10;
     }
     Test::More::use_ok('Marpa::XS');
-    Test::More::use_ok('Marpa::Perl');
+    Test::More::use_ok('Marpa::XS::Perl');
 } ## end BEGIN
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 # Run in utility mode?
 my $utility = 0;
@@ -126,7 +126,7 @@ sub tag_completion {
     return 1;
 } ## end sub tag_completion
 
-my $parser = Marpa::Perl->new( {} );
+my $parser = Marpa::XS::Perl->new( {} );
 
 TEST: for my $test (@tests) {
 
@@ -134,7 +134,7 @@ TEST: for my $test (@tests) {
     $parser = $parser->read( \$string );
     my @values = $parser->eval();
     $parser->foreach_completion( \&tag_completion );
-    Marpa::Test::is(
+    Marpa::XS::Test::is(
         ( scalar @values ),
         $expected_parse_count,
         'Count of values'
@@ -151,7 +151,7 @@ TEST: for my $test (@tests) {
         say $result or die 'say builtin failed';
     }
     else {
-        Marpa::Test::is( $result, $expected, qq{Test of "$string"} );
+        Marpa::XS::Test::is( $result, $expected, qq{Test of "$string"} );
     }
     %hash      = ();
     %codeblock = ();

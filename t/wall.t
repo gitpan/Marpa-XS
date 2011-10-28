@@ -29,7 +29,7 @@ use warnings;
 
 use Test::More tests => 13;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -118,7 +118,8 @@ for my $n ( 1 .. 12 ) {
 
     my $parse_count = 0;
     while ( $recce->value() ) { $parse_count++; }
-    Marpa::Test::is( $expected[$n], $parse_count, "Wall Series Number $n" );
+    Marpa::XS::Test::is( $expected[$n], $parse_count,
+        "Wall Series Number $n" );
 
 } ## end for my $n ( 1 .. 12 )
 

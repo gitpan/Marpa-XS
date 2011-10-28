@@ -18,17 +18,14 @@ use 5.010;
 use warnings;
 use strict;
 
-use Test::More tests => 5;
-use lib 'lib';
-use lib 'blib/arch';
-use lib 'tool/lib';
-use lib 'pperl';
+use Test::More tests => 1;
+use English qw( -no_match_vars );
 
-BEGIN {
-    Test::More::use_ok('Devel::SawAmpersand');
-    Test::More::use_ok('Marpa::XS');
-    Test::More::use_ok('Marpa::XS::Perl');
-    Test::More::use_ok('Marpa::XS::Test');
-} ## end BEGIN
+my $loaded_marpa_bare = eval { require Marpa; 1 };
+my $loaded_marpa;
+SKIP: {
+    skip 'No Marpa, which is OK', 1 unless $loaded_marpa_bare;
+    my $loaded_marpa = eval { require Marpa::XS; 1 };
+    Test::More::ok(!$loaded_marpa, 'Marpa incompatible with Marpa::XS');
+}
 
-Test::More::ok( !Devel::SawAmpersand::sawampersand(), 'PL_sawampersand set' );

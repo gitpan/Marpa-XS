@@ -1,4 +1,3 @@
-#!perl
 # Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
@@ -14,21 +13,29 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-use 5.010;
-use warnings;
-use strict;
+package Marpa::XS::Test;
 
-use Test::More tests => 5;
-use lib 'lib';
-use lib 'blib/arch';
-use lib 'tool/lib';
-use lib 'pperl';
+use 5.010;
+use strict;
+use warnings;
+
+use Data::Dumper;
+
+Marpa::XS::exception('Test::More not loaded')
+    if not defined &Test::More::is;
 
 BEGIN {
-    Test::More::use_ok('Devel::SawAmpersand');
-    Test::More::use_ok('Marpa::XS');
-    Test::More::use_ok('Marpa::XS::Perl');
-    Test::More::use_ok('Marpa::XS::Test');
-} ## end BEGIN
+    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+    ## no critic (ErrorHandling::RequireCheckingReturnValueOfEval)
+    eval 'use Test::Differences';
+}
 
-Test::More::ok( !Devel::SawAmpersand::sawampersand(), 'PL_sawampersand set' );
+sub Marpa::XS::Test::is {
+    goto &Test::Differences::eq_or_diff
+        if defined &Test::Differences::eq_or_diff && @_ > 1;
+    @_ = map { ref $_ ? Data::Dumper::Dumper(@_) : $_ } @_;
+    goto &Test::More::is;
+} ## end sub Marpa::XS::Test::is
+
+1;
+

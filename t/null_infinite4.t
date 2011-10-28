@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 2;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -95,7 +95,7 @@ my @values   = ();
 while ( my $value_ref = $recce->value() ) {
     push @values, ${$value_ref};
 }
-Marpa::Test::is(
+Marpa::XS::Test::is(
     ( join "\n", sort @values ),
     ( join "\n", @expected ),
     "value for input length $input_length"

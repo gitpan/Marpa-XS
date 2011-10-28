@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 8;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 use English qw( -no_match_vars );
 
 BEGIN {
@@ -218,7 +218,7 @@ sub run_test {
     my $expected  = '(((2*3)+(4*1))==10;trailer;[default null];[null])';
     my $value_ref = $recce->value();
     my $value     = $value_ref ? ${$value_ref} : 'No parse';
-    Marpa::Test::is( $value, $expected, 'Ambiguous Equation Value' );
+    Marpa::XS::Test::is( $value, $expected, 'Ambiguous Equation Value' );
 
     return 1;
 
@@ -250,7 +250,7 @@ for my $test (@tests) {
             my $eval_error = $EVAL_ERROR;
             my $where      = $where{$feature};
             my $long_where = $long_where{$feature};
-            Marpa::Test::is(
+            Marpa::XS::Test::is(
                 canonical( $eval_error,                $where, $long_where ),
                 canonical( $expected{$test}{$feature}, $where, $long_where ),
                 $test_name

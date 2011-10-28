@@ -22,13 +22,13 @@ use integer;
 use Carp;
 
 use vars qw($VERSION $STRING_VERSION);
-$VERSION        = '0.019_003';
+$VERSION        = '0.019_004';
 $STRING_VERSION = $VERSION;
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 $VERSION = eval $VERSION;
 ## use critic
 
-*Marpa::exception = \&Carp::croak;
+*Marpa::XS::exception = \&Carp::croak;
 
 sub Marpa::XS::internal_error {
     Carp::confess(
@@ -47,7 +47,7 @@ use constant N_FORMAT_HIGH_BIT => 0x8000_0000;
 # in hex numbers
 use constant N_FORMAT_MAX => 0x7fff_ffff;
 
-sub Marpa::offset {
+sub Marpa::XS::offset {
     my (@desc) = @_;
     my @fields = ();
     for my $desc (@desc) {
@@ -87,12 +87,12 @@ sub Marpa::offset {
             $offset = $2 + 0;
         }
 
-        Marpa::exception("Unacceptable field name: $field")
+        Marpa::XS::exception("Unacceptable field name: $field")
             if $field =~ /[^A-Z0-9_]/xms;
         my $field_name = $prefix . $field;
         *{$field_name} = sub () {$offset};
     } ## end for my $field (@fields)
     return 1;
-} ## end sub Marpa::offset
+} ## end sub Marpa::XS::offset
 
 1;

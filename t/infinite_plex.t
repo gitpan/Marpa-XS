@@ -25,7 +25,7 @@ use Fatal qw(open close chdir);
 
 use Test::More tests => 5;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -137,7 +137,7 @@ for my $test_data ( $plex1_test, $plex2_test ) {
         $grammar->precompute();
 
         close $MEMORY;
-        Marpa::Test::is( $trace, $expected_trace, "$test_name trace" );
+        Marpa::XS::Test::is( $trace, $expected_trace, "$test_name trace" );
 
         my $recce = Marpa::Recognizer->new(
             { grammar => $grammar, trace_file_handle => \*STDERR } );
@@ -150,7 +150,7 @@ for my $test_data ( $plex1_test, $plex2_test ) {
         }
 
         my $values = join "\n", sort @values;
-        Marpa::Test::is( "$values\n", $expected_values, $test_name );
+        Marpa::XS::Test::is( "$values\n", $expected_values, $test_name );
     } ## end SKIP:
 
 } ## end for my $test_data ( $plex1_test, $plex2_test )

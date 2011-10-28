@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 4;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -130,7 +130,7 @@ for my $input_length ( 1 .. 3 ) {
     my $expected_values = join "\n", sort @{$expected};
 
     # die if $values ne $expected_values;
-    Marpa::Test::is( $values, $expected_values,
+    Marpa::XS::Test::is( $values, $expected_values,
         "value for input length $input_length" );
 } ## end for my $input_length ( 1 .. 3 )
 

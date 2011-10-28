@@ -23,7 +23,7 @@ use Test::More tests => 7;
 use English qw( -no_match_vars );
 use Fatal qw( open close );
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');

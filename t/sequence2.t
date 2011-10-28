@@ -14,7 +14,7 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-# Tests of the sequence in the Marpa::Grammar doc
+# Tests of the sequence in the Marpa::XS::Grammar doc
 
 use 5.010;
 use strict;
@@ -24,7 +24,7 @@ use Fatal qw(open close);
 use Test::More tests => 4;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -43,7 +43,7 @@ my $value;
 my $min0 =
 #<<< no perltidy
 # Marpa::XS::Display
-# name: Marpa::Grammar min 0 sequence example
+# name: Marpa::XS::Grammar min 0 sequence example
 
     { lhs => 'sequence', rhs => ['item'], min => 0 }
 
@@ -68,12 +68,12 @@ $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
 $value //= 'undef returned';
 
-Marpa::Test::is( $value, 'seq(0;1)', 'min 0 value' );
+Marpa::XS::Test::is( $value, 'seq(0;1)', 'min 0 value' );
 
 my $min1 =
 #<<< no perltidy
 # Marpa::XS::Display
-# name: Marpa::Grammar min 1 sequence example
+# name: Marpa::XS::Grammar min 1 sequence example
 
     { lhs => 'sequence', rhs => ['item'], min => 1 }
 
@@ -96,12 +96,12 @@ $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
 $value //= 'undef returned';
 
-Marpa::Test::is( $value, 'seq(0;1)', 'min 1 value' );
+Marpa::XS::Test::is( $value, 'seq(0;1)', 'min 1 value' );
 
 my $multipart = [
 #<<< no perltidy
 # Marpa::XS::Display
-# name: Marpa::Grammar multipart rhs sequence example
+# name: Marpa::XS::Grammar multipart rhs sequence example
 
     { lhs => 'sequence', rhs => [qw(item)], min => 0 },
     { lhs => 'item', rhs => [qw(part1 part2)], },
@@ -128,7 +128,7 @@ $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
 $value //= 'undef returned';
 
-Marpa::Test::is( $value, 'seq(item(0;1))', 'multipart rhs value' );
+Marpa::XS::Test::is( $value, 'seq(item(0;1))', 'multipart rhs value' );
 
 1; # In case used as "do" file
 

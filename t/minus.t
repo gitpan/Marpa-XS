@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 11;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -115,7 +115,7 @@ $grammar->precompute();
 
 my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
 
-Marpa::Test::is( $grammar->show_rules,
+Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_RULES', 'Minuses Equation Rules' );
 0: E -> E Minus E
 1: E -> E MinusMinus
@@ -125,7 +125,8 @@ Marpa::Test::is( $grammar->show_rules,
 5: E['] -> E /* vlhs real=1 */
 END_RULES
 
-Marpa::Test::is( $grammar->show_AHFA, <<'END_AHFA', 'Minuses Equation AHFA' );
+Marpa::XS::Test::is( $grammar->show_AHFA,
+    <<'END_AHFA', 'Minuses Equation AHFA' );
 * S0:
 E['] -> . E
  <E> => S2; leo(E['])

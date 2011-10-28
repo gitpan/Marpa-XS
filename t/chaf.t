@@ -22,7 +22,7 @@ use warnings;
 
 use Test::More tests => 3;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -59,7 +59,7 @@ $grammar->set( { terminals => ['a'], } );
 
 $grammar->precompute();
 
-Marpa::Test::is( $grammar->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
+Marpa::XS::Test::is( $grammar->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
 0: S -> A B B B C C /* !used */
 1: A -> a
 2: B -> a

@@ -21,7 +21,7 @@ use English qw( -no_match_vars );
 
 use Test::More tests => 5;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -221,12 +221,12 @@ TEST: for my $test_data (@test_data) {
     }
     my $expected_parse_count = scalar @{$test_results};
     my $parse_count          = scalar @parses;
-    Marpa::Test::is( $parse_count, $expected_parse_count,
+    Marpa::XS::Test::is( $parse_count, $expected_parse_count,
         "$test_name: Parse count" );
 
     my $expected = join "\n", sort @{$test_results};
     my $actual   = join "\n", sort @parses;
-    Marpa::Test::is( $actual, $expected, "$test_name: Parse match" );
+    Marpa::XS::Test::is( $actual, $expected, "$test_name: Parse match" );
 } ## end for my $test_data (@test_data)
 
 sub show_perl_line {

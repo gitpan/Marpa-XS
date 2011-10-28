@@ -123,7 +123,7 @@ pod/Semantics/Order.pod
 pod/Support.pod
 pod/Tracing.pod
 pod/Vocabulary.pod
-pperl/Marpa/Perl.pm
+pperl/Marpa/XS/Perl.pm
 ppport.h
 t/00-load.t
 t/02-load_xs.t
@@ -153,6 +153,8 @@ t/leo_cycle.t
 t/leo_example.t
 t/limits.t
 t/minus.t
+t/no_bare.t
+t/no_pp.t
 t/null_example.t
 t/null_infinite1.t
 t/null_infinite4.t
@@ -169,8 +171,7 @@ t/timeflies.t
 t/use.t
 t/wall.t
 t/weaken.t
-tool/lib/Marpa/Display.pm
-tool/lib/Marpa/Test.pm
-tool/lib/Marpa/Test/Common.pm
+tool/lib/Marpa/XS/Display.pm
+tool/lib/Marpa/XS/Test.pm
 typemap
 xs/XS.xs

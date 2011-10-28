@@ -1,3 +1,4 @@
+#!perl
 # Copyright 2011 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
@@ -13,29 +14,18 @@
 # General Public License along with Marpa::XS.  If not, see
 # http://www.gnu.org/licenses/.
 
-package Marpa::XS::Test;
-
 use 5.010;
-use strict;
 use warnings;
+use strict;
 
-use Data::Dumper;
+use Test::More tests => 1;
+use English qw( -no_match_vars );
 
-Marpa::exception('Test::More not loaded')
-    if not defined &Test::More::is;
-
-BEGIN {
-    ## no critic (BuiltinFunctions::ProhibitStringyEval)
-    ## no critic (ErrorHandling::RequireCheckingReturnValueOfEval)
-    eval 'use Test::Differences';
+my $loaded_marpa_pp = eval { require Marpa::PP; 1 };
+my $loaded_marpa;
+SKIP: {
+    skip 'No Marpa::PP, which is OK', 1 unless $loaded_marpa_pp;
+    my $loaded_marpa = eval { require Marpa::XS; 1 };
+    Test::More::ok(!$loaded_marpa, 'Marpa::PP incompatible with Marpa::XS');
 }
-
-sub Marpa::Test::is {
-    goto &Test::Differences::eq_or_diff
-        if defined &Test::Differences::eq_or_diff && @_ > 1;
-    @_ = map { ref $_ ? Data::Dumper::Dumper(@_) : $_ } @_;
-    goto &Test::More::is;
-} ## end sub Marpa::Test::is
-
-1;
 

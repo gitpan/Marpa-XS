@@ -20,7 +20,7 @@ use warnings;
 
 use Test::More tests => 2;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -94,7 +94,7 @@ my $recce = Marpa::Recognizer->new( { grammar => $g } );
 $recce->tokens( [ [ 'Z', 'Z' ] ] );
 my $ref_value = $recce->value();
 my $value = $ref_value ? ${$ref_value} : 'No parse';
-Marpa::Test::is(
+Marpa::XS::Test::is(
     $value,
     'A is missing, but Zorro was here',
     'null value example'

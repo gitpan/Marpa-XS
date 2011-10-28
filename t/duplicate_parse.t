@@ -23,7 +23,7 @@ use warnings;
 use Test::More tests => 6;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -60,7 +60,7 @@ my $grammar = Marpa::Grammar->new(
 
 $grammar->precompute();
 
-Marpa::Test::is( $grammar->show_rules,
+Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_OF_STRING', 'duplicate parse Rules' );
 0: S -> p p p n /* !used */
 1: p -> a
@@ -75,7 +75,7 @@ Marpa::Test::is( $grammar->show_rules,
 10: S['] -> S /* vlhs real=1 */
 END_OF_STRING
 
-Marpa::Test::is( $grammar->show_AHFA,
+Marpa::XS::Test::is( $grammar->show_AHFA,
     <<'END_OF_STRING', 'duplicate parse AHFA' );
 * S0:
 S['] -> . S

@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 10;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');

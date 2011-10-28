@@ -22,7 +22,7 @@ use Test::More tests => 6;
 use Fatal qw(open close);
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -172,7 +172,7 @@ REPORT_RESULT: {
         Test::More::fail("Eval error: $eval_error");
         last REPORT_RESULT;
     }
-    Marpa::Test::is(
+    Marpa::XS::Test::is(
         $trace,
         qq{Zero length sequence for symbol without null value: "Seq"\n},
         'Missing null value warning'

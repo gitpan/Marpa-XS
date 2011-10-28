@@ -22,7 +22,7 @@ use warnings;
 use Test::More tests => 13;
 
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 use English qw( -no_match_vars );
 use Fatal qw( close open );
 
@@ -112,7 +112,7 @@ print $grammar->show_symbols()
 
 restore_stdout();
 
-Marpa::Test::is( ${$actual_ref},
+Marpa::XS::Test::is( ${$actual_ref},
     <<'END_SYMBOLS', 'Ambiguous Equation Symbols' );
 0: E, lhs=[0 1] rhs=[0 2] terminal
 1: Op, lhs=[] rhs=[0] terminal
@@ -130,7 +130,8 @@ print $grammar->show_rules()
 
 # Marpa::XS::Display::End
 
-Marpa::Test::is( ${$actual_ref}, <<'END_RULES', 'Ambiguous Equation Rules' );
+Marpa::XS::Test::is( ${$actual_ref},
+    <<'END_RULES', 'Ambiguous Equation Rules' );
 0: E -> E Op E
 1: E -> Number
 2: E['] -> E /* vlhs real=1 */
@@ -138,14 +139,14 @@ END_RULES
 
 # Alternative tests: AHFA items if XS, NFA items if PP
 
-if ($Marpa::USING_XS) {
+if ( defined $Marpa::XS::VERSION ) {
 
     $actual_ref = save_stdout();
 
     print $grammar->show_AHFA_items()
         or die "print failed: $ERRNO";
 
-    Marpa::Test::is( ${$actual_ref},
+    Marpa::XS::Test::is( ${$actual_ref},
         <<'EOS', 'Ambiguous Equation AHFA Items' );
 AHFA item 0: sort = 0; postdot = "E"
     E -> . E Op E
@@ -165,13 +166,14 @@ AHFA item 7: sort = 7; completion
     E['] -> E .
 EOS
 
-}    # USING_XS
+} ## end if ( defined $Marpa::XS::VERSION )
 
-if ($Marpa::USING_PP) {
+if ( defined $Marpa::PP::VERSION ) {
     $actual_ref = save_stdout();
     print $grammar->show_NFA()
         or die "print failed: $ERRNO";
-    Marpa::Test::is( ${$actual_ref}, <<'END_NFA', 'Ambiguous Equation NFA' );
+    Marpa::XS::Test::is( ${$actual_ref},
+        <<'END_NFA', 'Ambiguous Equation NFA' );
 S0: /* empty */
  empty => S7
 S1: E -> . E Op E
@@ -191,7 +193,7 @@ S7: E['] -> . E
  <E> => S8
 S8: E['] -> E .
 END_NFA
-}    # USING_PP
+} ## end if ( defined $Marpa::PP::VERSION )
 
 $actual_ref = save_stdout();
 
@@ -203,7 +205,8 @@ print $grammar->show_AHFA()
 
 # Marpa::XS::Display::End
 
-Marpa::Test::is( ${$actual_ref}, <<'END_AHFA', 'Ambiguous Equation AHFA' );
+Marpa::XS::Test::is( ${$actual_ref},
+    <<'END_AHFA', 'Ambiguous Equation AHFA' );
 * S0:
 E['] -> . E
  <E> => S2; leo(E['])
@@ -236,7 +239,7 @@ print $grammar->show_problems()
 
 # Marpa::XS::Display::End
 
-Marpa::Test::is(
+Marpa::XS::Test::is(
     ${$actual_ref},
     "Grammar has no problems\n",
     'Ambiguous Equation Problems'
@@ -314,7 +317,7 @@ S3@6-7 [p=S1@6-6; c=S4@6-7]
 S4@6-7 [p=S1@6-6; s=Number; t=\1]
 END_OF_EARLEY_SETS
 
-Marpa::Test::is( ${$actual_ref}, $expected_earley_sets,
+Marpa::XS::Test::is( ${$actual_ref}, $expected_earley_sets,
     'Ambiguous Equation Earley Sets' );
 
 restore_stdout();
@@ -329,7 +332,7 @@ print $recce->show_progress()
 
 # Marpa::XS::Display::End
 
-Marpa::Test::is( ${$actual_ref},
+Marpa::XS::Test::is( ${$actual_ref},
     <<'END_OF_PROGRESS_REPORT', 'Ambiguous Equation Progress Report' );
 R0:1 x4 @0...6-7 E -> E . Op E
 F0 x3 @0,2,4-7 E -> E Op E .

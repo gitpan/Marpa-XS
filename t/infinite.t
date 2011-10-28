@@ -23,7 +23,7 @@ use Fatal qw(open close chdir);
 
 use Test::More tests => 7;
 use lib 'tool/lib';
-use Marpa::Test;
+use Marpa::XS::Test;
 
 BEGIN {
     Test::More::use_ok('Marpa::XS');
@@ -184,8 +184,8 @@ for my $test_data ( $cycle1_test, $cycle2_test, $cycle8_test ) {
 
     close $MEMORY;
 
-    Marpa::Test::is( $value, $expected,       "$test_name result" );
-    Marpa::Test::is( $trace, $expected_trace, "$test_name trace" );
+    Marpa::XS::Test::is( $value, $expected,       "$test_name result" );
+    Marpa::XS::Test::is( $trace, $expected_trace, "$test_name trace" );
 
 } ## end for my $test_data ( $cycle1_test, $cycle2_test, $cycle8_test)
 
