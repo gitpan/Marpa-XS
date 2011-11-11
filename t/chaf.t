@@ -40,7 +40,7 @@ sub default_action {
 
 ## use critic
 
-my $grammar = Marpa::Grammar->new(
+my $grammar = Marpa::XS::Grammar->new(
     {   start => 'S',
         strip => 0,
         rules => [
@@ -75,9 +75,9 @@ Marpa::XS::Test::is( $grammar->show_rules, <<'EOS', 'Aycock/Horspool Rules' );
 12: S['] -> S /* vlhs real=1 */
 EOS
 
-my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
+my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens( [ [ 'a', 'a' ] ], );
+$recce->read( 'a', 'a' );
 
 my $value_ref = $recce->value();
 my $value = defined $value_ref ? ${$value_ref} : 'undef';

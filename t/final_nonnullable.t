@@ -43,7 +43,7 @@ sub default_action {
 
 ## use critic
 
-my $grammar = Marpa::Grammar->new(
+my $grammar = Marpa::XS::Grammar->new(
     {   start => 'S',
         strip => 0,
 
@@ -151,9 +151,9 @@ for my $input_length ( 1 .. 4 ) {
 
     # Set max at 10 just in case there's an infinite loop.
     # This is for debugging, after all
-    my $recce =
-        Marpa::Recognizer->new( { grammar => $grammar, max_parses => 10 } );
-    $recce->tokens( [ ( [ 'a', 'a', 1 ] ) x $input_length ] );
+    my $recce = Marpa::XS::Recognizer->new(
+        { grammar => $grammar, max_parses => 10 } );
+    for ( 1 .. $input_length ) { $recce->read( 'a', 'a' ); }
     while ( my $value_ref = $recce->value() ) {
         my $value = $value_ref ? ${$value_ref} : 'No parse';
         my $expected = $expected[$input_length];

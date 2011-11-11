@@ -31,7 +31,7 @@ BEGIN {
 
 my $progress_report = q{};
 
-my $grammar = Marpa::Grammar->new(
+my $grammar = Marpa::XS::Grammar->new(
     {   start         => 'S',
         strip         => 0,
         lhs_terminals => 0,
@@ -51,13 +51,12 @@ my $grammar = Marpa::Grammar->new(
 
 $grammar->precompute();
 
-my @tokens = ( ['T'] ) x 20;
+my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
+my $current_earleme;
+for ( 1 .. 20 ) { $recce->read('T'); }
 
-my $current_earleme = $recce->tokens( \@tokens );
-
-# The call to current earlem is Useless,
+# The call to current earleme is useless,
 # but provides an example for the docs
 
 # Marpa::XS::Display

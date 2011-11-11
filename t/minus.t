@@ -80,7 +80,7 @@ sub default_action {
 
 ## use critic
 
-my $grammar = Marpa::Grammar->new(
+my $grammar = Marpa::XS::Grammar->new(
     {   start => 'E',
         strip => 0,
 
@@ -113,7 +113,7 @@ my $grammar = Marpa::Grammar->new(
 );
 $grammar->precompute();
 
-my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
+my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
 Marpa::XS::Test::is( $grammar->show_rules,
     <<'END_RULES', 'Minuses Equation Rules' );
@@ -181,13 +181,14 @@ my %expected = map { ( $_ => 1 ) } (
     #>>>
 );
 
-my @input = ();
-push @input, [ 'Number', '6' ];
-push @input, ( [ 'MinusMinus', q{--}, 2, 0 ], [ 'Minus', q{-} ] ) x 4;
-push @input, [ 'Minus',  q{-}, ];
-push @input, [ 'Number', '1' ];
-
-$recce->tokens( \@input );
+$recce->read( 'Number', '6' );
+for ( 1 .. 4 ) {
+    $recce->alternative( 'MinusMinus', q{--}, 2 );
+    $recce->alternative( 'Minus', q{-} );
+    $recce->earleme_complete();
+}
+$recce->read( 'Minus',  q{-} );
+$recce->read( 'Number', '1' );
 
 # Set max_parses to 20 in case there's an infinite loop.
 # This is for debugging, after all

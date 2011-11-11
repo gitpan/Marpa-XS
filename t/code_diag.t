@@ -175,7 +175,7 @@ sub run_test {
     ### e_op_action: $e_op_action
     ### e_number_action: $e_number_action
 
-    my $grammar = Marpa::Grammar->new(
+    my $grammar = Marpa::XS::Grammar->new(
         {   start => 'S',
             rules => [
                 [ 'S', [qw/T trailer optional_trailer1 optional_trailer2/], ],
@@ -196,22 +196,16 @@ sub run_test {
     );
     $grammar->precompute();
 
-    my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
+    my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-    my @tokens = (
-        [ Number => 2 ],
-        [ MultOp => q{*} ],
-        [ Number => 3 ],
-        [ AddOp  => q{+} ],
-        [ Number => 4 ],
-        [ MultOp => q{*} ],
-        [ Number => 1 ],
-        [ Text   => q{trailer} ],
-    );
-
-    if ( not defined $recce->tokens( \@tokens ) ) {
-        die 'Recognition failed';
-    }
+    $recce->read( Number => 2 );
+    $recce->read( MultOp => q{*} );
+    $recce->read( Number => 3 );
+    $recce->read( AddOp  => q{+} );
+    $recce->read( Number => 4 );
+    $recce->read( MultOp => q{*} );
+    $recce->read( Number => 1 );
+    $recce->read( Text   => q{trailer} );
 
     $recce->end_input();
 

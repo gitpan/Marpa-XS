@@ -85,7 +85,7 @@ sub default_action {
     return '(' . join( q{;}, @_ ) . ')';
 } ## end sub default_action
 
-my $grammar = Marpa::Grammar->new(
+my $grammar = Marpa::XS::Grammar->new(
     {   start   => 'E',
         strip   => 0,
         actions => 'main',
@@ -247,18 +247,15 @@ Marpa::XS::Test::is(
 
 restore_stdout();
 
-my $recce = Marpa::Recognizer->new( { grammar => $grammar } );
+my $recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens(
-    [   [ 'Number', 2,    1 ],
-        [ 'Op',     q{-}, 1 ],
-        [ 'Number', 0,    1 ],
-        [ 'Op',     q{*}, 1 ],
-        [ 'Number', 3,    1 ],
-        [ 'Op',     q{+}, 1 ],
-        [ 'Number', 1,    1 ],
-    ]
-);
+$recce->read( 'Number', 2 );
+$recce->read( 'Op',     q{-} );
+$recce->read( 'Number', 0 );
+$recce->read( 'Op',     q{*} );
+$recce->read( 'Number', 3 );
+$recce->read( 'Op',     q{+} );
+$recce->read( 'Number', 1 );
 
 $actual_ref = save_stdout();
 

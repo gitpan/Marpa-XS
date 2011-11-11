@@ -50,7 +50,7 @@ my $min0 =
 # Marpa::XS::Display::End
 ; # semicolon to terminate rule
 
-$grammar = Marpa::Grammar->new(
+$grammar = Marpa::XS::Grammar->new(
     {   start     => 'sequence',
         terminals => [qw(item)],
         rules     => [$min0],
@@ -60,9 +60,10 @@ $grammar = Marpa::Grammar->new(
 
 $grammar->precompute();
 
-$recce = Marpa::Recognizer->new( { grammar => $grammar } );
+$recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens( [ [ 'item', '0' ], ['item', '1'] ]);
+$recce->read( 'item', '0' );
+$recce->read( 'item', '1' );
 
 $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
@@ -80,7 +81,7 @@ my $min1 =
 # Marpa::XS::Display::End
 ; # semicolon to terminate rule
 
-$grammar = Marpa::Grammar->new({
+$grammar = Marpa::XS::Grammar->new({
      start => 'sequence',
      rules => [ $min1 ],
         actions => 'main'
@@ -88,9 +89,10 @@ $grammar = Marpa::Grammar->new({
 
 $grammar->precompute();
 
-$recce = Marpa::Recognizer->new( { grammar => $grammar } );
+$recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens( [ [ 'item', '0' ], [ 'item', '1' ] ] );
+$recce->read( 'item', '0' );
+$recce->read( 'item', '1' );
 
 $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';
@@ -109,7 +111,7 @@ my $multipart = [
 # Marpa::XS::Display::End
 ]; # semicolon to terminate rule
 
-$grammar = Marpa::Grammar->new(
+$grammar = Marpa::XS::Grammar->new(
     {   start => 'sequence',
         terminals => [qw(part1 part2)],
         rules => $multipart,
@@ -120,9 +122,10 @@ $grammar = Marpa::Grammar->new(
 
 $grammar->precompute();
 
-$recce = Marpa::Recognizer->new( { grammar => $grammar } );
+$recce = Marpa::XS::Recognizer->new( { grammar => $grammar } );
 
-$recce->tokens( [ [ 'part1', '0' ], [ 'part2', '1' ] ] );
+$recce->read( 'part1', '0' );
+$recce->read( 'part2', '1' );
 
 $value_ref = $recce->value();
 $value = $value_ref ? ${$value_ref} : 'No Parse';

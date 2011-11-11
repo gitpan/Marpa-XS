@@ -49,7 +49,7 @@ BEGIN {
 } ## end BEGIN
 
 my $test = sub {
-    my $g = Marpa::Grammar->new(
+    my $g = Marpa::XS::Grammar->new(
         {   start => 'S',
             rules => [
                 [ 'S', [qw/A A A A/] ],
@@ -61,8 +61,8 @@ my $test = sub {
         }
     );
     $g->precompute();
-    my $recce = Marpa::Recognizer->new( { grammar => $g } );
-    $recce->tokens( [ ( [ 'a', 'a', 1 ] ) x 4 ] );
+    my $recce = Marpa::XS::Recognizer->new( { grammar => $g } );
+    for ( 1 .. 4 ) { $recce->read( 'a', 'a' ); }
     $recce->value();
     [ $g, $recce ];
 };
