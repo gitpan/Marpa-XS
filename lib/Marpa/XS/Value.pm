@@ -21,7 +21,7 @@ use strict;
 use integer;
 
 use vars qw($VERSION $STRING_VERSION);
-$VERSION        = '0.024000';
+$VERSION        = '0.025_000';
 $STRING_VERSION = $VERSION;
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 $VERSION = eval $VERSION;
@@ -733,7 +733,7 @@ sub Marpa::XS::Internal::Recognizer::evaluate {
             $recce_c->val_event();
         last EVENT if not defined $arg_n;
         if ( $trace_values >= 3 ) {
-            for my $i ( reverse 0 .. $arg_n ) {
+            for my $i ( reverse 0 .. $arg_n-1 ) {
                 printf {$Marpa::XS::Internal::TRACE_FH} 'Stack position %3d:',
                     $i
                     or Marpa::XS::exception('print to trace handle failed');

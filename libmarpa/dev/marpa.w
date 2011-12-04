@@ -9211,7 +9211,7 @@ MARPA_ASSERT(ahfa_element_ix < aim_count_of_item)@;
 	if (predecessor_earley_item)
 	  {
 	    if (EIM_is_Predicted(predecessor_earley_item)) {
-		  @<Set boolean in PSIA for initial nulls@>@;
+		Set_boolean_in_PSIA_for_initial_nulls(predecessor_earley_item, predecessor_aim);
 	    } else {
 		const EIM ur_earley_item = predecessor_earley_item;
 		const AEX ur_aex =
@@ -9231,15 +9231,15 @@ MARPA_ASSERT(ahfa_element_ix < aim_count_of_item)@;
 so that I will know to create the chain of or-nodes for them.
 We don't need to stack the prediction, because it can have
 no other descendants.
-@<Set boolean in PSIA for initial nulls@> = {
-    if (Position_of_AIM(predecessor_aim) > 0) {
-	const gint null_count = Null_Count_of_AIM(predecessor_aim);
+@d Set_boolean_in_PSIA_for_initial_nulls(eim, aim) {
+    if (Position_of_AIM(aim) > 0) {
+	const gint null_count = Null_Count_of_AIM(aim);
 	if (null_count) {
-	    AEX predecessor_aex = AEX_of_EIM_by_AIM(predecessor_earley_item,
-		predecessor_aim);
+	    AEX aex = AEX_of_EIM_by_AIM((eim),
+		(aim));
 	    or_node_estimate += null_count;
 	    psia_test_and_set(&bocage_setup_obs, per_es_data, 
-		predecessor_earley_item, predecessor_aex);
+		(eim), aex);
 	}
     }
 }
@@ -9272,7 +9272,7 @@ no other descendants.
 	  {
 	    if (EIM_is_Predicted (predecessor_earley_item))
 	      {
-		@<Set boolean in PSIA for initial nulls@>@;
+		Set_boolean_in_PSIA_for_initial_nulls(predecessor_earley_item, predecessor_aim);
 	      }
 	    else
 	      {
@@ -9350,8 +9350,7 @@ no other descendants.
       or_node_estimate += 1 + Null_Count_of_AIM(ur_aim+1);
 	if (EIM_is_Predicted (ur_earley_item))
 	  {
-	    const EIM predecessor_earley_item = ur_earley_item;
-	    @<Set boolean in PSIA for initial nulls@>@;
+	    Set_boolean_in_PSIA_for_initial_nulls(ur_earley_item, ur_aim);
 	  } else {
 	      @<Push ur-node if new@>@;
 	  }
@@ -13523,19 +13522,26 @@ A function to print a descriptive tag for
 an Leo item.
 @<Private function prototypes@> =
 #if MARPA_DEBUG
-static inline gchar*
-lim_tag (gchar *buffer, LIM lim);
+PRIVATE_NOT_INLINE gchar* lim_tag_safe (gchar *buffer, LIM lim);
+PRIVATE_NOT_INLINE gchar* lim_tag (LIM lim);
 #endif
 @ This function is passed a buffer to keep it thread-safe.
 be made thread-safe.
 @<Function definitions@> =
 #if MARPA_DEBUG
-static inline gchar*
-lim_tag (gchar *buffer, LIM lim)
+PRIVATE_NOT_INLINE gchar*
+lim_tag_safe (gchar *buffer, LIM lim)
 {
   sprintf (buffer, "L%d@@%d",
 	   Postdot_SYMID_of_LIM (lim), Earleme_of_LIM (lim));
 	return buffer;
+}
+
+static char DEBUG_lim_tag_buffer[1000];
+PRIVATE_NOT_INLINE gchar*
+lim_tag (LIM lim)
+{
+  return lim_tag_safe (DEBUG_lim_tag_buffer, lim);
 }
 #endif
 
@@ -13555,6 +13561,7 @@ PRIVATE_NOT_INLINE const gchar* or_tag(OR or);
 PRIVATE_NOT_INLINE const gchar *
 or_tag_safe (gchar * buffer, OR or)
 {
+  if (!or) return "NULL";
   if (OR_is_Token(or)) return "TOKEN";
   if (Type_of_OR(or) == DUMMY_OR_NODE) return "DUMMY";
   sprintf (buffer, "R%d:%d@@%d-%d",
@@ -13569,6 +13576,41 @@ PRIVATE_NOT_INLINE const gchar*
 or_tag (OR or)
 {
   return or_tag_safe (DEBUG_or_tag_buffer, or);
+}
+#endif
+
+@*0 AHFA Item Tag.
+Functions to print a descriptive tag for
+an AHFA item.
+One is passed a buffer to keep it thread-safe.
+The other uses a global buffer,
+which is not thread-safe, but
+convenient when debugging in a non-threaded environment.
+@<Private function prototypes@> =
+#if MARPA_DEBUG
+PRIVATE_NOT_INLINE const gchar* aim_tag_safe(gchar *buffer, AIM aim);
+PRIVATE_NOT_INLINE const gchar* aim_tag(AIM aim);
+#endif
+@ @<Function definitions@> =
+#if MARPA_DEBUG
+PRIVATE_NOT_INLINE const gchar *
+aim_tag_safe (gchar * buffer, AIM aim)
+{
+  if (!aim) return "NULL";
+  const gint aim_position = Position_of_AIM (aim);
+  if (aim_position >= 0) {
+      sprintf (buffer, "R%d@@%d", RULEID_of_AIM (aim), Position_of_AIM (aim));
+  } else {
+      sprintf (buffer, "R%d@@end", RULEID_of_AIM (aim));
+  }
+  return buffer;
+}
+
+static char DEBUG_aim_tag_buffer[1000];
+PRIVATE_NOT_INLINE const gchar*
+aim_tag (AIM aim)
+{
+  return aim_tag_safe (DEBUG_aim_tag_buffer, aim);
 }
 #endif
 
