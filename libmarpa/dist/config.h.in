@@ -40,18 +40,6 @@
 /* Define to the MARPA binary age */
 #undef MARPA_BINARY_AGE
 
-/* Does header inlining actually take place? */
-#undef MARPA_CAN_INLINE
-
-/* Have inline keyword */
-#undef MARPA_HAVE_INLINE
-
-/* Have __inline keyword */
-#undef MARPA_HAVE___INLINE
-
-/* Have __inline__ keyword */
-#undef MARPA_HAVE___INLINE__
-
 /* Define to the MARPA interface age */
 #undef MARPA_INTERFACE_AGE
 
@@ -90,6 +78,12 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
