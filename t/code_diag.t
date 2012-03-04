@@ -1,5 +1,5 @@
 #!perl
-# Copyright 2011 Jeffrey Kegler
+# Copyright 2012 Jeffrey Kegler
 # This file is part of Marpa::XS.  Marpa::XS is free software: you can
 # redistribute it and/or modify it under the terms of the GNU Lesser
 # General Public License as published by the Free Software Foundation,
@@ -131,11 +131,12 @@ LINE: while ( my $line = <DATA> ) {
 
 sub canonical {
     my $template   = shift;
-    # allow for this test file to change name
-    # as long as it remains lower-case, with
-    # _ or - 
+    # assumes only '.' in test file
+    # is for .t extension, and that
+    # '.' is not the directory separator
+    # in this OS
     $template =~ s{
-	\s at \s t[/][a-z0-9_-]*[.]t \s line \s \d+ [^\n]*
+	\s at \s t[^.]*[.]t \s line \s \d+ [^\n]*
     }{ at <LOCATION>}gxms;
     return $template;
 } ## end sub canonical
